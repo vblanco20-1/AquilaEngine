@@ -4,6 +4,7 @@
 #include <SimpleVertexShader.h>
 #include <SimplePixelShader.h>
 
+
 using namespace DirectX;
 
 const LONG g_WindowWidth = 1280;
@@ -768,6 +769,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 		return -1;
 	}
 
+	// Setup Dear ImGui binding
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+	ImGui_ImplDX11_Init(g_WindowHandle, g_d3dDevice, g_d3dDeviceContext);
+
+	// Setup style
+	ImGui::StyleColorsDark();
+
 	int returnCode = Run();
 
 	UnloadContent();
@@ -780,6 +791,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT paintStruct;
 	HDC hDC;
+
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
+		return true;
+
 
 	switch (message)
 	{
@@ -844,6 +859,13 @@ void Render()
 
 	Clear(Colors::CornflowerBlue, 1.0f, 0);
 
+	ImGui_ImplDX11_NewFrame();
+	//ImGui::exam
+	static bool bDemoOpen{ false };
+	ImGui::ShowDemoWindow(&bDemoOpen);
+	ImGui::Render();
+	
+
 	const UINT vertexStride = sizeof(VertexPosColor);
 	const UINT offset = 0;
 
@@ -866,6 +888,8 @@ void Render()
 	
 
 	g_d3dDeviceContext->DrawIndexed(_countof(g_Indicies), 0, 0);
+
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
 	Present(g_EnableVSync);
 }
