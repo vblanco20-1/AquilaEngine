@@ -21,10 +21,16 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <execution>
+#include <random>
 
 #define IMGUI_API
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_dx11.h"
+
+#undef min
+#undef max
+#include "entt/entt.hpp"
 
 // Safely release a COM object.
 template<typename T>
