@@ -58,6 +58,7 @@ struct RenderMatrixComponent {
 };
 struct CubeRendererComponent {
 	float randomval;
+	bool bVisible;
 	//XMMATRIX Matrix;
 };
 struct PlayerInputTag {
@@ -122,24 +123,54 @@ struct RandomFlusherSystem : public System {
 		});
 	}
 };
-struct CameraSystem : public System {
+struct PlayerCameraSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
 		if (registry.has<PlayerInputTag>())
 		{
 			PlayerInputTag & input = registry.get<PlayerInputTag>();
-			
+
 			CamOffset.z += input.Input.Mousewheel;
 			CamOffset.x = (input.Input.MouseX - 500) / 15.f;
-			CamOffset.y = -1 * (input.Input.MouseY - 500 )/ 15.f;
+			CamOffset.y = -1 * (input.Input.MouseY - 500) / 15.f;
+		
+			XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z, 0.0f);
+			registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+
+				XMVECTOR CamForward= XMVector3Normalize(cam.focusPoint - XMLoadFloat3(&campos.Position));
+				XMVECTOR CamUp     = XMVector3Normalize(cam.upDirection);
+				XMVECTOR CamRight  = XMVector3Cross(CamForward, XMVectorSet(0, -1, 0, 0));
+				XMVECTOR MovOffset = input.Input.MoveForward * CamForward + input.Input.MoveRight * CamRight + g_InputMap.MoveUp * XMVectorSet(0, 1, 0, 0);
+
+				campos.Position.x += XMVectorGetX(MovOffset);
+				campos.Position.y += XMVectorGetY(MovOffset);
+				campos.Position.z += XMVectorGetZ(MovOffset);
+					
+
+				CamForward = XMVector3Rotate(CamForward, XMQuaternionRotationAxis(CamRight, input.Input.MouseDeltaY / 300.0f));
+				XMVECTOR CamForwardRotated = XMVector3Rotate(CamForward, XMQuaternionRotationAxis(XMVectorSet(0, 1, 0, 0), input.Input.MouseDeltaX/300.0f )   );
+
+				//XMVECTOR FocusOffset = XMVectorSet(input.Input.MouseDeltaX, input.Input.MouseDeltaY,0.0f,0.0f);
+
+				cam.focusPoint = XMLoadFloat3(&campos.Position) + CamForwardRotated;
+				//cam.focusPoint.x += ;
+				//cam.focusPoint = XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 1.0f);
+
+			});
 		}
-		XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z,0.0f);
+	};
+};
+
+struct CameraSystem : public System {
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		
 		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			
-			XMVECTOR eyePosition = Offset+ XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
-			XMVECTOR focusPoint = cam.focusPoint + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
+			XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
+			XMVECTOR focusPoint = cam.focusPoint;// + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
 			XMVECTOR upDirection =XMVectorSet(0, 1, 0, 0);
 
 			g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
@@ -149,7 +180,41 @@ struct CameraSystem : public System {
 		});
 	};
 };
+struct CullingSystem : public System {
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		XMVECTOR CamPos;
+		XMVECTOR CamDir;
+		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
+			//XMFLOAT3::
+			CamPos = XMLoadFloat3(&campos.Position);
+			//XMFLOAT3 FocalPoint{ XMVectorGetX(cam.focusPoint),XMVectorGetY(cam.focusPoint),XMVectorGetZ(cam.focusPoint) };
+			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
+		});
+
+		CamDir = XMVector3Normalize(CamDir);
+		auto  posview = registry.view<RenderMatrixComponent,PositionComponent, CubeRendererComponent>(entt::persistent_t{});		
+
+		//XMVECTOR VecDir = 
+		posview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
+
+
+			XMVECTOR ToCube = CamPos - XMLoadFloat3(&posc.Position);
+			XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube , CamDir);
+
+			if (XMVectorGetX(angle) < XMConvertToRadians(40))
+			{
+				cube.bVisible = true;
+			}
+			else
+			{
+				cube.bVisible = false;
+			}
+			//matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
+		});
+	}
+};
 
 struct PlayerInputSystem : public System {
 
@@ -161,6 +226,44 @@ struct PlayerInputSystem : public System {
 			auto player = registry.create();
 			registry.assign<PlayerInputTag>(entt::tag_t{}, player);	
 		}
+		
+		g_InputMap.MoveForward = 0;
+		g_InputMap.MoveRight = 0;
+		g_InputMap.MoveUp = 0;
+		//W key
+		if (ImGui::IsKeyDown(0x57)) {
+			g_InputMap.MoveForward += 1;
+		}
+		//S key
+		if (ImGui::IsKeyDown(0x53)) {
+			g_InputMap.MoveForward -= 1;
+		}
+		//A key
+		if (ImGui::IsKeyDown(0x41)) {
+			g_InputMap.MoveRight -= 1;
+		}
+		//D key
+		if (ImGui::IsKeyDown(0x44)) {
+			g_InputMap.MoveRight += 1;
+		}
+
+		//E key
+		if (ImGui::IsKeyDown(0x45)) {
+			g_InputMap.MoveUp += 1;
+		}
+		//Q key
+		if (ImGui::IsKeyDown(0x51)) {
+			g_InputMap.MoveUp -= 1;
+		}
+
+		POINT pos;
+		GetCursorPos(&pos);
+		pos.x -= 200;
+		pos.y -= 200;
+		SetCursorPos(200, 200);
+		g_InputMap.MouseDeltaX = pos.x;
+		g_InputMap.MouseDeltaY = pos.y;
+
 		registry.get<PlayerInputTag>().Input = g_InputMap;
 		
 		InputInfo(g_InputMap);
@@ -217,11 +320,14 @@ struct CubeRendererSystem: public System {
 		g_d3dDeviceContext->PSSetShader(g_d3dPixelShader, nullptr, 0);
 
 		registry.view<RenderMatrixComponent,CubeRendererComponent>().each([&, dt](auto entity, RenderMatrixComponent & matrix, CubeRendererComponent & cube) {
+			if (cube.bVisible)
+			{
+				nDrawcalls++;
+				g_d3dDeviceContext->UpdateSubresource(g_d3dConstantBuffers[CB_Object], 0, nullptr, &matrix.Matrix, 0, 0);
 
-			nDrawcalls++;
-			g_d3dDeviceContext->UpdateSubresource(g_d3dConstantBuffers[CB_Object], 0, nullptr, &matrix.Matrix, 0, 0);
-
-			g_d3dDeviceContext->DrawIndexed(_countof(g_CubeIndicies), 0, 0);			
+				g_d3dDeviceContext->DrawIndexed(_countof(g_CubeIndicies), 0, 0);
+			}
+			
 		});
 
 
@@ -234,6 +340,7 @@ struct RenderSystem : public System {
 	RenderSystem()
 	{
 		Renderers.push_back(new CameraSystem());
+		Renderers.push_back(new CullingSystem());
 		Renderers.push_back(new CubeRendererSystem());
 	}
 	virtual void update(ECS_Registry &registry, float dt)
@@ -295,6 +402,7 @@ public:
 		appInfo.RenderTime = 1.0f;
 
 		Systems.push_back(new PlayerInputSystem());
+		Systems.push_back(new PlayerCameraSystem());
 		Systems.push_back(new RandomFlusherSystem());
 		Systems.push_back(new RotatorSystem());
 		Systems.push_back(new TransformUpdateSystem());
@@ -702,9 +810,21 @@ int Run()
 			// Cap the delta time to the max time step (useful if your 
 			// debugging and you don't want the deltaTime value to explode.
 			deltaTime = std::min<float>(deltaTime, maxTimeStep);
-
+			
 			//Update(deltaTime);
 			GameWorld.Update_All(deltaTime);
+			
+			
+
+			//ImVec2 pos = ImGui::GetCursorPos();
+			//pos.x -= 200;
+			//pos.y -= 200;
+			//ImGui::SetCursorPos({ 200,200 });
+			
+			//ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+			//ImGui::CaptureMouseFromApp(true);
+			//ImGui::SetCursorScreenPos({ 100,100 });
+			//SetCursorPos(500, 500);
 			//Render();
 		}
 	}
