@@ -61,6 +61,12 @@ struct CubeRendererComponent {
 	bool bVisible;
 	//XMMATRIX Matrix;
 };
+struct SpaceshipMovementComponent {
+	XMVECTOR Velocity;
+	XMVECTOR Heading;
+	XMVECTOR Target;
+	float speed;
+};
 struct PlayerInputTag {
 	InputMap Input;
 	//XMMATRIX Matrix;
@@ -69,6 +75,17 @@ struct CameraComponent {
 	XMVECTOR focusPoint;// = XMVectorSet(0, 0, 0, 1);
 	XMVECTOR upDirection;// = XMVectorSet(0, 1, 0, 0);
 };
+struct LifetimeComponent {
+	float TimeLeft;
+};
+struct SpaceshipSpawnerComponent {
+
+	XMFLOAT3 Bounds;
+	float SpawnRate;
+	XMVECTOR ShipMoveTarget;
+	float Elapsed;
+};
+
 
 struct RotatorSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
@@ -86,6 +103,24 @@ struct RotatorSystem : public System {
 std::default_random_engine generator;
 std::uniform_int_distribution<int> distribution(1, 10);
 std::uniform_int_distribution<int> randompos(-30, 30);
+std::uniform_real_distribution<float> randomfloat(-1, 1);
+struct DestructionSystem : public System {
+
+
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		auto  lifeview = registry.view<LifetimeComponent>(/*entt::persistent_t{}*/);
+		lifeview.each([&, dt](auto & e, LifetimeComponent & life) {
+			life.TimeLeft -= dt;
+			if (life.TimeLeft < 0)
+			{
+				registry.destroy(e);
+			}
+		});
+
+
+	}
+};
 struct RandomFlusherSystem : public System {
 
 
@@ -215,7 +250,105 @@ struct CullingSystem : public System {
 		});
 	}
 };
+struct SpaceshipMovementSystem : public System {
+	float elapsed{0.0f};
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		elapsed -= dt;
+		if (elapsed < 0)
+		{
+			//120 fps simulation
+			dt = 1.0 /120.0;
+			elapsed = dt;
 
+			auto  posview = registry.view<SpaceshipMovementComponent, PositionComponent>(entt::persistent_t{});
+			posview.par_each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
+
+
+				XMFLOAT3 newposition = pos.Position;
+
+				XMVECTOR Mov = ship.Target - XMLoadFloat3(&pos.Position);
+				Mov = XMVector3Normalize(Mov);
+				Mov = Mov * ship.speed * dt;
+
+				ship.Velocity += Mov;
+				ship.Velocity = XMVector3ClampLength(ship.Velocity, 0.0f, ship.speed);
+				//ship.Velocity *= 0.99;
+
+				newposition.x += XMVectorGetX(ship.Velocity);
+				newposition.y += XMVectorGetY(ship.Velocity);
+				newposition.z += XMVectorGetZ(ship.Velocity);
+
+				pos.Position = newposition;
+			});
+		}
+		
+	}
+};
+struct SpaceshipSpawnSystem : public System {
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		//return;
+		auto  posview = registry.view<SpaceshipSpawnerComponent,PositionComponent>(/*entt::persistent_t{}*/);
+		posview.each([&, dt](auto & e, SpaceshipSpawnerComponent & spawner, PositionComponent & pos) {
+
+			spawner.Elapsed -= dt;
+			while (spawner.Elapsed < 0)
+			{
+				spawner.Elapsed += spawner.SpawnRate;
+
+				float roll_x = randomfloat(generator);
+				float roll_y = randomfloat(generator);
+				float roll_z = randomfloat(generator);
+
+				auto e = registry.create();
+				registry.assign<CubeRendererComponent>(e);
+				registry.assign<LifetimeComponent>(e, 20.0f);
+				XMFLOAT3 Position = pos.Position;
+				Position.x += roll_x * spawner.Bounds.x;
+				Position.y += roll_y * spawner.Bounds.y;
+				Position.z += roll_z * spawner.Bounds.z;
+
+				registry.assign<PositionComponent>(e, Position);
+				registry.assign<RenderMatrixComponent>(e);
+				SpaceshipMovementComponent & mv = registry.assign<SpaceshipMovementComponent>(e);
+				mv.Velocity = XMVectorSet(randomfloat(generator), randomfloat(generator), randomfloat(generator), 0) *2;
+				mv.Target = spawner.ShipMoveTarget + XMVectorSet(randomfloat(generator), randomfloat(generator), randomfloat(generator), 0) * 20;
+				mv.speed = 1;
+
+				XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+
+				//registry.assign<RotatorComponent>(e, 1.0f);
+				//registry.assign<RotationComponent>(e, rotationAxis, 0.0f);
+			}
+			
+			//registry.get<PositionComponent>(entity).Position.z += 0.1 / 10.0f;
+
+			//if (dice_roll == 1)
+			//{
+			//	registry.destroy(entity);
+			//
+			//
+			//auto e = registry.create();
+			//registry.assign<CubeRendererComponent>(e);
+			//
+			//float x = randompos(generator);
+			//float y = randompos(generator);
+			//float z = randompos(generator);
+			//
+			//registry.assign<PositionComponent>(e, XMFLOAT3(x, y, z));
+			//registry.assign<RenderMatrixComponent>(e);
+			//
+			//XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+			//
+			//registry.assign<RotatorComponent>(e, 1.0f);
+			//registry.assign<RotationComponent>(e, rotationAxis, 0.0f);
+			//}
+			//matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
+		});
+	}
+};
+bool bHasFocus{ true };
 struct PlayerInputSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
@@ -255,14 +388,17 @@ struct PlayerInputSystem : public System {
 		if (ImGui::IsKeyDown(0x51)) {
 			g_InputMap.MoveUp -= 1;
 		}
+		if (bHasFocus)
+		{
+			POINT pos;
+			GetCursorPos(&pos);
+			pos.x -= 200;
+			pos.y -= 200;
+			SetCursorPos(200, 200);
+			g_InputMap.MouseDeltaX = pos.x;
+			g_InputMap.MouseDeltaY = pos.y;
+		}
 
-		POINT pos;
-		GetCursorPos(&pos);
-		pos.x -= 200;
-		pos.y -= 200;
-		SetCursorPos(200, 200);
-		g_InputMap.MouseDeltaX = pos.x;
-		g_InputMap.MouseDeltaY = pos.y;
 
 		registry.get<PlayerInputTag>().Input = g_InputMap;
 		
@@ -360,7 +496,7 @@ struct RenderSystem : public System {
 		assert(g_d3dDevice);
 		assert(g_d3dDeviceContext);
 
-		Clear(Colors::CornflowerBlue, 1.0f, 0);
+		Clear(Colors::DarkBlue, 1.0f, 0);
 
 		
 		//ImGui::exam
@@ -390,6 +526,19 @@ struct RenderSystem : public System {
 
 };
 
+
+void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR TargetLocation)
+{
+	auto spawner1 = registry.create();
+
+	registry.assign<PositionComponent>(spawner1, XMFLOAT3(XMVectorGetX(Location), XMVectorGetY(Location), XMVectorGetZ(Location)));
+	SpaceshipSpawnerComponent & spcomp = registry.assign<SpaceshipSpawnerComponent>(spawner1);
+	spcomp.Bounds = XMFLOAT3(10, 50, 50);
+	spcomp.Elapsed = 0;
+	spcomp.SpawnRate = 0.01;
+	spcomp.ShipMoveTarget = TargetLocation;
+}
+
 class ECS_GameWorld {
 public:
 	void Initialize()
@@ -404,10 +553,12 @@ public:
 		Systems.push_back(new PlayerInputSystem());
 		Systems.push_back(new PlayerCameraSystem());
 		Systems.push_back(new RandomFlusherSystem());
+		Systems.push_back(new SpaceshipSpawnSystem());
+		Systems.push_back(new SpaceshipMovementSystem());
 		Systems.push_back(new RotatorSystem());
 		Systems.push_back(new TransformUpdateSystem());
 		
-
+		Systems.push_back(new DestructionSystem());
 		Renderer.reset( /*std::make_unique<RenderSystem>(*/new RenderSystem());
 
 		//create camera
@@ -417,17 +568,25 @@ public:
 		registry.assign<CameraComponent>(cam);
 		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
-		for (float x = -100; x < 100; x++)
+		//auto spawner1 = registry.create();
+
+		for (float z = -1000;z < 1000; z += 100)
 		{
-			for (float y = -50; y < 50; y++)
+			BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+				BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+		}		
+
+		for (float x = -1000; x < 1000; x+=10)
+		{
+			for (float y = -100; y < -99; y += 10)
 			{
-				for (float z = -14; z < 0; z++)
+				for (float z = -1000; z <1000; z += 10)
 				{
 					auto e = registry.create();
 
 					registry.assign<CubeRendererComponent>(e);
 
-					registry.assign<PositionComponent>(e, XMFLOAT3(x,y,z));
+					registry.assign<PositionComponent>(e, XMFLOAT3(x, y, z));
 					registry.assign<RenderMatrixComponent>(e);
 
 					XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
@@ -893,6 +1052,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
+	case WM_SETFOCUS:
+		bHasFocus = true;
+		break;
+	case WM_KILLFOCUS:
+		bHasFocus = false;
+		break;
 	case WM_PAINT:
 	{
 		hDC = BeginPaint(hwnd, &paintStruct);
