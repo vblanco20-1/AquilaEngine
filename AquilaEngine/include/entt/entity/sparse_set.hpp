@@ -64,20 +64,14 @@ class SparseSet<Entity> {
         using value_type = Entity;
         using pointer = const value_type *;
         using reference = value_type;
-        //using iterator_category = std::input_iterator_tag;
-		//using iterator_category = std::forward_iterator_tag;
-		using iterator_category = std::random_access_iterator_tag; 
-		Iterator(pointer direct, std::size_t pos)
+        using iterator_category = std::random_access_iterator_tag;
+
+        Iterator(pointer direct, std::size_t pos)
             : direct{direct}, pos{pos}
         {}
-
-		Iterator(const Iterator &it)
-			: direct{ it.direct }, pos{ it.pos }
-		{}
 		Iterator()
-			: direct{ nullptr}, pos{ 0 }
+			: direct{ nullptr }, pos{ 0 }
 		{}
-
         Iterator & operator++() ENTT_NOEXCEPT {
             return --pos, *this;
         }
@@ -106,10 +100,10 @@ class SparseSet<Entity> {
         inline bool operator!=(const Iterator &other) const ENTT_NOEXCEPT {
             return !(*this == other);
         }
-		//reference operator[] (difference_type n) const
-		//{
-		//	return direct[n];
-		//}
+		reference operator[](const difference_type val)
+		{
+			return direct[pos + val];
+		}
         reference operator*() const ENTT_NOEXCEPT {
             return direct[pos-1];
         }
@@ -521,8 +515,8 @@ class SparseSet<Entity, Type>: public SparseSet<Entity> {
         using value_type = std::conditional_t<Const, const Type, Type>;
         using pointer = value_type *;
         using reference = value_type &;
-        //using iterator_category = std::input_iterator_tag;
-		using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
+
         Iterator(pointer instances, std::size_t pos)
             : instances{instances}, pos{pos}
         {}
@@ -547,7 +541,9 @@ class SparseSet<Entity, Type>: public SparseSet<Entity> {
         Iterator operator+(const difference_type value) const ENTT_NOEXCEPT {
             return Iterator{instances, pos-value};
         }
-
+		difference_type operator-(const Iterator &other) const ENTT_NOEXCEPT {
+			return other.pos - pos;
+		}
         bool operator==(const Iterator &other) const ENTT_NOEXCEPT {
             return other.pos == pos;
         }

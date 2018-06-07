@@ -8,6 +8,7 @@
 #include "DXShaders.h"
 #include "ApplicationInfoUI.h"
 #include "Timer.h"
+#include "Input.h"
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -59,6 +60,10 @@ struct CubeRendererComponent {
 	float randomval;
 	//XMMATRIX Matrix;
 };
+struct PlayerInputTag {
+	InputMap Input;
+	//XMMATRIX Matrix;
+};
 struct CameraComponent {
 	XMVECTOR focusPoint;// = XMVectorSet(0, 0, 0, 1);
 	XMVECTOR upDirection;// = XMVectorSet(0, 1, 0, 0);
@@ -85,11 +90,12 @@ struct RandomFlusherSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		auto  posview = registry.view<CubeRendererComponent>(/*entt::raw_t{}*/);
-		posview.par_each([&, dt](auto entity, CubeRendererComponent & cube) {
+		//return;
+		auto  posview = registry.view<CubeRendererComponent>(/*entt::persistent_t{}*/);
+		posview.each([&, dt](auto & e,CubeRendererComponent & cube) {
 			
 			//int dice_roll = distribution(generator);
-			cube.randomval += 0.1 / 10.0f;
+			cube.randomval += 0.1f / 10.0f;
 			//registry.get<PositionComponent>(entity).Position.z += 0.1 / 10.0f;
 			
 			//if (dice_roll == 1)
@@ -119,10 +125,21 @@ struct RandomFlusherSystem : public System {
 struct CameraSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
+		if (registry.has<PlayerInputTag>())
+		{
+			PlayerInputTag & input = registry.get<PlayerInputTag>();
+			
+			CamOffset.z += input.Input.Mousewheel;
+			CamOffset.x = (input.Input.MouseX - 500) / 15.f;
+			CamOffset.y = -1 * (input.Input.MouseY - 500 )/ 15.f;
+		}
+		XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z,0.0f);
 		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
-			XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
-			XMVECTOR focusPoint = cam.focusPoint; //XMVectorSet(0, 0, 0, 1);
+			
+			XMVECTOR eyePosition = Offset+ XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
+			XMVECTOR focusPoint = cam.focusPoint + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
 			XMVECTOR upDirection =XMVectorSet(0, 1, 0, 0);
 
 			g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
@@ -133,6 +150,22 @@ struct CameraSystem : public System {
 	};
 };
 
+
+struct PlayerInputSystem : public System {
+
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+
+		if (!registry.has<PlayerInputTag>())
+		{
+			auto player = registry.create();
+			registry.assign<PlayerInputTag>(entt::tag_t{}, player);	
+		}
+		registry.get<PlayerInputTag>().Input = g_InputMap;
+		
+		InputInfo(g_InputMap);
+	}
+};
 struct TransformUpdateSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
@@ -225,7 +258,7 @@ struct RenderSystem : public System {
 		
 		//ImGui::exam
 		static bool bDemoOpen{ false };
-		ImGui::ShowDemoWindow(&bDemoOpen);
+		//ImGui::ShowDemoWindow(&bDemoOpen);
 		ImGui::Render();
 	}
 	void render_end() {
@@ -256,10 +289,12 @@ public:
 	{
 		Bench_Start(AllBench);
 		ImGui_ImplDX11_NewFrame();
-		appInfo.averagedDeltaTime = 0.03;
-		appInfo.deltaTime = 0.012343;
+		appInfo.averagedDeltaTime = 0.03f;
+		appInfo.deltaTime = 0.012343f;
 		appInfo.Drawcalls = 10000;
-		appInfo.RenderTime = 1.0;
+		appInfo.RenderTime = 1.0f;
+
+		Systems.push_back(new PlayerInputSystem());
 		Systems.push_back(new RandomFlusherSystem());
 		Systems.push_back(new RotatorSystem());
 		Systems.push_back(new TransformUpdateSystem());
@@ -274,11 +309,11 @@ public:
 		registry.assign<CameraComponent>(cam);
 		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
-		for (int x = -100; x < 100; x++)
+		for (float x = -100; x < 100; x++)
 		{
-			for (int y = -50; y < 50; y++)
+			for (float y = -50; y < 50; y++)
 			{
-				for (int z = -14; z < 0; z++)
+				for (float z = -14; z < 0; z++)
 				{
 					auto e = registry.create();
 
@@ -676,7 +711,7 @@ int Run()
 
 	return static_cast<int>(msg.wParam);
 }
-
+static bool g_bIMGuiInitialized{ false };
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow)
 {
 	UNREFERENCED_PARAMETER(prevInstance);
@@ -713,7 +748,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
 	ImGui_ImplDX11_Init(g_WindowHandle, g_d3dDevice, g_d3dDeviceContext);
-
+	g_bIMGuiInitialized = true;
 	// Setup style
 	ImGui::StyleColorsDark();
 
@@ -732,7 +767,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
 		return true;
+	g_InputMap = HandleInputEvent(g_InputMap, hwnd, message, wParam, lParam);
 
+	
 
 	switch (message)
 	{
