@@ -4,19 +4,19 @@
 #include <SimpleVertexShader.h>
 #include <SimplePixelShader.h>
 
-#include "EngineGlobals.h"
-#include "DXShaders.h"
+
 #include "ApplicationInfoUI.h"
 #include "Timer.h"
 #include "Input.h"
 #include "ECSCore.h"
 #include "CoreSystems.h"
-
+#include "BoidSystems.h"
+#include "RandomUtils.h"
+#include "EngineGlobals.h"
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-template< class ShaderClass >
-ShaderClass* LoadShader(const std::wstring& fileName, const std::string& entryPoint, const std::string& profile);
+using namespace DirectX;
 
 bool LoadContent();
 void UnloadContent();
@@ -45,166 +45,6 @@ struct DestructionSystem : public System {
 	}
 };
 
-
-struct GridVec {
-	short int x;
-	short int y;
-	short int z;
-	
-	
-};
-bool operator==(const GridVec&a,const GridVec&b)
-{
-	return a.x == b.x && a.y == b.y && a.z == b.z;
-}
-
-
-struct GridHash {
-	size_t  hashint(uint32_t a) const
-	{
-		a -= (a << 6);
-		a ^= (a >> 17);
-		a -= (a << 9);
-		a ^= (a << 4);
-		a -= (a << 3);
-		a ^= (a << 10);
-		a ^= (a >> 15);
-		return  (a ^ 2166136261U) * 16777619UL;
-	}
-
-	std::size_t operator()(GridVec const& s) const noexcept
-	{
-		int32_t h = s.x + (s.y << 16) * s.z;
-		uint32_t tmp{0};
-		std::memcpy(&tmp, &h, sizeof(uint32_t));
-		//size_t hash = ;
-		return hashint(tmp);		
-	}
-};
-const float GRID_DIMENSIONS = 20;
-using GridItem = std::pair<BoidComponent, PositionComponent>;
-struct GridBucket {
-	std::vector<std::pair<BoidComponent,PositionComponent>> boids;
-};
-struct BoidMap {
-	sparse_hash_map<GridVec, GridBucket, GridHash> Grid;
-	BoidMap() {};
-
-	GridVec GridVecFromPosition(const PositionComponent & position)
-	{
-		GridVec loc;
-		loc.x = (int)(position.Position.x / GRID_DIMENSIONS);
-		loc.y = (int)(position.Position.y / GRID_DIMENSIONS);
-		loc.z = (int)(position.Position.z / GRID_DIMENSIONS);
-		return loc;
-	}
-	GridVec GridVecFromVector(const XMVECTOR & position)
-	{
-		GridVec loc;
-		XMVECTOR p = position / GRID_DIMENSIONS;
-		loc.x = (int)XMVectorGetX(p);//position.Position.x / GRID_DIMENSIONS;
-		loc.y = (int)XMVectorGetX(p);//position.Position.y / GRID_DIMENSIONS;
-		loc.z = (int)XMVectorGetX(p);//position.Position.z / GRID_DIMENSIONS;
-		return loc;
-	}
-	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid)
-	{
-		GridVec loc = GridVecFromPosition(position);
-		
-
-		auto search = Grid.find(loc);
-		if (search != Grid.end())
-		{
-			search->second.boids.push_back({ boid,position });
-		}
-		else
-		{
-			GridBucket bucket;
-			bucket.boids.reserve(10);
-			bucket.boids.push_back({ boid,position });
-			Grid[loc] = std::move(bucket);
-		}
-	}
-
-	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body)
-	{
-		GridVec loc = GridVecFromPosition(Position);
-		auto search = Grid.find(loc);
-		if (search != Grid.end())
-		{
-			for (auto g : search->second.boids)
-			{
-				Body(g);
-			}
-		}
-	}
-	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> Body)
-	{
-		const float radSquared = radius * radius;
-		//GridVec Grid = GridVecFromPosition(Position);
-
-		XMVECTOR Pos = XMLoadFloat3(&Position.Position);
-		
-		
-		GridVec MinGrid = GridVecFromVector(Pos - XMVECTOR{radius});
-		
-		GridVec MaxGrid = GridVecFromVector(Pos + XMVECTOR{ radius });
-
-		for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
-			for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
-				for (int z = MinGrid.z; z <= MaxGrid.z; z++) {
-					const GridVec SearchLoc{ x, y, z };
-
-					auto search = Grid.find(SearchLoc);
-					if (search != Grid.end())
-					{
-						for (auto g : search->second.boids)
-						{
-							XMVECTOR Otherpos = XMLoadFloat3(&g.second.Position);
-							XMVECTOR Dist = XMVector3LengthSq(Pos - Otherpos);
-							if (XMVectorGetX(Dist) < radSquared)
-							{
-								Body(g);
-							}		
-
-						}
-
-					}
-				}
-			}
-		}
-	}
-
-};
-
-struct BoidReferenceTag {
-	BoidMap * map;
-};
-static int iterations{ 0 };
-static int individualiterations{ 0 };
-struct BoidHashSystem : public System {
-
-	
-	virtual void update(ECS_Registry &registry, float dt)
-	{
-		iterations++;
-		if (!registry.has<BoidReferenceTag>())
-		{
-			auto player = registry.create();
-			BoidMap * map = new BoidMap();
-			registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
-		}
-
-		BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-		//boidref.map = &myMap;
-		boidref.map->Grid.clear();
-		registry.view<PositionComponent, BoidComponent>(entt::persistent_t{}).each([&, dt](auto entity, const PositionComponent & campos, const BoidComponent & boid) {
-			boidref.map->AddToGridmap(campos, boid);
-			individualiterations++;
-		});
-
-	}
-};
 
 struct RandomFlusherSystem : public System {
 
@@ -268,8 +108,8 @@ struct CameraSystem : public System {
 			XMVECTOR focusPoint = cam.focusPoint;// + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
 			XMVECTOR upDirection =XMVectorSet(0, 1, 0, 0);
 
-			g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
-			g_d3dDeviceContext->UpdateSubresource(g_d3dConstantBuffers[CB_Frame], 0, nullptr, &g_ViewMatrix, 0, 0);
+			Globals->g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Frame], 0, nullptr, &Globals->g_ViewMatrix, 0, 0);
 
 			//rotation.Angle += 90.0f * dt;
 		});
@@ -305,8 +145,7 @@ struct CullingSystem : public System {
 			else
 			{
 				cube.bVisible = false;
-			}
-			
+			}			
 		});
 	}
 };
@@ -486,8 +325,8 @@ struct TransformUpdateSystem : public System {
 // Clear the color and depth buffers.
 void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
 {
-	g_d3dDeviceContext->ClearRenderTargetView(g_d3dRenderTargetView, clearColor);
-	g_d3dDeviceContext->ClearDepthStencilView(g_d3dDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, clearDepth, clearStencil);
+	Globals->g_d3dDeviceContext->ClearRenderTargetView(Globals->g_d3dRenderTargetView, clearColor);
+	Globals->g_d3dDeviceContext->ClearDepthStencilView(Globals->g_d3dDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, clearDepth, clearStencil);
 }
 
 
@@ -499,30 +338,30 @@ struct CubeRendererSystem: public System {
 	{
 		const UINT vertexStride = sizeof(VertexPosColor);
 		const UINT offset = 0;
-		g_d3dDeviceContext->OMSetRenderTargets(1, &g_d3dRenderTargetView, g_d3dDepthStencilView);
-		g_d3dDeviceContext->OMSetDepthStencilState(g_d3dDepthStencilState, 1);
+		Globals->g_d3dDeviceContext->OMSetRenderTargets(1, &Globals->g_d3dRenderTargetView, Globals->g_d3dDepthStencilView);
+		Globals->g_d3dDeviceContext->OMSetDepthStencilState(Globals->g_d3dDepthStencilState, 1);
 
-		g_d3dDeviceContext->IASetVertexBuffers(0, 1, &g_d3dVertexBuffer, &vertexStride, &offset);
-		g_d3dDeviceContext->IASetInputLayout(g_d3dInputLayout);
-		g_d3dDeviceContext->IASetIndexBuffer(g_d3dIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-		g_d3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		Globals->g_d3dDeviceContext->IASetVertexBuffers(0, 1, &Globals->g_d3dVertexBuffer, &vertexStride, &offset);
+		Globals->g_d3dDeviceContext->IASetInputLayout(Globals->g_d3dInputLayout);
+		Globals->g_d3dDeviceContext->IASetIndexBuffer(Globals->g_d3dIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+		Globals->g_d3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		g_d3dDeviceContext->VSSetShader(g_d3dVertexShader, nullptr, 0);
+		Globals->g_d3dDeviceContext->VSSetShader(Globals->g_d3dVertexShader, nullptr, 0);
 
-		g_d3dDeviceContext->VSSetConstantBuffers(0, 3, g_d3dConstantBuffers);
+		Globals->g_d3dDeviceContext->VSSetConstantBuffers(0, 3, Globals->g_d3dConstantBuffers);
 
-		g_d3dDeviceContext->RSSetState(g_d3dRasterizerState);
-		g_d3dDeviceContext->RSSetViewports(1, &g_Viewport);
+		Globals->g_d3dDeviceContext->RSSetState(Globals->g_d3dRasterizerState);
+		Globals->g_d3dDeviceContext->RSSetViewports(1, &Globals->g_Viewport);
 
-		g_d3dDeviceContext->PSSetShader(g_d3dPixelShader, nullptr, 0);
+		Globals->g_d3dDeviceContext->PSSetShader(Globals->g_d3dPixelShader, nullptr, 0);
 
 		registry.view<RenderMatrixComponent,CubeRendererComponent>().each([&, dt](auto entity, RenderMatrixComponent & matrix, CubeRendererComponent & cube) {
 			if (cube.bVisible)
 			{
 				nDrawcalls++;
-				g_d3dDeviceContext->UpdateSubresource(g_d3dConstantBuffers[CB_Object], 0, nullptr, &matrix.Matrix, 0, 0);
+				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &matrix.Matrix, 0, 0);
 
-				g_d3dDeviceContext->DrawIndexed(_countof(g_CubeIndicies), 0, 0);
+				Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
 			}
 			
 		});
@@ -554,8 +393,8 @@ struct RenderSystem : public System {
 	}
 
 	void render_start() {
-		assert(g_d3dDevice);
-		assert(g_d3dDeviceContext);
+		assert(Globals->g_d3dDevice);
+		assert(Globals->g_d3dDeviceContext);
 
 		Clear(Colors::DarkBlue, 1.0f, 0);
 
@@ -568,18 +407,18 @@ struct RenderSystem : public System {
 	void render_end() {
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-		Present(g_EnableVSync);
+		Present(Globals->g_EnableVSync);
 		ImGui_ImplDX11_NewFrame();
 	}
 	void Present(bool vSync)
 	{
 		if (vSync)
 		{
-			g_d3dSwapChain->Present(1, 0);
+			Globals->g_d3dSwapChain->Present(1, 0);
 		}
 		else
 		{
-			g_d3dSwapChain->Present(0, 0);
+			Globals->g_d3dSwapChain->Present(0, 0);
 		}
 	}
 
@@ -713,29 +552,29 @@ int InitApplication(HINSTANCE hInstance, int cmdShow)
 	wndClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
 	wndClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wndClass.lpszMenuName = nullptr;
-	wndClass.lpszClassName = g_WindowClassName;
+	wndClass.lpszClassName = Globals->g_WindowClassName;
 
 	if (!RegisterClassEx(&wndClass))
 	{
 		return -1;
 	}
 
-	RECT windowRect = { 0, 0, g_WindowWidth, g_WindowHeight };
+	RECT windowRect = { 0, 0, Globals->g_WindowWidth, Globals->g_WindowHeight };
 	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
-	g_WindowHandle = CreateWindowA(g_WindowClassName, g_WindowName,
+	Globals->g_WindowHandle = CreateWindowA(Globals->g_WindowClassName, Globals->g_WindowName,
 		WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
 		windowRect.right - windowRect.left,
 		windowRect.bottom - windowRect.top,
 		nullptr, nullptr, hInstance, nullptr);
 
-	if (!g_WindowHandle)
+	if (!Globals->g_WindowHandle)
 	{
 		return -1;
 	}
 
-	ShowWindow(g_WindowHandle, cmdShow);
-	UpdateWindow(g_WindowHandle);
+	ShowWindow(Globals->g_WindowHandle, cmdShow);
+	UpdateWindow(Globals->g_WindowHandle);
 
 	return 0;
 }
@@ -836,10 +675,10 @@ DXGI_RATIONAL QueryRefreshRate(UINT screenWidth, UINT screenHeight, BOOL vsync)
 int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 {
 	// A window handle must have been created already.
-	assert(g_WindowHandle != 0);
+	assert(Globals->g_WindowHandle != 0);
 
 	RECT clientRect;
-	GetClientRect(g_WindowHandle, &clientRect);
+	GetClientRect(Globals->g_WindowHandle, &clientRect);
 
 	// Compute the exact client dimensions. This will be used
 	// to initialize the render targets for our swap chain.
@@ -855,7 +694,7 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc.BufferDesc.RefreshRate = QueryRefreshRate(clientWidth, clientHeight, vSync);
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.OutputWindow = g_WindowHandle;
+	swapChainDesc.OutputWindow = Globals->g_WindowHandle;
 	swapChainDesc.SampleDesc.Count = 1;
 	swapChainDesc.SampleDesc.Quality = 0;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
@@ -884,15 +723,15 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 
 	HRESULT hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
 		nullptr, createDeviceFlags, featureLevels, _countof(featureLevels),
-		D3D11_SDK_VERSION, &swapChainDesc, &g_d3dSwapChain, &g_d3dDevice, &featureLevel,
-		&g_d3dDeviceContext);
+		D3D11_SDK_VERSION, &swapChainDesc, &Globals->g_d3dSwapChain, &Globals->g_d3dDevice, &featureLevel,
+		&Globals->g_d3dDeviceContext);
 
 	if (hr == E_INVALIDARG)
 	{
 		hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
 			nullptr, createDeviceFlags, &featureLevels[1], _countof(featureLevels) - 1,
-			D3D11_SDK_VERSION, &swapChainDesc, &g_d3dSwapChain, &g_d3dDevice, &featureLevel,
-			&g_d3dDeviceContext);
+			D3D11_SDK_VERSION, &swapChainDesc, &Globals->g_d3dSwapChain, &Globals->g_d3dDevice, &featureLevel,
+			&Globals->g_d3dDeviceContext);
 	}
 
 	if (FAILED(hr))
@@ -905,13 +744,13 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	// Next initialize the back buffer of the swap chain and associate it to a 
 	// render target view.
 	ID3D11Texture2D* backBuffer;
-	hr = g_d3dSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backBuffer);
+	hr = Globals->g_d3dSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backBuffer);
 	if (FAILED(hr))
 	{
 		return -1;
 	}
 
-	hr = g_d3dDevice->CreateRenderTargetView(backBuffer, nullptr, &g_d3dRenderTargetView);
+	hr = Globals->g_d3dDevice->CreateRenderTargetView(backBuffer, nullptr, &Globals->g_d3dRenderTargetView);
 	if (FAILED(hr))
 	{
 		return -1;
@@ -934,13 +773,13 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	depthStencilBufferDesc.SampleDesc.Quality = 0;
 	depthStencilBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 
-	hr = g_d3dDevice->CreateTexture2D(&depthStencilBufferDesc, nullptr, &g_d3dDepthStencilBuffer);
+	hr = Globals->g_d3dDevice->CreateTexture2D(&depthStencilBufferDesc, nullptr, &Globals->g_d3dDepthStencilBuffer);
 	if (FAILED(hr))
 	{
 		return -1;
 	}
 
-	hr = g_d3dDevice->CreateDepthStencilView(g_d3dDepthStencilBuffer, nullptr, &g_d3dDepthStencilView);
+	hr = Globals->g_d3dDevice->CreateDepthStencilView(Globals->g_d3dDepthStencilBuffer, nullptr, &Globals->g_d3dDepthStencilView);
 	if (FAILED(hr))
 	{
 		return -1;
@@ -955,7 +794,7 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	depthStencilStateDesc.DepthFunc = D3D11_COMPARISON_LESS;
 	depthStencilStateDesc.StencilEnable = FALSE;
 
-	hr = g_d3dDevice->CreateDepthStencilState(&depthStencilStateDesc, &g_d3dDepthStencilState);
+	hr = Globals->g_d3dDevice->CreateDepthStencilState(&depthStencilStateDesc, &Globals->g_d3dDepthStencilState);
 
 	// Setup rasterizer state.
 	D3D11_RASTERIZER_DESC rasterizerDesc;
@@ -973,19 +812,19 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	rasterizerDesc.SlopeScaledDepthBias = 0.0f;
 
 	// Create the rasterizer state object.
-	hr = g_d3dDevice->CreateRasterizerState(&rasterizerDesc, &g_d3dRasterizerState);
+	hr = Globals->g_d3dDevice->CreateRasterizerState(&rasterizerDesc, &Globals->g_d3dRasterizerState);
 	if (FAILED(hr))
 	{
 		return -1;
 	}
 
 	// Initialize the viewport to occupy the entire client area.
-	g_Viewport.Width = static_cast<float>(clientWidth);
-	g_Viewport.Height = static_cast<float>(clientHeight);
-	g_Viewport.TopLeftX = 0.0f;
-	g_Viewport.TopLeftY = 0.0f;
-	g_Viewport.MinDepth = 0.0f;
-	g_Viewport.MaxDepth = 1.0f;
+	Globals->g_Viewport.Width = static_cast<float>(clientWidth);
+	Globals->g_Viewport.Height = static_cast<float>(clientHeight);
+	Globals->g_Viewport.TopLeftX = 0.0f;
+	Globals->g_Viewport.TopLeftY = 0.0f;
+	Globals->g_Viewport.MinDepth = 0.0f;
+	Globals->g_Viewport.MaxDepth = 1.0f;
 
 	return 0;
 }
@@ -994,14 +833,14 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 
 void UnloadContent()
 {
-	SafeRelease(g_d3dConstantBuffers[CB_Appliation]);
-	SafeRelease(g_d3dConstantBuffers[CB_Frame]);
-	SafeRelease(g_d3dConstantBuffers[CB_Object]);
-	SafeRelease(g_d3dIndexBuffer);
-	SafeRelease(g_d3dVertexBuffer);
-	SafeRelease(g_d3dInputLayout);
-	SafeRelease(g_d3dVertexShader);
-	SafeRelease(g_d3dPixelShader);
+	SafeRelease(Globals->g_d3dConstantBuffers[CB_Appliation]);
+	SafeRelease(Globals->g_d3dConstantBuffers[CB_Frame]);
+	SafeRelease(Globals->g_d3dConstantBuffers[CB_Object]);
+	SafeRelease(Globals->g_d3dIndexBuffer);
+	SafeRelease(Globals->g_d3dVertexBuffer);
+	SafeRelease(Globals->g_d3dInputLayout);
+	SafeRelease(Globals->g_d3dVertexShader);
+	SafeRelease(Globals->g_d3dPixelShader);
 }
 
 /**
@@ -1060,6 +899,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	UNREFERENCED_PARAMETER(prevInstance);
 	UNREFERENCED_PARAMETER(cmdLine);
 
+	Globals = new DXGlobals();
+
 	// Check for DirectX Math library support.
 	if (!XMVerifyCPUSupport())
 	{
@@ -1073,7 +914,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 		return -1;
 	}
 
-	if (InitDirectX(hInstance, g_EnableVSync) != 0)
+	if (InitDirectX(hInstance, Globals->g_EnableVSync) != 0)
 	{
 		MessageBox(nullptr, TEXT("Failed to create DirectX device and swap chain."), TEXT("Error"), MB_OK);
 		return -1;
@@ -1090,7 +931,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-	ImGui_ImplDX11_Init(g_WindowHandle, g_d3dDevice, g_d3dDeviceContext);
+	ImGui_ImplDX11_Init(Globals->g_WindowHandle, Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
 	g_bIMGuiInitialized = true;
 	// Setup style
 	ImGui::StyleColorsDark();
@@ -1143,12 +984,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 void Cleanup()
 {
-	SafeRelease(g_d3dDepthStencilView);
-	SafeRelease(g_d3dRenderTargetView);
-	SafeRelease(g_d3dDepthStencilBuffer);
-	SafeRelease(g_d3dDepthStencilState);
-	SafeRelease(g_d3dRasterizerState);
-	SafeRelease(g_d3dSwapChain);
-	SafeRelease(g_d3dDeviceContext);
-	SafeRelease(g_d3dDevice);
+	SafeRelease(Globals->g_d3dDepthStencilView);
+	SafeRelease(Globals->g_d3dRenderTargetView);
+	SafeRelease(Globals->g_d3dDepthStencilBuffer);
+	SafeRelease(Globals->g_d3dDepthStencilState);
+	SafeRelease(Globals->g_d3dRasterizerState);
+	SafeRelease(Globals->g_d3dSwapChain);
+	SafeRelease(Globals->g_d3dDeviceContext);
+	SafeRelease(Globals->g_d3dDevice);
 }

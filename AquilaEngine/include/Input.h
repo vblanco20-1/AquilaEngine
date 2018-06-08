@@ -12,6 +12,10 @@ struct InputMap {
 };
 static InputMap g_InputMap;
 
+struct PlayerInputTag {
+	InputMap Input;
+	//XMMATRIX Matrix;
+};
 
 void InputInfo(InputMap & info);
 

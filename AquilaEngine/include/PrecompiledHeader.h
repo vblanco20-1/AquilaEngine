@@ -35,7 +35,7 @@
 #undef max
 #include "entt/entt.hpp"
 
-#include <RandomUtils.h>
+
 
 // Safely release a COM object.
 template<typename T>
@@ -47,3 +47,4 @@ inline void SafeRelease(T& ptr)
 		ptr = NULL;
 	}
 }
+//#include "EngineGlobals->h"

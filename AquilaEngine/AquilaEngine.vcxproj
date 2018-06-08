@@ -133,6 +133,8 @@
     <ClCompile Include="include\imgui\imgui_demo.cpp" />
     <ClCompile Include="include\imgui\imgui_draw.cpp" />
     <ClCompile Include="include\imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="src\BoidSystems.cpp" />
+    <ClCompile Include="src\DXShaders.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\PrecompiledHeader.cpp">
@@ -143,6 +145,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
+    <ClInclude Include="include\BoidSystems.h" />
     <ClInclude Include="include\CoreSystems.h" />
     <ClInclude Include="include\DXShaders.h" />
     <ClInclude Include="include\ECSCore.h" />
