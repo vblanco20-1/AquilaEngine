@@ -139,10 +139,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\RandomUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
+    <ClInclude Include="include\CoreSystems.h" />
     <ClInclude Include="include\DXShaders.h" />
+    <ClInclude Include="include\ECSCore.h" />
     <ClInclude Include="include\imgui\imconfig.h" />
     <ClInclude Include="include\imgui\imgui.h" />
     <ClInclude Include="include\imgui\imgui_impl_dx11.h" />
@@ -152,6 +155,7 @@
     <ClInclude Include="include\imgui\stb_truetype.h" />
     <ClInclude Include="include\Input.h" />
     <ClInclude Include="include\PrecompiledHeader.h" />
+    <ClInclude Include="include\RandomUtils.h" />
     <ClInclude Include="include\Timer.h" />
     <ClInclude Include="src\EngineGlobals.h" />
   </ItemGroup>

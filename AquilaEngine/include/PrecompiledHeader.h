@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <execution>
 #include <random>
+#include <map>
+#define SPP_USE_SPP_ALLOC 1
+#include <sparsepp/spp.h>
 
 #define IMGUI_API
 #include "imgui/imgui.h"
@@ -31,6 +34,8 @@
 #undef min
 #undef max
 #include "entt/entt.hpp"
+
+#include <RandomUtils.h>
 
 // Safely release a COM object.
 template<typename T>

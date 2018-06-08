@@ -12,9 +12,6 @@
 #include "entt_traits.hpp"
 #include "sparse_set.hpp"
 
-#ifdef ENTT_HAS_PARALLEL_VIEW
-#include <execution>
-#endif
 
 namespace entt {
 
@@ -361,18 +358,7 @@ public:
             func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
         });
     }
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW		
-		std::for_each(std::execution::par_unseq, view.cbegin(), view.cend(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#else
-		std::for_each(view.cbegin(), view.cend(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#endif
-	}
+
     /**
      * @brief Iterates entities and components and applies the given function
      * object to them.
@@ -395,18 +381,6 @@ public:
             func(entity, const_cast<Component &>(component)...);
         });
     }
-	template<typename Func>
-	inline void par_each(Func func) {
-#ifdef ENTT_HAS_PARALLEL_VIEW		
-		std::for_each(std::execution::par_unseq, view.begin(), view.end(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#else
-		std::for_each(view.begin(), view.end(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#endif
-	}
 
     /**
      * @brief Sort the shared pool of entities according to the given component.
@@ -1233,20 +1207,6 @@ public:
         });
     }
 
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each(std::execution::par_unseq,pool.view_type::cbegin(), pool.view_type::cend(), [&func, raw = pool.cbegin()](const auto entity) mutable {
-			func(entity, *(raw++));
-		});
-#else
-		std::for_each(pool.view_type::cbegin(), pool.view_type::cend(), [&func, raw = pool.cbegin()](const auto entity) mutable {
-			func(entity, *(raw++));
-		});
-#endif
-		
-	}
-
     /**
      * @brief Iterates entities and components and applies the given function
      * object to them.
@@ -1267,13 +1227,7 @@ public:
         const_cast<const View *>(this)->each([&func](const entity_type entity, const Component &component) {
             func(entity, const_cast<Component &>(component));
         });
-    }	
-	template<typename Func>
-	inline void par_each(Func func) {
-		const_cast<const View *>(this)->par_each([&func](const entity_type entity, const Component &component) {
-			func(entity, const_cast<Component &>(component));
-		});
-	}
+    }
 
 private:
     pool_type &pool;
@@ -1529,15 +1483,6 @@ public:
         std::for_each(pool.cbegin(), pool.cend(), func);
     }
 
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each(std::execution::par_unseq, pool.cbegin(), pool.cend(), func);
-#else
-		std::for_each(pool.cbegin(), pool.cend(), func);
-#endif
-	}
-
     /**
      * @brief Iterates components and applies the given function object to them.
      *
@@ -1556,17 +1501,6 @@ public:
     void each(Func func) {
         std::for_each(pool.begin(), pool.end(), func);
     }
-
-
-	template<typename Func>
-	void par_each(Func func) {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each( std::execution::par_unseq,pool.begin(), pool.end(), func);
-#else
-		std::for_each(pool.begin(), pool.end(), func);
-#endif
-	}
-
 
 private:
     pool_type &pool;
