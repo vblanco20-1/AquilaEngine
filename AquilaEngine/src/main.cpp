@@ -120,7 +120,7 @@ struct CullingSystem : public System {
 	{
 		XMVECTOR CamPos;
 		XMVECTOR CamDir;
-		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).par_each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			//XMFLOAT3::
 			CamPos = XMLoadFloat3(&campos.Position);
@@ -132,7 +132,7 @@ struct CullingSystem : public System {
 		auto  posview = registry.view<RenderMatrixComponent,PositionComponent, CubeRendererComponent>(entt::persistent_t{});		
 
 		//XMVECTOR VecDir = 
-		posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
+		posview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
 
 
 			XMVECTOR ToCube = CamPos - XMLoadFloat3(&posc.Position);
@@ -171,7 +171,7 @@ struct SpaceshipMovementSystem : public System {
 			elapsed = dt;
 
 			auto  posview = registry.view<SpaceshipMovementComponent, PositionComponent>(entt::persistent_t{});
-			posview.each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
+			posview.par_each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
 
 
 				XMFLOAT3 newposition = pos.Position;
@@ -184,13 +184,31 @@ struct SpaceshipMovementSystem : public System {
 
 				//avoidance
 				
-				boidref.map->Foreach_EntitiesInRadius(20,pos, [&](GridItem boid) {
-				
-					XMVECTOR Avoidance = XMLoadFloat3(&pos.Position) - XMLoadFloat3(&boid.second.Position);
+				//boidref.map->Foreach_EntitiesInGrid(pos, [&](GridItem& boid) {
+				//
+				//	XMVECTOR Avoidance = XMLoadFloat3(&pos.Position) - XMLoadFloat3(&boid.second.Position);
+				//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
+				//	ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - ( std::clamp( dist/ 20.0f,0.0f,1.0f)));
+				//
+				//});
+				//auto gridloc = boidref.map->GridVecFromPosition(pos);
+				//boidref.map->Foreach_EntitiesInGrid_Morton(gridloc, [&](GridItem2& boid) {
+				//
+				//	XMVECTOR Avoidance = XMLoadFloat3(&pos.Position) - boid.pos;
+				//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
+				//	ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 20.0f, 0.0f, 1.0f)));
+				//
+				//});
+				XMVECTOR MyPos = XMLoadFloat3(&pos.Position);
+				auto gridloc = boidref.map->GridVecFromPosition(pos);
+				boidref.map->Foreach_EntitiesInRadius_Morton(20,MyPos, [&](GridItem2& boid) {
+
+					XMVECTOR Avoidance = MyPos - boid.pos;
 					float dist = XMVectorGetX(XMVector3Length(Avoidance));
-					ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - ( std::clamp( dist/ 20.0f,0.0f,1.0f)));
+					ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 20.0f, 0.0f, 1.0f)));
 
 				});
+
 				ship.Velocity = XMVector3ClampLength(ship.Velocity, 0.0f, ship.speed);
 
 
@@ -311,11 +329,11 @@ struct TransformUpdateSystem : public System {
 		auto  posview = registry.view<RenderMatrixComponent, PositionComponent>(entt::persistent_t{});
 		auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
-		posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc) {
+		posview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc) {
 					
 					matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);			
 			});
-		rotview.each([&, dt](auto entity, RenderMatrixComponent & matrix, RotationComponent&rotc) {
+		rotview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, RotationComponent&rotc) {
 		
 					matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
 		});		
@@ -473,10 +491,10 @@ public:
 
 		//auto spawner1 = registry.create();
 
-		for (float z = -200;z < 200; z += 100)
+		for (float z = -500;z < 500; z += 100)
 		{
 			BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
-				BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+			BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 		}		
 
 		for (float x = -1000; x < 1000; x+=10)
