@@ -9,6 +9,7 @@ struct InputMap {
 	float MoveForward{ 0.0f };
 	float MoveRight{ 0.0f };
 	float MoveUp{ 0.0f };
+	bool bShiftDown{ false };
 };
 static InputMap g_InputMap;
 

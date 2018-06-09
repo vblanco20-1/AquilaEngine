@@ -2,6 +2,7 @@
 #include <PrecompiledHeader.h>
 using namespace DirectX;
 
+
 // Shader resources
 enum ConstanBuffer
 {
@@ -20,7 +21,7 @@ struct VertexPosColor
 
 struct DXGlobals {
 
-
+	
   const LONG g_WindowWidth = 1280;
   const LONG g_WindowHeight = 720;
   LPCSTR g_WindowClassName = "DirectXWindowClass";

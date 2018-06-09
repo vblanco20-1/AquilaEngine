@@ -142,6 +142,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp" />
+    <ClCompile Include="src\SimpleProfiler.cpp" />
+    <ClCompile Include="src\Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
@@ -159,6 +161,7 @@
     <ClInclude Include="include\Input.h" />
     <ClInclude Include="include\PrecompiledHeader.h" />
     <ClInclude Include="include\RandomUtils.h" />
+    <ClInclude Include="include\SimpleProfiler.h" />
     <ClInclude Include="include\Timer.h" />
     <ClInclude Include="src\EngineGlobals.h" />
   </ItemGroup>

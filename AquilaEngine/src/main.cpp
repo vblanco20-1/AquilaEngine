@@ -13,6 +13,7 @@
 #include "BoidSystems.h"
 #include "RandomUtils.h"
 #include "EngineGlobals.h"
+#include "SimpleProfiler.h"
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -153,9 +154,10 @@ struct SpaceshipMovementSystem : public System {
 	float elapsed{0.0f};
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		elapsed -= dt;
-		if (elapsed < 0)
-		{
+		SCOPE_PROFILE("Spaceship Movement System");
+		//elapsed -= dt;
+		//if (elapsed < 0)
+		//{
 			//if (!registry.has<BoidReferenceTag>())
 			//{
 			//	auto player = registry.create();
@@ -167,7 +169,7 @@ struct SpaceshipMovementSystem : public System {
 
 
 			//120 fps simulation
-			dt = 1.0 /120.0;
+			dt = 1.0 /60.0;
 			elapsed = dt;
 
 			auto  posview = registry.view<SpaceshipMovementComponent, PositionComponent>(entt::persistent_t{});
@@ -221,7 +223,7 @@ struct SpaceshipMovementSystem : public System {
 
 				pos.Position = newposition;
 			});
-		}
+		//}
 		
 	}
 };
@@ -306,7 +308,8 @@ struct PlayerInputSystem : public System {
 		if (ImGui::IsKeyDown(0x51)) {
 			g_InputMap.MoveUp -= 1;
 		}
-		if (bHasFocus)
+		
+		if (bHasFocus && g_InputMap.bShiftDown)
 		{
 			POINT pos;
 			GetCursorPos(&pos);
@@ -326,6 +329,8 @@ struct PlayerInputSystem : public System {
 struct TransformUpdateSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		SCOPE_PROFILE("TransformUpdate System");
+
 		auto  posview = registry.view<RenderMatrixComponent, PositionComponent>(entt::persistent_t{});
 		auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
@@ -354,6 +359,8 @@ static int nDrawcalls;
 struct CubeRendererSystem: public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		SCOPE_PROFILE("Cube Render System");
+		//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
 		const UINT vertexStride = sizeof(VertexPosColor);
 		const UINT offset = 0;
 		Globals->g_d3dDeviceContext->OMSetRenderTargets(1, &Globals->g_d3dRenderTargetView, Globals->g_d3dDepthStencilView);
@@ -459,6 +466,8 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 
 class ECS_GameWorld {
 public:
+	float debug_elapsed;
+	int debugiterations{ 0 };
 	void Initialize()
 	{
 		Bench_Start(AllBench);
@@ -534,7 +543,19 @@ public:
 		Bench_End(bench);
 		appInfo.SimTime = Bench_GetMiliseconds(bench);
 		appInfo.Drawcalls = nDrawcalls;
+		
+
+		debug_elapsed+= dt;
+		if (debug_elapsed > 1)
+		{
+			debug_elapsed = 0;
+			debugiterations = 0;
+			g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
+			g_SimpleProfiler->units.clear();
+		}
 		AppInfoUI(appInfo);
+		DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
+
 
 		Bench_Start(bench);
 		Renderer->update(registry, dt);
@@ -918,6 +939,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	UNREFERENCED_PARAMETER(cmdLine);
 
 	Globals = new DXGlobals();
+	g_SimpleProfiler = new SimpleProfiler();
 
 	// Check for DirectX Math library support.
 	if (!XMVerifyCPUSupport())

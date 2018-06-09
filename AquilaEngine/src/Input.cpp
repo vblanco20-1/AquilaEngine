@@ -39,7 +39,7 @@ InputMap HandleInputEvent(InputMap & Input, HWND hwnd, UINT message, WPARAM wPar
 		
 		break;
 	}
-
+	Input.bShiftDown = ((GetKeyState(VK_SHIFT) & 0x8000) != 0);
 	Input.MouseX = MouseX;
 	Input.MouseY = MouseY;
 

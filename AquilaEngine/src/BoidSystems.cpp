@@ -1,7 +1,14 @@
+
+#include "SimpleProfiler.h"
+
+
 #include "BoidSystems.h"
 #include "libmorton/morton.h"
 #include <execution>
 #include <algorithm>
+
+
+
 GridVec BoidMap::GridVecFromPosition(const PositionComponent & position)
 {
 	GridVec loc;
@@ -128,6 +135,43 @@ void BoidMap::Foreach_EntitiesInRadius(float radius, const PositionComponent & P
 	}
 }
 
+bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start, const size_t end, const uint64_t morton) const
+{
+	if ((end - start) < 10)
+	{
+		for (auto i = start; i < end; i++)
+		{
+			if (MortonArray[i].morton == morton)
+			{
+				outHashmark = MortonArray[i];
+				return true;
+			}
+		}		
+	}
+	else
+	{
+		size_t mid = start + ( (end - start) / 2);
+		GridHashmark midpoint = MortonArray[mid];
+		if (midpoint.morton > morton)
+		{
+			return Binary_Find_Hashmark(outHashmark,start, mid, morton);
+		}
+		else if(midpoint.morton < morton)
+		{
+			return Binary_Find_Hashmark(outHashmark,mid, end, morton);
+		}
+		else
+		{
+			outHashmark = midpoint;
+			return true;
+		}
+	}
+
+	
+	
+	return false;
+}
+
 void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(GridItem2&)> Body)
 {
 	const float radSquared = radius * radius;	
@@ -146,25 +190,76 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 				const GridItem2 test(MortonFromGrid(SearchLoc));
 				
 				auto compare_morton = [](const GridItem2&lhs, const GridItem2& rhs) { return lhs.morton < rhs.morton; };
+				//
+				//auto search = std::lower_bound(Mortons.begin(), Mortons.end(), test.morton, compare_morton);//MortonGrid.find(test.morton);
+				//if (search != MortonArray.end())
+				//{
+				//	for (int i = search->second.start_idx; i < search->second.stop_idx; i++)
+				//	{
+				//		GridItem2 & item = Mortons[i];
+				//		const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
+				//		if (XMVectorGetX(Dist) < radSquared)
+				//		{
+				//			Body(item);
+				//		}
+				//
+				//		//Body(g);
+				//	}
+				//}
+				GridHashmark testhash;
+				testhash.morton = MortonFromGrid(SearchLoc);
+				auto compare_morton_array = [](const GridHashmark&lhs, const GridHashmark& rhs) { return lhs.morton < rhs.morton; };
+				auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
 
-				auto lower = std::lower_bound(Mortons.begin(), Mortons.end(), test, compare_morton);
+				GridHashmark found;
 
-				if (lower != Mortons.end())
+				//if(Binary_Find_Hashmark(found,0,MortonArray.size(), MortonFromGrid(SearchLoc)))				//if (lower != MortonArray.end())
+				//{
+				//	if (lower->start_idx == found.start_idx)
+				//	{
+				if (lower != MortonArray.end())
 				{
-					auto upper = std::upper_bound(lower, Mortons.end(), test, compare_morton);
 
-					if (upper != Mortons.end())
-					{
-						std::for_each(lower, upper, [&](GridItem2&item) {
-
+						size_t mstart = /*found.start_idx;*/lower->start_idx;
+						size_t mend = /*found.stop_idx;//*/lower->stop_idx;
+						//auto upper = std::upper_bound(lower, Mortons.end(), test, compare_morton);
+						//
+						//if (upper != Mortons.end())
+						//{
+						//	std::for_each(lower, upper, [&](GridItem2&item) {
+						for (int i = mstart; i < mend; i++)
+						{
+							GridItem2 & item = Mortons[i];
 							const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
 							if (XMVectorGetX(Dist) < radSquared)
 							{
 								Body(item);
 							}
-						});
-					}
+						}
+					//}
+							
+						//});
+					//}
 				}
+
+				//auto lower = std::lower_bound(Mortons.begin(), Mortons.end(), test, compare_morton);
+				//
+				//if (lower != Mortons.end())
+				//{
+				//	auto upper = std::upper_bound(lower, Mortons.end(), test, compare_morton);
+				//
+				//	if (upper != Mortons.end())
+				//	{
+				//		std::for_each(lower, upper, [&](GridItem2&item) {
+				//
+				//			const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
+				//			if (XMVectorGetX(Dist) < radSquared)
+				//			{
+				//				Body(item);
+				//			}
+				//		});
+				//	}
+				//}
 			}
 		}
 	}
@@ -196,6 +291,11 @@ bool operator==(const GridVec&a, const GridVec&b)
 	return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
+bool operator!=(const GridVec&a, const GridVec&b)
+{
+	return !(a == b);
+}
+
 bool operator<(const GridItem2&a, const GridItem2&b)
 {
 	if (a.morton == b.morton)
@@ -208,38 +308,84 @@ bool operator<(const GridItem2&a, const GridItem2&b)
 	}
 }
 
+bool operator==(const GridHashmark&a, const GridHashmark&b)
+{
+	return a.morton == b.morton;
+}
+
 void BoidHashSystem::update(ECS_Registry &registry, float dt)
 {
-	iterations++;
-	if (!registry.has<BoidReferenceTag>())
+	
+		SCOPE_PROFILE("Boid Hash System All");
+
+		iterations++;
+		if (!registry.has<BoidReferenceTag>())
+		{
+			auto player = registry.create();
+			BoidMap * map = new BoidMap();
+			registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
+		}
+
+		BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
+		//boidref.map = &myMap;
+		//boidref.map->Grid.clear();
+		//boidref.map->MortonGrid.clear();
+		auto Boidview = registry.view<PositionComponent, BoidComponent>(entt::persistent_t{});
+
+		boidref.map->Mortons.clear();
+		boidref.map->Mortons.reserve(Boidview.size());
+		boidref.map->MortonArray.clear();
+		boidref.map->MortonArray.reserve(Boidview.size()/20);
+
 	{
-		auto player = registry.create();
-		BoidMap * map = new BoidMap();
-		registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
-	}
-
-	BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-	//boidref.map = &myMap;
-	boidref.map->Grid.clear();
-	auto Boidview = registry.view<PositionComponent, BoidComponent>(entt::persistent_t{});
-
-	boidref.map->Mortons.clear();
-	boidref.map->Mortons.reserve(Boidview.size());
+		SCOPE_PROFILE("Boid Initial Fill");
 
 		Boidview.each([&, dt](auto entity, const PositionComponent & campos, const BoidComponent & boid) {
-		boidref.map->AddToGridmap(campos, boid);
-		individualiterations++;
-	});
-
-		std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
-			if (a.morton == b.morton)
-			{
-				return XMVectorGetX(XMVector3LengthSq(  a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
-			}
-			else
-			{
-				return a.morton < b.morton;
-			}
-		
+			boidref.map->AddToGridmap(campos, boid);
+			individualiterations++;
 		});
+	}
+	{
+		
+		if (boidref.map->Mortons.size() > 0)
+		{
+			{
+				SCOPE_PROFILE("Boid Hash Morton sort");
+				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
+					if (a.morton == b.morton)
+					{
+						return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
+					}
+					else
+					{
+						return a.morton < b.morton;
+					}
+				});
+			}
+			{
+				SCOPE_PROFILE("Boid Hash Morton hash");
+			
+				//auto& mgrid = boidref.map->MortonGrid;
+				//mgrid.reserve(Boidview.size()/100);
+				GridVec LastGrid = boidref.map->Mortons[0].grid;
+				GridHashmark LastMark{ 0,0 };
+			
+				for (size_t i = 1; i < boidref.map->Mortons.size(); i++)
+				{
+					GridVec NewGrid = boidref.map->Mortons[i].grid;
+					if (LastGrid != NewGrid)
+					{
+						LastMark.stop_idx = i;
+						LastMark.morton = MortonFromGrid(LastGrid);
+						boidref.map->MortonArray.push_back(LastMark);
+						//mgrid[MortonFromGrid(LastGrid)] = LastMark;
+						LastGrid = NewGrid;
+						LastMark.start_idx = i;
+					}
+				}
+			}
+
+		}
+	}
+		
 }
