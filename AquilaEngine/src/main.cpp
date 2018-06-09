@@ -4,7 +4,7 @@
 #include <SimpleVertexShader.h>
 #include <SimplePixelShader.h>
 
-
+#include "DXShaders.h"
 #include "ApplicationInfoUI.h"
 #include "Timer.h"
 #include "Input.h"
@@ -260,6 +260,15 @@ struct SpaceshipSpawnSystem : public System {
 
 				auto newe = registry.create();
 				registry.assign<CubeRendererComponent>(newe);
+				if (pos.Position.x < 0)
+				{
+					registry.get<CubeRendererComponent>(newe).color = XMFLOAT3(0.0f, 0.2f, 1.0f);
+				}
+				else
+				{
+					registry.get<CubeRendererComponent>(newe).color = XMFLOAT3(1.0f, 0.2f, 0.0f);
+				}
+
 				registry.assign<LifetimeComponent>(newe, 20.0f);
 				
 				Position.x += roll_x * spawner.Bounds.x;
@@ -346,26 +355,35 @@ struct TransformUpdateSystem : public System {
 		SCOPE_PROFILE("TransformUpdate System");
 
 		auto  posview = registry.view<RenderMatrixComponent, PositionComponent>(entt::persistent_t{});
+		auto  scaleview = registry.view<RenderMatrixComponent, ScaleComponent>(entt::persistent_t{});
 		auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
+
+		auto  matview = registry.view<RenderMatrixComponent>();
+		std::for_each(std::execution::par_unseq, matview.begin(), matview.end(), [&matview](const auto entity) {
+			RenderMatrixComponent & matrix = matview.get(entity);
+
+			matrix.Matrix = XMMatrixIdentity(); 
+		});
+		
+		std::for_each(std::execution::par_unseq, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
+			auto[matrix, scale] = scaleview.get<RenderMatrixComponent, ScaleComponent>(entity);
+
+
+			matrix.Matrix = XMMatrixScalingFromVector(scale.Scale3D);;
+		});
 
 		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
 			auto [matrix, posc] = posview.get<RenderMatrixComponent, PositionComponent>(entity);
-			matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
-			// ... So on
+			matrix.Matrix = matrix.Matrix* XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
+			
 		});
+		
 		std::for_each(std::execution::par_unseq, rotview.begin(), rotview.end(), [&rotview](const auto entity) {
 			auto [matrix, rotc] = rotview.get<RenderMatrixComponent, RotationComponent>(entity);
 			matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
-			// ... So on
+			
 		});
-		//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc) {
-		//			
-		//			matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);			
-		//	});
-		//rotview.each([&, dt](auto entity, RenderMatrixComponent & matrix, RotationComponent&rotc) {
-		//
-		//			matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
-		//});		
+		
 	};
 };
 
@@ -408,7 +426,11 @@ struct CubeRendererSystem: public System {
 			if (cube.bVisible)
 			{
 				nDrawcalls++;
-				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &matrix.Matrix, 0, 0);
+
+				ObjectUniformStruct uniform;
+				uniform.worldMatrix = matrix.Matrix;
+				uniform.color = cube.color;
+				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniform, 0, 0);
 
 				Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
 			}
@@ -480,12 +502,32 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 {
 	auto spawner1 = registry.create();
 
-	registry.assign<PositionComponent>(spawner1, XMFLOAT3(XMVectorGetX(Location), XMVectorGetY(Location), XMVectorGetZ(Location)));
+	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 100;
+	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 100 + 200;
+	float posz = XMVectorGetZ(Location) + rng::RandomFloat() * 100;
+
+	registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
 	SpaceshipSpawnerComponent & spcomp = registry.assign<SpaceshipSpawnerComponent>(spawner1);
 	spcomp.Bounds = XMFLOAT3(10, 50, 50);
 	spcomp.Elapsed = 0;
 	spcomp.SpawnRate = 0.01;
 	spcomp.ShipMoveTarget = TargetLocation;
+
+	registry.assign<CubeRendererComponent>(spawner1);
+	if (XMVectorGetX(Location) > 0)
+	{
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, 0.1f, 0.1f);
+
+	}
+	else
+	{
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(0.1f, 0.10f, 1.0f);
+	}
+	
+
+	
+	registry.assign<RenderMatrixComponent>(spawner1);
+	registry.assign<ScaleComponent>(spawner1, XMVectorSet(1.0f, 10.0f, 10.0f, 1.0f));
 }
 
 class ECS_GameWorld {
@@ -543,8 +585,13 @@ public:
 
 					registry.assign<CubeRendererComponent>(e);
 
+					float nx = (x + 1000.0) / 2000.0;
+					float nz = (z + 1000.0) / 2000.0;
+					registry.get<CubeRendererComponent>(e).color = XMFLOAT3(nx,0.5,nz) ;
+
 					registry.assign<PositionComponent>(e, XMFLOAT3(x, y, z));
 					registry.assign<RenderMatrixComponent>(e);
+					registry.assign<ScaleComponent>(e, XMVectorSet(10.0f,1.0f,10.0f,1.0f) );
 
 					XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
 

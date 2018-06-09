@@ -10,8 +10,8 @@ struct RotatorSystem : public System {
 		//rotview.each([&, dt](auto entity, RotationComponent & rotation, RotatorComponent & rotator) {
 		//	rotation.Angle += 90.0f * dt;
 		//});
-		//registry.view<RotationComponent, RotatorComponent>().par_each([&, dt](auto entity, RotationComponent & rotation, RotatorComponent & rotator) {
-		//	rotation.Angle += 90.0f * dt;
-		//});
+		rotview.each([&, dt](auto entity, RotationComponent & rotation, RotatorComponent & rotator) {
+			rotation.Angle += 90.0f * dt;
+		});
 	};
 };

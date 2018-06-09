@@ -4,6 +4,14 @@
 
 bool LoadContent();
 
+
+struct ObjectUniformStruct
+{
+	XMMATRIX worldMatrix;
+	XMFLOAT3 color;
+};
+
+
 // Get the latest profile for the specified shader type.
 template< class ShaderClass >
 std::string GetLatestProfile();

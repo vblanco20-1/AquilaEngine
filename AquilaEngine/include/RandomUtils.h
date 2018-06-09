@@ -8,4 +8,5 @@ namespace rng {
 
 	//returns a int in the -30,30 range
 	int RandomPosition();
+
 }

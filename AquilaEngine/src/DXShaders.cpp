@@ -59,6 +59,13 @@ bool LoadContent()
 	{
 		return false;
 	}
+
+	
+	//	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	constantBufferDesc.ByteWidth = sizeof(ObjectUniformStruct);
+	//constantBufferDesc.CPUAccessFlags = 0;
+	//constantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+
 	hr = Globals->g_d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, &Globals->g_d3dConstantBuffers[CB_Object]);
 	if (FAILED(hr))
 	{

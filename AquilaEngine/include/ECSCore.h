@@ -37,7 +37,10 @@ struct  System {
 struct RotatorComponent {
 	float rate;
 };
-
+struct ScaleComponent {
+	XMVECTOR Scale3D;
+	
+};
 struct RotationComponent {
 	XMVECTOR RotationAxis;
 	float Angle;
@@ -48,6 +51,7 @@ struct RenderMatrixComponent {
 struct CubeRendererComponent {
 	float randomval;
 	bool bVisible;
+	XMFLOAT3 color;
 	//XMMATRIX Matrix;
 };
 struct SpaceshipMovementComponent {

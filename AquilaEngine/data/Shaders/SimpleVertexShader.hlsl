@@ -11,6 +11,7 @@ cbuffer PerFrame : register( b1 )
 cbuffer PerObject : register( b2 )
 {
     matrix worldMatrix;
+    float3 color;
 }
 
 struct AppData
@@ -31,7 +32,7 @@ VertexShaderOutput main(AppData IN)
 
     matrix mvp = mul( projectionMatrix, mul( viewMatrix, worldMatrix ) );
     OUT.position = mul( mvp, float4( IN.position, 1.0f ) );
-    OUT.color = float4( IN.color, 1.0f );
+    OUT.color = float4( color/*IN.color*/, 1.0f );
 
     return OUT;
 }
