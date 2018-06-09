@@ -36,7 +36,7 @@ struct GridHash {
 
 	std::size_t operator()(GridVec const& s) const noexcept;
 };
-const float GRID_DIMENSIONS = 50;
+const float GRID_DIMENSIONS = 20;
 using GridItem = std::pair<BoidComponent, PositionComponent>;
 
 struct GridHashmark {

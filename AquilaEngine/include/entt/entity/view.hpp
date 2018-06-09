@@ -2,6 +2,7 @@
 #define ENTT_ENTITY_VIEW_HPP
 
 
+#include <iterator>
 #include <cassert>
 #include <array>
 #include <tuple>
@@ -12,9 +13,6 @@
 #include "entt_traits.hpp"
 #include "sparse_set.hpp"
 
-#ifdef ENTT_HAS_PARALLEL_VIEW
-#include <execution>
-#endif
 
 namespace entt {
 
@@ -85,14 +83,14 @@ class PersistentView final {
     {}
 
 public:
-    /*! @brief Input iterator type. */
-    using iterator_type = typename view_type::iterator_type;
-    /*! @brief Constant input iterator type. */
-    using const_iterator_type = typename view_type::const_iterator_type;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename view_type::entity_type;
     /*! @brief Unsigned integer type. */
     using size_type = typename view_type::size_type;
+    /*! @brief Input iterator type. */
+    using iterator_type = typename view_type::iterator_type;
+    /*! @brief Constant input iterator type. */
+    using const_iterator_type = typename view_type::const_iterator_type;
 
     /**
      * @brief Returns the number of entities that have the given components.
@@ -238,6 +236,15 @@ public:
     }
 
     /**
+     * @brief Returns a reference to the element at the given position.
+     * @param pos Position of the element to return.
+     * @return A reference to the requested element.
+     */
+    const entity_type & operator[](const size_type pos) const ENTT_NOEXCEPT {
+        return view[pos];
+    }
+
+    /**
      * @brief Checks if a view contains an entity.
      * @param entity A valid entity identifier.
      * @return True if the view contains the given entity, false otherwise.
@@ -361,18 +368,7 @@ public:
             func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
         });
     }
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW		
-		std::for_each(std::execution::par, view.cbegin(), view.cend(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#else
-		std::for_each(view.cbegin(), view.cend(), [&func, this](const auto entity) {
-			func(entity, std::get<pool_type<Component> &>(pools).get(entity)...);
-		});
-#endif
-	}
+
     /**
      * @brief Iterates entities and components and applies the given function
      * object to them.
@@ -395,17 +391,6 @@ public:
             func(entity, const_cast<Component &>(component)...);
         });
     }
-	template<typename Func>
-	inline void par_each(Func func) {
-#ifdef ENTT_HAS_PARALLEL_VIEW		
-		const_cast<const PersistentView *>(this)->par_each([&func](const entity_type entity, const Component &... component) {
-			func(entity, const_cast<Component &>(component)...);
-#else
-		const_cast<const PersistentView *>(this)->each([&func](const entity_type entity, const Component &... component) {
-			func(entity, const_cast<Component &>(component)...);
-#endif
-		});
-	}
 
     /**
      * @brief Sort the shared pool of entities according to the given component.
@@ -494,7 +479,25 @@ class View final {
     using traits_type = entt_traits<Entity>;
 
     class Iterator {
+        friend class View<Entity, Component...>;
+
         using size_type = typename view_type::size_type;
+
+        Iterator(unchecked_type unchecked, underlying_iterator_type begin, underlying_iterator_type end) ENTT_NOEXCEPT
+            : unchecked{unchecked},
+              begin{begin},
+              end{end},
+              extent{min(std::make_index_sequence<unchecked.size()>{})}
+        {
+            if(begin != end && !valid()) {
+                ++(*this);
+            }
+        }
+
+        template<std::size_t... Indexes>
+        size_type min(std::index_sequence<Indexes...>) const ENTT_NOEXCEPT {
+            return std::min({ std::get<Indexes>(unchecked)->extent()... });
+        }
 
         bool valid() const ENTT_NOEXCEPT {
             const auto entity = *begin;
@@ -510,18 +513,12 @@ class View final {
         using value_type = typename underlying_iterator_type::value_type;
         using pointer = typename underlying_iterator_type::pointer;
         using reference = typename underlying_iterator_type::reference;
-        using iterator_category = typename underlying_iterator_type::iterator_category;
+        using iterator_category = std::forward_iterator_tag;
 
-        Iterator(unchecked_type unchecked, size_type extent, underlying_iterator_type begin, underlying_iterator_type end) ENTT_NOEXCEPT
-            : unchecked{unchecked},
-              extent{extent},
-              begin{begin},
-              end{end}
-        {
-            if(begin != end && !valid()) {
-                ++(*this);
-            }
-        }
+        Iterator() ENTT_NOEXCEPT = default;
+
+        Iterator(const Iterator &) ENTT_NOEXCEPT = default;
+        Iterator & operator=(const Iterator &) ENTT_NOEXCEPT = default;
 
         Iterator & operator++() ENTT_NOEXCEPT {
             return (++begin != end && !valid()) ? ++(*this) : *this;
@@ -532,14 +529,6 @@ class View final {
             return ++(*this), orig;
         }
 
-        Iterator & operator+=(const difference_type value) ENTT_NOEXCEPT {
-            return ((begin += value) != end && !valid()) ? ++(*this) : *this;
-        }
-
-        Iterator operator+(const difference_type value) const ENTT_NOEXCEPT {
-            return Iterator{unchecked, extent, begin+value, end};
-        }
-
         bool operator==(const Iterator &other) const ENTT_NOEXCEPT {
             return other.begin == begin;
         }
@@ -548,15 +537,19 @@ class View final {
             return !(*this == other);
         }
 
-        value_type operator*() const ENTT_NOEXCEPT {
-            return *begin;
+        pointer operator->() const ENTT_NOEXCEPT {
+            return begin.operator->();
+        }
+
+        inline reference operator*() const ENTT_NOEXCEPT {
+            return *operator->();
         }
 
     private:
-        const unchecked_type unchecked;
-        const size_type extent;
+        unchecked_type unchecked;
         underlying_iterator_type begin;
         underlying_iterator_type end;
+        size_type extent;
     };
 
     View(pool_type<Component> &... pools) ENTT_NOEXCEPT
@@ -566,11 +559,6 @@ class View final {
     template<typename Comp>
     const pool_type<Comp> & pool() const ENTT_NOEXCEPT {
         return std::get<pool_type<Comp> &>(pools);
-    }
-
-    template<typename Comp>
-    inline pool_type<Comp> & pool() ENTT_NOEXCEPT {
-        return const_cast<pool_type<Comp> &>(const_cast<const View *>(this)->pool<Comp>());
     }
 
     const view_type * candidate() const ENTT_NOEXCEPT {
@@ -586,10 +574,6 @@ class View final {
         accumulator_type accumulator = { (&pool<Component>() == view ? view : other[pos++] = &pool<Component>())... };
         (void)accumulator;
         return other;
-    }
-
-    typename view_type::size_type extent() const ENTT_NOEXCEPT {
-        return std::min({ pool<Component>().extent()... });
     }
 
     template<typename Comp, typename Other>
@@ -617,15 +601,15 @@ class View final {
             }
         }
 
+        const auto extent = std::min({ pool<Component>().extent()... });
         auto it = std::get<component_iterator_type<Comp>>(raw);
-        const auto ext = extent();
 
         // fallback to visit what remains using indirections
         for(; data[0] != end; ++data[0], ++it) {
             const auto entity = *data[0];
             const auto sz = size_type(entity & traits_type::entity_mask);
 
-            if(sz < ext && std::all_of(other.cbegin(), other.cend(), [entity](const view_type *view) { return view->fast(entity); })) {
+            if(sz < extent && std::all_of(other.cbegin(), other.cend(), [entity](const view_type *view) { return view->fast(entity); })) {
                 // avoided at least the indirection due to the sparse set for the pivot type (see get for more details)
                 func(entity, get<Comp, Component>(it, entity)...);
             }
@@ -633,14 +617,14 @@ class View final {
     }
 
 public:
-    /*! @brief Input iterator type. */
-    using iterator_type = Iterator;
-    /*! @brief Constant input iterator type. */
-    using const_iterator_type = Iterator;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename view_type::entity_type;
     /*! @brief Unsigned integer type. */
     using size_type = typename view_type::size_type;
+    /*! @brief Input iterator type. */
+    using iterator_type = Iterator;
+    /*! @brief Constant input iterator type. */
+    using const_iterator_type = Iterator;
 
     /**
      * @brief Estimates the number of entities that have the given components.
@@ -674,7 +658,7 @@ public:
      */
     const_iterator_type cbegin() const ENTT_NOEXCEPT {
         const auto *view = candidate();
-        return iterator_type{ unchecked(view), extent(), view->cbegin(), view->cend() };
+        return iterator_type{ unchecked(view), view->cbegin(), view->cend() };
     }
 
     /**
@@ -730,7 +714,7 @@ public:
      */
     const_iterator_type cend() const ENTT_NOEXCEPT {
         const auto *view = candidate();
-        return iterator_type{ unchecked(view), extent(), view->cend(), view->cend() };
+        return iterator_type{ unchecked(view), view->cend(), view->cend() };
     }
 
     /**
@@ -778,7 +762,8 @@ public:
      */
     bool contains(const entity_type entity) const ENTT_NOEXCEPT {
         const auto sz = size_type(entity & traits_type::entity_mask);
-        return sz < extent() && std::min({ (pool<Component>().has(entity) && (pool<Component>().data()[pool<Component>().view_type::get(entity)] == entity))... });
+        const auto extent = std::min({ pool<Component>().extent()... });
+        return sz < extent && std::min({ (pool<Component>().has(entity) && (pool<Component>().data()[pool<Component>().view_type::get(entity)] == entity))... });
     }
 
     /**
@@ -976,16 +961,16 @@ class View<Entity, Component> final {
     {}
 
 public:
-    /*! @brief Input iterator type. */
-    using iterator_type = typename view_type::iterator_type;
-    /*! @brief Constant input iterator type. */
-    using const_iterator_type = typename view_type::const_iterator_type;
+    /*! @brief Type of component iterated by the view. */
+    using raw_type = typename pool_type::object_type;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename pool_type::entity_type;
     /*! @brief Unsigned integer type. */
     using size_type = typename pool_type::size_type;
-    /*! @brief Type of component iterated by the view. */
-    using raw_type = typename pool_type::object_type;
+    /*! @brief Input iterator type. */
+    using iterator_type = typename view_type::iterator_type;
+    /*! @brief Constant input iterator type. */
+    using const_iterator_type = typename view_type::const_iterator_type;
 
     /**
      * @brief Returns the number of entities that have the given component.
@@ -1163,6 +1148,15 @@ public:
     }
 
     /**
+     * @brief Returns a reference to the element at the given position.
+     * @param pos Position of the element to return.
+     * @return A reference to the requested element.
+     */
+    const entity_type & operator[](const size_type pos) const ENTT_NOEXCEPT {
+        return pool.view_type::operator[](pos);
+    }
+
+    /**
      * @brief Checks if a view contains an entity.
      * @param entity A valid entity identifier.
      * @return True if the view contains the given entity, false otherwise.
@@ -1232,20 +1226,6 @@ public:
         });
     }
 
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each(std::execution::par,pool.view_type::cbegin(), pool.view_type::cend(), [&func, raw = pool.cbegin()](const auto entity) mutable {
-			func(entity, *(raw++));
-		});
-#else
-		std::for_each(pool.view_type::cbegin(), pool.view_type::cend(), [&func, raw = pool.cbegin()](const auto entity) mutable {
-			func(entity, *(raw++));
-		});
-#endif
-		
-	}
-
     /**
      * @brief Iterates entities and components and applies the given function
      * object to them.
@@ -1266,13 +1246,7 @@ public:
         const_cast<const View *>(this)->each([&func](const entity_type entity, const Component &component) {
             func(entity, const_cast<Component &>(component));
         });
-    }	
-	template<typename Func>
-	inline void par_each(Func func) {
-		const_cast<const View *>(this)->par_each([&func](const entity_type entity, const Component &component) {
-			func(entity, const_cast<Component &>(component));
-		});
-	}
+    }
 
 private:
     pool_type &pool;
@@ -1329,16 +1303,16 @@ class RawView final {
     {}
 
 public:
-    /*! @brief Input iterator type. */
-    using iterator_type = typename pool_type::iterator_type;
-    /*! @brief Constant input iterator type. */
-    using const_iterator_type = typename pool_type::const_iterator_type;
+    /*! @brief Type of component iterated by the view. */
+    using raw_type = typename pool_type::object_type;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename pool_type::entity_type;
     /*! @brief Unsigned integer type. */
     using size_type = typename pool_type::size_type;
-    /*! @brief Type of component iterated by the view. */
-    using raw_type = typename pool_type::object_type;
+    /*! @brief Input iterator type. */
+    using iterator_type = typename pool_type::iterator_type;
+    /*! @brief Constant input iterator type. */
+    using const_iterator_type = typename pool_type::const_iterator_type;
 
     /**
      * @brief Returns the number of instances of the given type.
@@ -1510,6 +1484,24 @@ public:
     }
 
     /**
+     * @brief Returns a reference to the element at the given position.
+     * @param pos Position of the element to return.
+     * @return A reference to the requested element.
+     */
+    const raw_type & operator[](const size_type pos) const ENTT_NOEXCEPT {
+        return pool[pos];
+    }
+
+    /**
+     * @brief Returns a reference to the element at the given position.
+     * @param pos Position of the element to return.
+     * @return A reference to the requested element.
+     */
+    inline raw_type & operator[](const size_type pos) ENTT_NOEXCEPT {
+        return const_cast<raw_type &>(const_cast<const RawView *>(this)->operator[](pos));
+    }
+
+    /**
      * @brief Iterates components and applies the given function object to them.
      *
      * The function object is provided with a const reference to each component
@@ -1527,15 +1519,6 @@ public:
     void each(Func func) const {
         std::for_each(pool.cbegin(), pool.cend(), func);
     }
-
-	template<typename Func>
-	void par_each(Func func) const {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each(std::execution::par, pool.cbegin(), pool.cend(), func);
-#else
-		std::for_each(pool.cbegin(), pool.cend(), func);
-#endif
-	}
 
     /**
      * @brief Iterates components and applies the given function object to them.
@@ -1555,17 +1538,6 @@ public:
     void each(Func func) {
         std::for_each(pool.begin(), pool.end(), func);
     }
-
-
-	template<typename Func>
-	void par_each(Func func) {
-#ifdef ENTT_HAS_PARALLEL_VIEW
-		std::for_each(std::execution::par,pool.begin(), pool.end(), func);
-#else
-		std::for_each(pool.begin(), pool.end(), func);
-#endif
-	}
-
 
 private:
     pool_type &pool;

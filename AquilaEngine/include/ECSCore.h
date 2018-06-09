@@ -11,6 +11,10 @@ using namespace DirectX;
 using EntityID = std::uint64_t;
 using ECS_Registry = entt::Registry<std::uint64_t>;
 
+
+class ECS_GameWorld;
+extern ECS_GameWorld * GameWorld;
+
 struct PositionComponent {
 	XMFLOAT3 Position;
 };

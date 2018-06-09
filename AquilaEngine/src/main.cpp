@@ -119,9 +119,10 @@ struct CameraSystem : public System {
 struct CullingSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		SCOPE_PROFILE("Culling System ")
 		XMVECTOR CamPos;
 		XMVECTOR CamDir;
-		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).par_each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			//XMFLOAT3::
 			CamPos = XMLoadFloat3(&campos.Position);
@@ -133,7 +134,11 @@ struct CullingSystem : public System {
 		auto  posview = registry.view<RenderMatrixComponent,PositionComponent, CubeRendererComponent>(entt::persistent_t{});		
 
 		//XMVECTOR VecDir = 
-		posview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
+		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
+
+
+			auto[matrix, posc ,cube] = posview.get<RenderMatrixComponent, PositionComponent, CubeRendererComponent>(entity);
+		//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
 
 
 			XMVECTOR ToCube = CamPos - XMLoadFloat3(&posc.Position);
@@ -173,7 +178,15 @@ struct SpaceshipMovementSystem : public System {
 			elapsed = dt;
 
 			auto  posview = registry.view<SpaceshipMovementComponent, PositionComponent>(entt::persistent_t{});
-			posview.par_each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
+
+			std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
+				
+				
+				auto[ship, pos] = posview.get<SpaceshipMovementComponent, PositionComponent>(entity);
+				//matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
+				// ... So on
+			
+			//posview.each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
 
 
 				XMFLOAT3 newposition = pos.Position;
@@ -203,15 +216,16 @@ struct SpaceshipMovementSystem : public System {
 				//});
 				XMVECTOR MyPos = XMLoadFloat3(&pos.Position);
 				auto gridloc = boidref.map->GridVecFromPosition(pos);
-				boidref.map->Foreach_EntitiesInRadius_Morton(20,MyPos, [&](GridItem2& boid) {
+				XMVECTOR OffsetVelocity{0.0f,0.0f,0.0f,0.0f};
+				boidref.map->Foreach_EntitiesInRadius_Morton(10,MyPos, [&](GridItem2& boid) {
 
 					XMVECTOR Avoidance = MyPos - boid.pos;
 					float dist = XMVectorGetX(XMVector3Length(Avoidance));
-					ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 20.0f, 0.0f, 1.0f)));
+					OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
 
 				});
 
-				ship.Velocity = XMVector3ClampLength(ship.Velocity, 0.0f, ship.speed);
+				ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
 
 
 
@@ -334,14 +348,24 @@ struct TransformUpdateSystem : public System {
 		auto  posview = registry.view<RenderMatrixComponent, PositionComponent>(entt::persistent_t{});
 		auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
-		posview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc) {
-					
-					matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);			
-			});
-		rotview.par_each([&, dt](auto entity, RenderMatrixComponent & matrix, RotationComponent&rotc) {
-		
-					matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
-		});		
+		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
+			auto [matrix, posc] = posview.get<RenderMatrixComponent, PositionComponent>(entity);
+			matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
+			// ... So on
+		});
+		std::for_each(std::execution::par_unseq, rotview.begin(), rotview.end(), [&rotview](const auto entity) {
+			auto [matrix, rotc] = rotview.get<RenderMatrixComponent, RotationComponent>(entity);
+			matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
+			// ... So on
+		});
+		//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc) {
+		//			
+		//			matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);			
+		//	});
+		//rotview.each([&, dt](auto entity, RenderMatrixComponent & matrix, RotationComponent&rotc) {
+		//
+		//			matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
+		//});		
 	};
 };
 
@@ -472,10 +496,7 @@ public:
 	{
 		Bench_Start(AllBench);
 		ImGui_ImplDX11_NewFrame();
-		appInfo.averagedDeltaTime = 0.03f;
-		appInfo.deltaTime = 0.012343f;
-		appInfo.Drawcalls = 10000;
-		appInfo.RenderTime = 1.0f;
+		
 
 		Systems.push_back(new PlayerInputSystem());
 		Systems.push_back(new PlayerCameraSystem());
@@ -498,9 +519,15 @@ public:
 		registry.assign<CameraComponent>(cam);
 		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
+		registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
 		//auto spawner1 = registry.create();
+		ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
+		appInfo.averagedDeltaTime = 0.03f;
+		appInfo.deltaTime = 0.012343f;
+		appInfo.Drawcalls = 10000;
+		appInfo.RenderTime = 1.0f;
 
-		for (float z = -500;z < 500; z += 100)
+		for (float z = -1000;z < 1000; z += 100)
 		{
 			BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 			BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
@@ -531,6 +558,9 @@ public:
 
 	void Update_All(float dt)
 	{
+		ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
+		appInfo.TotalEntities = registry.size();
+		appInfo.BoidEntities = registry.view<BoidComponent>().size();
 		Bench_End(AllBench);
 		appInfo.deltaTime = Bench_GetMiliseconds(AllBench);
 		Bench_Start(AllBench);
@@ -568,14 +598,14 @@ public:
 		}
 	}
 	BenchmarkInfo AllBench;
-	ApplicationInfo appInfo;
+	//ApplicationInfo appInfo;
 	
 	std::unique_ptr<RenderSystem> Renderer;
 	ECS_Registry registry;
 	std::vector<System*> Systems;
 };
 
-ECS_GameWorld GameWorld;
+ECS_GameWorld *GameWorld{nullptr};
 
 /**
 * Initialize the application window.
@@ -893,7 +923,8 @@ int Run()
 	static const float targetFramerate = 30.0f;
 	static const float maxTimeStep = 1.0f / targetFramerate;
 
-	GameWorld.Initialize();
+	GameWorld = new ECS_GameWorld();
+	GameWorld->Initialize();
 
 	while (msg.message != WM_QUIT)
 	{
@@ -913,7 +944,7 @@ int Run()
 			deltaTime = std::min<float>(deltaTime, maxTimeStep);
 			
 			//Update(deltaTime);
-			GameWorld.Update_All(deltaTime);
+			GameWorld->Update_All(deltaTime);
 			
 			
 

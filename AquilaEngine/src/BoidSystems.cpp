@@ -6,6 +6,7 @@
 #include "libmorton/morton.h"
 #include <execution>
 #include <algorithm>
+//#include "ApplicationInfoUI.h"
 
 
 
@@ -63,15 +64,15 @@ void BoidMap::AddToGridmap(const PositionComponent & position, const BoidCompone
 
 void BoidMap::Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body)
 {
-	GridVec loc = GridVecFromPosition(Position);
-	auto search = Grid.find(loc);
-	if (search != Grid.end())
-	{
-		for (auto g : search->second.boids)
-		{
-			Body(g);
-		}
-	}
+	//GridVec loc = GridVecFromPosition(Position);
+	//auto search = Grid.find(loc);
+	//if (search != Grid.end())
+	//{
+	//	for (auto g : search->second.boids)
+	//	{
+	//		Body(g);
+	//	}
+	//}
 }
 
 void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)> Body)
@@ -101,38 +102,38 @@ void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<v
 
 void BoidMap::Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> Body)
 {
-	const float radSquared = radius * radius;
-	
-
-	XMVECTOR Pos = XMLoadFloat3(&Position.Position);
-
-	GridVec MinGrid = GridVecFromVector(Pos - XMVECTOR{ radius });
-
-	GridVec MaxGrid = GridVecFromVector(Pos + XMVECTOR{ radius });
-
-	for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
-		for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
-			for (int z = MinGrid.z; z <= MaxGrid.z; z++) {
-				const GridVec SearchLoc{ x, y, z };
-
-				auto search = Grid.find(SearchLoc);
-				if (search != Grid.end())
-				{
-					for (auto g : search->second.boids)
-					{
-						XMVECTOR Otherpos = XMLoadFloat3(&g.second.Position);
-						XMVECTOR Dist = XMVector3LengthSq(Pos - Otherpos);
-						if (XMVectorGetX(Dist) < radSquared)
-						{
-							Body(g);
-						}
-
-					}
-
-				}
-			}
-		}
-	}
+	//const float radSquared = radius * radius;
+	//
+	//
+	//XMVECTOR Pos = XMLoadFloat3(&Position.Position);
+	//
+	//GridVec MinGrid = GridVecFromVector(Pos - XMVECTOR{ radius });
+	//
+	//GridVec MaxGrid = GridVecFromVector(Pos + XMVECTOR{ radius });
+	//
+	//for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
+	//	for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
+	//		for (int z = MinGrid.z; z <= MaxGrid.z; z++) {
+	//			const GridVec SearchLoc{ x, y, z };
+	//
+	//			auto search = Grid.find(SearchLoc);
+	//			if (search != Grid.end())
+	//			{
+	//				for (auto g : search->second.boids)
+	//				{
+	//					XMVECTOR Otherpos = XMLoadFloat3(&g.second.Position);
+	//					XMVECTOR Dist = XMVector3LengthSq(Pos - Otherpos);
+	//					if (XMVectorGetX(Dist) < radSquared)
+	//					{
+	//						Body(g);
+	//					}
+	//
+	//				}
+	//
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start, const size_t end, const uint64_t morton) const
@@ -332,6 +333,9 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 		//boidref.map->MortonGrid.clear();
 		auto Boidview = registry.view<PositionComponent, BoidComponent>(entt::persistent_t{});
 
+
+		
+
 		boidref.map->Mortons.clear();
 		boidref.map->Mortons.reserve(Boidview.size());
 		boidref.map->MortonArray.clear();
@@ -340,9 +344,16 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 	{
 		SCOPE_PROFILE("Boid Initial Fill");
 
-		Boidview.each([&, dt](auto entity, const PositionComponent & campos, const BoidComponent & boid) {
+		//ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
+		//appInfo.BoidEntities = Boidview.size();
+		std::for_each(/*std::execution::par_unseq,*/Boidview.begin(), Boidview.end(), [&](const auto entity) {
+
+
+			auto[campos, boid] = Boidview.get<PositionComponent, BoidComponent>(entity);
+
+		//Boidview.each([&, dt](auto entity, const PositionComponent & campos, const BoidComponent & boid) {
 			boidref.map->AddToGridmap(campos, boid);
-			individualiterations++;
+			//individualiterations++;
 		});
 	}
 	{

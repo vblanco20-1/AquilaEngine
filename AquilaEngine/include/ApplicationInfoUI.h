@@ -8,17 +8,8 @@ struct ApplicationInfo {
 	int Drawcalls;
 	float SimTime;
 	float RenderTime;
+	int TotalEntities;
+	int BoidEntities;
 };
 
-void AppInfoUI(ApplicationInfo & info)
-{
-	ImGui::Begin("Application Info");
-
-	ImGui::Text("Delta Time         : %f", info.deltaTime);
-	ImGui::Text("Averaged Delta Time: %f", info.averagedDeltaTime);
-	ImGui::Text("Drawcalls          : %i", info.Drawcalls);
-	ImGui::Text("Simulation Time    : %f", info.SimTime);
-	ImGui::Text("Rendering Time     : %f", info.RenderTime);
-
-	ImGui::End();
-}
+void AppInfoUI(ApplicationInfo & info);
