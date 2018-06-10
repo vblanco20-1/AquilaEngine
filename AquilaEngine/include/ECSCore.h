@@ -9,6 +9,7 @@
 
 using namespace DirectX;
 using EntityID = std::uint64_t;
+using EntityVersion = entt::Registry<std::uint64_t>::version_type;
 using ECS_Registry = entt::Registry<std::uint64_t>;
 
 
@@ -18,6 +19,47 @@ extern ECS_GameWorld * GameWorld;
 struct PositionComponent {
 	XMFLOAT3 Position;
 };
+//struct ScaleComponent {
+//	XMVECTOR Scale3D;
+//
+//};
+//struct RotationComponent {
+//	XMVECTOR RotationAxis;
+//	float Angle;
+//};
+struct TransformComponent {
+	XMVECTOR position;
+	XMVECTOR rotationQuat;
+	XMVECTOR scale;	
+
+	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){
+		
+	}
+};
+struct EntityParentComponent {
+	//depth zero for a world transform
+	uint8_t hierarchyDepth;
+	EntityID parent;
+	EntityVersion entityVersion;
+	//EntityParentComponent() :parent(0), hierarchyDepth(0) {}
+	
+	bool Valid(ECS_Registry & registry)
+	{
+		return registry.current(parent) == registry.version(parent);
+	}
+
+	void SetParent(EntityID newParent, ECS_Registry & registry)
+	{
+		parent = newParent;
+		hierarchyDepth = 1;
+		//entityVersion = registry.current(newParent);
+		if (registry.has<EntityParentComponent>(newParent))
+		{
+			hierarchyDepth = registry.get<EntityParentComponent>(newParent).hierarchyDepth + 1;
+		}
+	}
+};
+
 
 
 struct  System {
@@ -35,16 +77,10 @@ struct  System {
 };
 
 struct RotatorComponent {
+	XMVECTOR Axis;
 	float rate;
 };
-struct ScaleComponent {
-	XMVECTOR Scale3D;
-	
-};
-struct RotationComponent {
-	XMVECTOR RotationAxis;
-	float Angle;
-};
+
 struct RenderMatrixComponent {
 	XMMATRIX Matrix;
 };

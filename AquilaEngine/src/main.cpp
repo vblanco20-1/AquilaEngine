@@ -42,6 +42,7 @@ struct DestructionSystem : public System {
 			}
 		});
 
+		
 
 	}
 };
@@ -53,11 +54,11 @@ struct RandomFlusherSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		return;
-		auto  posview = registry.view<CubeRendererComponent>(/*entt::persistent_t{}*/);
-		posview.each([&, dt](auto & e,CubeRendererComponent & cube) {			
-			
-			cube.randomval += 0.1f / 10.0f;			
-		});
+		//auto  posview = registry.view<CubeRendererComponent>(/*entt::persistent_t{}*/);
+		//posview.each([&, dt](auto & e,CubeRendererComponent & cube) {			
+		//	
+		//	cube.randomval += 0.1f / 10.0f;			
+		//});
 	}
 };
 struct PlayerCameraSystem : public System {
@@ -131,18 +132,18 @@ struct CullingSystem : public System {
 		});
 
 		CamDir = XMVector3Normalize(CamDir);
-		auto  posview = registry.view<RenderMatrixComponent,PositionComponent, CubeRendererComponent>(entt::persistent_t{});		
+		auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});		
 
 		//XMVECTOR VecDir = 
 		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
 
 
-			auto[matrix, posc ,cube] = posview.get<RenderMatrixComponent, PositionComponent, CubeRendererComponent>(entity);
+			auto[matrix ,cube] = posview.get<RenderMatrixComponent, CubeRendererComponent>(entity);
 		//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
-
-
-			XMVECTOR ToCube = CamPos - XMLoadFloat3(&posc.Position);
-			XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube , CamDir);
+			
+			XMVECTOR pos = XMVector3Transform(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f) , matrix.Matrix );
+			XMVECTOR ToCube = CamPos - pos;
+			XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube, CamDir);
 
 			if (XMVectorGetX(angle) < XMConvertToRadians(40))
 			{
@@ -177,65 +178,40 @@ struct SpaceshipMovementSystem : public System {
 			dt = 1.0 /60.0;
 			elapsed = dt;
 
-			auto  posview = registry.view<SpaceshipMovementComponent, PositionComponent>(entt::persistent_t{});
+			auto  posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
 
 			std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
 				
 				
-				auto[ship, pos] = posview.get<SpaceshipMovementComponent, PositionComponent>(entity);
-				//matrix.Matrix = XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
-				// ... So on
-			
-			//posview.each([&, dt](auto & e, SpaceshipMovementComponent & ship, PositionComponent & pos) {
+				auto & ship = posview.get<SpaceshipMovementComponent>(entity);
+				auto & t = posview.get<TransformComponent>(entity);
+				
 
-
-				XMFLOAT3 newposition = pos.Position;
-
-				XMVECTOR Mov = ship.Target - XMLoadFloat3(&pos.Position);
+				XMVECTOR Mov = ship.Target - t.position;
 				Mov = XMVector3Normalize(Mov);
 				Mov = Mov * ship.speed * dt;
 
 				ship.Velocity += Mov;
 
-				//avoidance
 				
-				//boidref.map->Foreach_EntitiesInGrid(pos, [&](GridItem& boid) {
-				//
-				//	XMVECTOR Avoidance = XMLoadFloat3(&pos.Position) - XMLoadFloat3(&boid.second.Position);
-				//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
-				//	ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - ( std::clamp( dist/ 20.0f,0.0f,1.0f)));
-				//
-				//});
-				//auto gridloc = boidref.map->GridVecFromPosition(pos);
-				//boidref.map->Foreach_EntitiesInGrid_Morton(gridloc, [&](GridItem2& boid) {
-				//
-				//	XMVECTOR Avoidance = XMLoadFloat3(&pos.Position) - boid.pos;
-				//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
-				//	ship.Velocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 20.0f, 0.0f, 1.0f)));
-				//
-				//});
-				XMVECTOR MyPos = XMLoadFloat3(&pos.Position);
-				auto gridloc = boidref.map->GridVecFromPosition(pos);
 				XMVECTOR OffsetVelocity{0.0f,0.0f,0.0f,0.0f};
-				boidref.map->Foreach_EntitiesInRadius_Morton(10,MyPos, [&](GridItem2& boid) {
+				boidref.map->Foreach_EntitiesInRadius_Morton(10, t.position, [&](const GridItem2& boid) {
 
-					XMVECTOR Avoidance = MyPos - boid.pos;
+					XMVECTOR Avoidance = t.position - boid.pos;
 					float dist = XMVectorGetX(XMVector3Length(Avoidance));
 					OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
 
 				});
 
-				ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
-
-
-
 				
 
-				newposition.x += XMVectorGetX(ship.Velocity);
-				newposition.y += XMVectorGetY(ship.Velocity);
-				newposition.z += XMVectorGetZ(ship.Velocity);
+				ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
 
-				pos.Position = newposition;
+				XMMATRIX rotmat = XMMatrixLookAtLH(t.position, t.position + ship.Velocity *10, XMVectorSet(0,1,0,0));
+
+				t.rotationQuat = XMQuaternionRotationMatrix(rotmat);
+				
+				t.position = t.position + ship.Velocity;
 			});
 		//}
 		
@@ -245,13 +221,19 @@ struct SpaceshipSpawnSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		//return;
-		auto  posview = registry.view<SpaceshipSpawnerComponent,PositionComponent>(entt::persistent_t{});
-		posview.each([&, dt](auto & e, SpaceshipSpawnerComponent & spawner, PositionComponent  pos) {
+		auto  posview = registry.view<SpaceshipSpawnerComponent,TransformComponent>();
+		for (auto e : posview)
+		{
+			auto & spawner = posview.get<SpaceshipSpawnerComponent>(e);
+			
+		//..}
+		//posview.each([&, dt](auto & e, SpaceshipSpawnerComponent & spawner,const TransformComponent & tr) {
 
 			spawner.Elapsed -= dt;
 			while (spawner.Elapsed < 0)
 			{
-				XMFLOAT3 Position = pos.Position;
+				const auto  tr = posview.get<TransformComponent>(e);
+				//XMFLOAT3 Position = pos//TransformComponent//pos.Position;
 				spawner.Elapsed += spawner.SpawnRate;
 
 				float roll_x = rng::RandomFloat();  //randomfloat(generator);
@@ -260,7 +242,7 @@ struct SpaceshipSpawnSystem : public System {
 
 				auto newe = registry.create();
 				registry.assign<CubeRendererComponent>(newe);
-				if (pos.Position.x < 0)
+				if (XMVectorGetX(tr.position) < 0)
 				{
 					registry.get<CubeRendererComponent>(newe).color = XMFLOAT3(0.0f, 0.2f, 1.0f);
 				}
@@ -269,15 +251,53 @@ struct SpaceshipSpawnSystem : public System {
 					registry.get<CubeRendererComponent>(newe).color = XMFLOAT3(1.0f, 0.2f, 0.0f);
 				}
 
-				registry.assign<LifetimeComponent>(newe, 20.0f);
 				
-				Position.x += roll_x * spawner.Bounds.x;
-				Position.y += roll_y * spawner.Bounds.y;
-				Position.z += roll_z * spawner.Bounds.z;
+				
+				XMVECTOR Position = XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
+				//Position.x += roll_x * spawner.Bounds.x;
+				//Position.y += roll_y * spawner.Bounds.y;
+				//Position.z += roll_z * spawner.Bounds.z;
 
-				registry.assign<PositionComponent>(newe, Position);
+				//registry.assign<PositionComponent>(newe, Position);
+				registry.assign<TransformComponent>(newe);
+				registry.get<TransformComponent>(newe).position = Position + tr.position;//XMLoadFloat3(&Position);
+
+
 				registry.assign<RenderMatrixComponent>(newe, XMMATRIX{});
 				registry.assign<BoidComponent>(newe);
+
+				//long tip
+				auto child_left = registry.create();
+				registry.assign<CubeRendererComponent>(child_left);
+				registry.assign<TransformComponent>(child_left);
+				registry.get<TransformComponent>(child_left).scale = XMVectorSet(0.5f, 0.5f, 5.f, 1.0f);
+				registry.get<TransformComponent>(child_left).position = XMVectorSet(1.0f, 0.f, 1.0f, 1.0f);
+				registry.get<TransformComponent>(child_left).rotationQuat = XMQuaternionRotationAxis(XMVectorSet(0, 1, 0,0), XMConvertToRadians(-30.0));
+				registry.assign<RenderMatrixComponent>(child_left, XMMATRIX{});
+				registry.assign<EntityParentComponent>(child_left);
+
+				//registry.get<EntityParentComponent>(child_left).parent = newe;
+				//registry.get<EntityParentComponent>(child_left).hierarchyDepth = 1;
+
+				auto child_right = registry.create();
+				registry.assign<CubeRendererComponent>(child_right);
+				registry.assign<TransformComponent>(child_right);
+				registry.get<TransformComponent>(child_right).scale = XMVectorSet(0.5f, 0.5f, 5.f, 1.0f);
+				registry.get<TransformComponent>(child_right).position = XMVectorSet(-1.0f, 0.f, 1.0f, 1.0f);
+				registry.get<TransformComponent>(child_right).rotationQuat = XMQuaternionRotationAxis(XMVectorSet(0, 1, 0,0), XMConvertToRadians(30.0));//XMVectorSet(-1.0f, 0.f, 1.0f, 1.0f);
+				registry.assign<RenderMatrixComponent>(child_right, XMMATRIX{});
+				registry.assign<EntityParentComponent>(child_right);
+
+				registry.get<EntityParentComponent>(child_right).SetParent( newe, registry);
+				registry.get<EntityParentComponent>(child_left).SetParent(  newe,registry);
+
+
+				registry.assign<LifetimeComponent>(newe, 10.0f);
+				registry.assign<LifetimeComponent>(child_right, 10.0f);
+				registry.assign<LifetimeComponent>(child_left, 10.0f);
+				//registry.get<EntityParentComponent>(child_right).parent = newe;
+				//registry.get<EntityParentComponent>(child_right).hierarchyDepth = 1;
+
 
 				SpaceshipMovementComponent & mv = registry.assign<SpaceshipMovementComponent>(newe);
 				mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) *2;
@@ -288,7 +308,7 @@ struct SpaceshipSpawnSystem : public System {
 
 				
 			}						
-		});
+		}//);
 	}
 };
 bool bHasFocus{ true };
@@ -354,35 +374,81 @@ struct TransformUpdateSystem : public System {
 	{
 		SCOPE_PROFILE("TransformUpdate System");
 
-		auto  posview = registry.view<RenderMatrixComponent, PositionComponent>(entt::persistent_t{});
-		auto  scaleview = registry.view<RenderMatrixComponent, ScaleComponent>(entt::persistent_t{});
-		auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
+		auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
+		auto  scaleview = registry.view<RenderMatrixComponent, TransformComponent>(entt::persistent_t{});
+		//auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
-		auto  matview = registry.view<RenderMatrixComponent>();
-		std::for_each(std::execution::par_unseq, matview.begin(), matview.end(), [&matview](const auto entity) {
-			RenderMatrixComponent & matrix = matview.get(entity);
-
-			matrix.Matrix = XMMatrixIdentity(); 
-		});
 		
-		std::for_each(std::execution::par_unseq, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
-			auto[matrix, scale] = scaleview.get<RenderMatrixComponent, ScaleComponent>(entity);
-
-
-			matrix.Matrix = XMMatrixScalingFromVector(scale.Scale3D);;
-		});
 
 		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
-			auto [matrix, posc] = posview.get<RenderMatrixComponent, PositionComponent>(entity);
-			matrix.Matrix = matrix.Matrix* XMMatrixTranslation(posc.Position.x, posc.Position.y, posc.Position.z);
-			
+			auto[t, p] = posview.get<TransformComponent, PositionComponent>(entity);
+			t.position = XMLoadFloat3(&p.Position);			
 		});
+
+
 		
-		std::for_each(std::execution::par_unseq, rotview.begin(), rotview.end(), [&rotview](const auto entity) {
-			auto [matrix, rotc] = rotview.get<RenderMatrixComponent, RotationComponent>(entity);
-			matrix.Matrix = XMMatrixRotationAxis(rotc.RotationAxis, XMConvertToRadians(rotc.Angle)) * matrix.Matrix;
+		std::for_each(std::execution::par_unseq, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
 			
-		});
+			auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
+
+			const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
+			const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
+			const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
+
+			if (XMVectorGetX(t.scale) > 10)
+			{
+				
+			}
+
+			matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
+		});	
+		{
+			SCOPE_PROFILE("Transform Hiearchjy System");
+
+			registry.sort<EntityParentComponent>([](const auto &lhs, const auto &rhs) {
+				return lhs.hierarchyDepth < rhs.hierarchyDepth;
+			});
+
+			int iterations = 0;
+			int invalid = 0;
+			int lasthierarchy = 0;
+
+			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent>(entt::persistent_t{});
+			hierarchyview.each([&, dt](auto entity, EntityParentComponent & parent, RenderMatrixComponent & matrix) {
+
+				//if (parent.hierarchyDepth > lasthierarchy)
+				//{
+				//	lasthierarchy = parent.hierarchyDepth;
+				//}
+				//else if (parent.hierarchyDepth < lasthierarchy)
+				//{
+				//	std::cout << "WTF";
+				//}
+
+				//uint64_t current = registry.current(parent.parent);
+				//uint64_t vers = registry.version(parent.parent);
+				//if (current == vers &&!registry.has<SpaceshipMovementComponent>(parent.parent))
+				//{
+				//	std::cout << current << vers<< "WTF";
+				//}
+				//std::cout << registry.current(parent.parent) << ":" << registry.version(parent.parent) << std::endl;
+				if (parent.Valid(registry)/* && registry.has<RenderMatrixComponent>(parent.parent)*/)//  parent.Valid(registry))
+				{
+					iterations++;
+					const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+					matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
+				}
+				else
+				{
+					invalid++;
+					matrix.Matrix = XMMatrixScaling(0, 0, 0);
+					//registry.destroy(entity);
+					registry.accommodate<LifetimeComponent>(entity, 0.0f);
+				}
+			});
+		}
+
+		//std::cout << iterations << invalid;
 		
 	};
 };
@@ -433,8 +499,7 @@ struct CubeRendererSystem: public System {
 				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniform, 0, 0);
 
 				Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
-			}
-			
+			}			
 		});
 
 
@@ -506,7 +571,7 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 100 + 200;
 	float posz = XMVectorGetZ(Location) + rng::RandomFloat() * 100;
 
-	registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
+	//registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
 	SpaceshipSpawnerComponent & spcomp = registry.assign<SpaceshipSpawnerComponent>(spawner1);
 	spcomp.Bounds = XMFLOAT3(10, 50, 50);
 	spcomp.Elapsed = 0;
@@ -527,7 +592,10 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 
 	
 	registry.assign<RenderMatrixComponent>(spawner1);
-	registry.assign<ScaleComponent>(spawner1, XMVectorSet(1.0f, 10.0f, 10.0f, 1.0f));
+	registry.assign<TransformComponent>(spawner1);
+	registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
+	registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
+	
 }
 
 class ECS_GameWorld {
@@ -554,6 +622,12 @@ public:
 		Systems.push_back(new DestructionSystem());
 		Renderer.reset( /*std::make_unique<RenderSystem>(*/new RenderSystem());
 
+		//auto testdestroy = registry.create();
+		//std::cout <<"created entity:"<< testdestroy << std::endl;
+		//registry.destroy(testdestroy);
+		//std::cout << "destroyed entity:" << testdestroy << std::endl;
+
+
 		//create camera
 
 		auto cam = registry.create();
@@ -569,38 +643,42 @@ public:
 		appInfo.Drawcalls = 10000;
 		appInfo.RenderTime = 1.0f;
 
-		for (float z = -1000;z < 1000; z += 100)
+		for (float z = -1000;z < 1000; z += 200)
 		{
 			BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 			BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 		}		
 
-		for (float x = -1000; x < 1000; x+=10)
-		{
-			for (float y = -100; y < -99; y += 10)
-			{
-				for (float z = -1000; z <1000; z += 10)
-				{
-					auto e = registry.create();
-
-					registry.assign<CubeRendererComponent>(e);
-
-					float nx = (x + 1000.0) / 2000.0;
-					float nz = (z + 1000.0) / 2000.0;
-					registry.get<CubeRendererComponent>(e).color = XMFLOAT3(nx,0.5,nz) ;
-
-					registry.assign<PositionComponent>(e, XMFLOAT3(x, y, z));
-					registry.assign<RenderMatrixComponent>(e);
-					registry.assign<ScaleComponent>(e, XMVectorSet(10.0f,1.0f,10.0f,1.0f) );
-
-					XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
-
-					registry.assign<RotatorComponent>(e, 1.0f);
-					registry.assign<RotationComponent>(e, rotationAxis, 0.0f);
-
-				}
-			}
-		}
+		//for (float x = -1000; x < 1000; x+=10)
+		//{
+		//	for (float y = -100; y < -99; y += 10)
+		//	{
+		//		for (float z = -1000; z <1000; z += 10)
+		//		{
+		//			auto e = registry.create();
+		//
+		//			registry.assign<CubeRendererComponent>(e);
+		//
+		//			float nx = (x + 1000.0) / 2000.0;
+		//			float nz = (z + 1000.0) / 2000.0;
+		//			registry.get<CubeRendererComponent>(e).color = XMFLOAT3(nx,0.5,nz) ;
+		//
+		//			registry.assign<PositionComponent>(e, XMFLOAT3(x, y, z));
+		//			registry.assign<RenderMatrixComponent>(e);
+		//
+		//			registry.assign<TransformComponent>(e);
+		//			registry.get<TransformComponent>(e).scale = XMVectorSet(10.0f, 1.0f, 10.0f, 1.0f) ;
+		//			//registry.get<TransformComponent>(e).rotationQuat = XMVectorSet(0, 1, 1, 0);
+		//			
+		//
+		//			//XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+		//
+		//			registry.assign<RotatorComponent>(e, XMVectorSet(0, 1, 1, 0), 1.0f);
+		//			//registry.assign<RotationComponent>(e, rotationAxis, 0.0f);
+		//
+		//		}
+		//	}
+		//}
 	}
 
 	void Update_All(float dt)

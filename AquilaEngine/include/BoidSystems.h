@@ -65,6 +65,7 @@ struct BoidMap {
 	GridVec GridVecFromPosition(const PositionComponent & position);
 	GridVec GridVecFromVector(const XMVECTOR & position);
 	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid);
+	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid);
 
 	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body);
 
@@ -72,7 +73,7 @@ struct BoidMap {
 
 
 	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> Body);
-	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(GridItem2&)> Body);
+	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> Body);
 
 };
 

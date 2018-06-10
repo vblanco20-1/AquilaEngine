@@ -47,21 +47,21 @@ void BoidMap::AddToGridmap(const PositionComponent & position, const BoidCompone
 	gr.pos = XMLoadFloat3(&position.Position);
 	Mortons.push_back(gr);
 
-	return;
-	//auto search = Grid.find(loc);
-	//if (search != Grid.end())
-	//{
-	//	search->second.boids.push_back({ boid,position });
-	//}
-	//else
-	//{
-	//	GridBucket bucket;
-	//	bucket.boids.reserve(10);
-	//	bucket.boids.push_back({ boid,position });
-	//	Grid[loc] = std::move(bucket);
-	//}
+	return;	
 }
+void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid)
+{
+	GridVec loc = GridVecFromVector(pos);
 
+	GridItem2 gr(MortonFromGrid(loc));
+	gr.boid = boid;
+	gr.grid = loc;
+	//gr.morton = MortonFromGrid(loc);
+	gr.pos = pos;
+	Mortons.push_back(gr);
+
+	return;
+}
 void BoidMap::Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body)
 {
 	//GridVec loc = GridVecFromPosition(Position);
@@ -173,94 +173,49 @@ bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start
 	return false;
 }
 
-void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(GridItem2&)> Body)
+void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> Body)
 {
 	const float radSquared = radius * radius;	
 
 	const XMVECTOR Pos = position;
 
+	//calculate the minimum grid we are going to visit
 	const GridVec MinGrid = GridVecFromVector(Pos - XMVECTOR{ radius,radius,radius,0.0f });
-
+	//calculate the maximum grid we are going to visit
 	const GridVec MaxGrid = GridVecFromVector(Pos + XMVECTOR{ radius,radius,radius,0.0f });
 
+	//iterate that segment beetween min and max (3d)
 	for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
 		for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
 			for (int z = MinGrid.z; z <= MaxGrid.z ; z++) {
-				const GridVec SearchLoc{ x, y, z };	
+
+				const GridVec SearchLoc{ x, y, z };					
 				
-				const GridItem2 test(MortonFromGrid(SearchLoc));
 				
-				auto compare_morton = [](const GridItem2&lhs, const GridItem2& rhs) { return lhs.morton < rhs.morton; };
-				//
-				//auto search = std::lower_bound(Mortons.begin(), Mortons.end(), test.morton, compare_morton);//MortonGrid.find(test.morton);
-				//if (search != MortonArray.end())
-				//{
-				//	for (int i = search->second.start_idx; i < search->second.stop_idx; i++)
-				//	{
-				//		GridItem2 & item = Mortons[i];
-				//		const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
-				//		if (XMVectorGetX(Dist) < radSquared)
-				//		{
-				//			Body(item);
-				//		}
-				//
-				//		//Body(g);
-				//	}
-				//}
+				//prepare a hashmark with the morton code for the lower bound search
 				GridHashmark testhash;
 				testhash.morton = MortonFromGrid(SearchLoc);
+				//search the morton tile array for the morton that fits
 				auto compare_morton_array = [](const GridHashmark&lhs, const GridHashmark& rhs) { return lhs.morton < rhs.morton; };
-				auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
 
-				GridHashmark found;
-
-				//if(Binary_Find_Hashmark(found,0,MortonArray.size(), MortonFromGrid(SearchLoc)))				//if (lower != MortonArray.end())
-				//{
-				//	if (lower->start_idx == found.start_idx)
-				//	{
+				const auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
+				
 				if (lower != MortonArray.end())
 				{
-
-						size_t mstart = /*found.start_idx;*/lower->start_idx;
-						size_t mend = /*found.stop_idx;//*/lower->stop_idx;
-						//auto upper = std::upper_bound(lower, Mortons.end(), test, compare_morton);
-						//
-						//if (upper != Mortons.end())
-						//{
-						//	std::for_each(lower, upper, [&](GridItem2&item) {
-						for (int i = mstart; i < mend; i++)
+					//iterate the morton ordered segment of the cubes
+					const size_t mstart = lower->start_idx;
+					const size_t mend = lower->stop_idx;
+					
+					for (int i = mstart; i < mend; i++)
+					{
+						const GridItem2 & item = Mortons[i];
+						const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
+						if (XMVectorGetX(Dist) < radSquared)
 						{
-							GridItem2 & item = Mortons[i];
-							const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
-							if (XMVectorGetX(Dist) < radSquared)
-							{
-								Body(item);
-							}
+							Body(item);
 						}
-					//}
-							
-						//});
-					//}
-				}
-
-				//auto lower = std::lower_bound(Mortons.begin(), Mortons.end(), test, compare_morton);
-				//
-				//if (lower != Mortons.end())
-				//{
-				//	auto upper = std::upper_bound(lower, Mortons.end(), test, compare_morton);
-				//
-				//	if (upper != Mortons.end())
-				//	{
-				//		std::for_each(lower, upper, [&](GridItem2&item) {
-				//
-				//			const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
-				//			if (XMVectorGetX(Dist) < radSquared)
-				//			{
-				//				Body(item);
-				//			}
-				//		});
-				//	}
-				//}
+					}					
+				}				
 			}
 		}
 	}
@@ -327,15 +282,13 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 			registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
 		}
 
+		//get the "boid data" pointer
 		BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-		//boidref.map = &myMap;
-		//boidref.map->Grid.clear();
-		//boidref.map->MortonGrid.clear();
-		auto Boidview = registry.view<PositionComponent, BoidComponent>(entt::persistent_t{});
-
+		//grab a view for Transform and Boid entities
+		auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
 
 		
-
+		//reset data structures
 		boidref.map->Mortons.clear();
 		boidref.map->Mortons.reserve(Boidview.size());
 		boidref.map->MortonArray.clear();
@@ -343,17 +296,14 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 	{
 		SCOPE_PROFILE("Boid Initial Fill");
+		
+		//copy every entity of the view into the Mortons array (calculates morton too)
+		std::for_each(Boidview.begin(), Boidview.end(), [&](const auto entity) {
 
-		//ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
-		//appInfo.BoidEntities = Boidview.size();
-		std::for_each(/*std::execution::par_unseq,*/Boidview.begin(), Boidview.end(), [&](const auto entity) {
-
-
-			auto[campos, boid] = Boidview.get<PositionComponent, BoidComponent>(entity);
-
-		//Boidview.each([&, dt](auto entity, const PositionComponent & campos, const BoidComponent & boid) {
-			boidref.map->AddToGridmap(campos, boid);
-			//individualiterations++;
+			auto[t, boid] = Boidview.get<TransformComponent, BoidComponent>(entity);
+		
+			boidref.map->AddToGridmap(t.position, boid);
+			
 		});
 	}
 	{
@@ -362,6 +312,7 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 		{
 			{
 				SCOPE_PROFILE("Boid Hash Morton sort");
+				//parallel sort all entities by morton code
 				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
 					if (a.morton == b.morton)
 					{
@@ -376,11 +327,9 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 			{
 				SCOPE_PROFILE("Boid Hash Morton hash");
 			
-				//auto& mgrid = boidref.map->MortonGrid;
-				//mgrid.reserve(Boidview.size()/100);
+				//compact the entities array into the grid array, to speed up binary search
 				GridVec LastGrid = boidref.map->Mortons[0].grid;
-				GridHashmark LastMark{ 0,0 };
-			
+				GridHashmark LastMark{ 0,0 };			
 				for (size_t i = 1; i < boidref.map->Mortons.size(); i++)
 				{
 					GridVec NewGrid = boidref.map->Mortons[i].grid;
@@ -388,14 +337,12 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 					{
 						LastMark.stop_idx = i;
 						LastMark.morton = MortonFromGrid(LastGrid);
-						boidref.map->MortonArray.push_back(LastMark);
-						//mgrid[MortonFromGrid(LastGrid)] = LastMark;
+						boidref.map->MortonArray.push_back(LastMark);						
 						LastGrid = NewGrid;
 						LastMark.start_idx = i;
 					}
 				}
 			}
-
 		}
 	}
 		
