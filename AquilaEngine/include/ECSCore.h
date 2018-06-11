@@ -27,16 +27,40 @@ struct PositionComponent {
 //	XMVECTOR RotationAxis;
 //	float Angle;
 //};
+
+
+//struct HierarchyNode {
+//	XMMATRIX Transform;
+//	uint16_t Parent;
+//};
+//
+//struct NodeTree {
+//
+//	std::vector< HierarchyNode > Levels;
+//};
+
+//NodeTree & GetTransformTree(ECS_Registry & reg)
+//{
+//	if (reg.has<NodeTree>())
+//	{
+//		return reg.get<NodeTree>();
+//	}
+//	else
+//	{
+//		return reg.assign<NodeTree>();
+//	}
+//}
+
 struct TransformComponent {
 	XMVECTOR position;
 	XMVECTOR rotationQuat;
 	XMVECTOR scale;	
-
-	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){
-		
+	
+	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){		
 	}
 };
 struct EntityParentComponent {
+
 	//depth zero for a world transform
 	uint8_t hierarchyDepth;
 	EntityID parent;

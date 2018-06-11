@@ -24,6 +24,11 @@
 #include <execution>
 #include <random>
 #include <map>
+#include <array>
+#include <vector>
+#include <thread>
+#include <future>
+#include <concurrentqueue.h>
 //#define SPP_USE_SPP_ALLOC 1
 #include <sparsepp/spp.h>
 
@@ -48,4 +53,11 @@ inline void SafeRelease(T& ptr)
 		ptr = NULL;
 	}
 }
-//#include "EngineGlobals->h"
+inline DWORD GetCurrentProcessorNumber() {
+	int CPUInfo[4];
+	__cpuid(CPUInfo, 1);
+	// CPUInfo[1] is EBX, bits 24-31 are APIC ID
+	if ((CPUInfo[3] & (1 << 9)) == 0) return -1;  // no APIC on chip
+	return (unsigned)CPUInfo[1] >> 24;
+
+}

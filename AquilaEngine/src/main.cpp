@@ -14,6 +14,8 @@
 #include "RandomUtils.h"
 #include "EngineGlobals.h"
 #include "SimpleProfiler.h"
+#include "Multivector.h"
+
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -217,6 +219,9 @@ struct SpaceshipMovementSystem : public System {
 		
 	}
 };
+
+struct Level1Transform {};
+struct Level2Transform {};
 struct SpaceshipSpawnSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
@@ -292,9 +297,12 @@ struct SpaceshipSpawnSystem : public System {
 				registry.get<EntityParentComponent>(child_left).SetParent(  newe,registry);
 
 
-				registry.assign<LifetimeComponent>(newe, 10.0f);
-				registry.assign<LifetimeComponent>(child_right, 10.0f);
-				registry.assign<LifetimeComponent>(child_left, 10.0f);
+				registry.assign<LifetimeComponent>(newe, 20.0f);
+				registry.assign<LifetimeComponent>(child_right,20.0f);
+				registry.assign<LifetimeComponent>(child_left, 20.0f);
+
+				registry.assign<Level1Transform>(child_right);
+				registry.assign<Level1Transform>(child_left);
 				//registry.get<EntityParentComponent>(child_right).parent = newe;
 				//registry.get<EntityParentComponent>(child_right).hierarchyDepth = 1;
 
@@ -312,6 +320,7 @@ struct SpaceshipSpawnSystem : public System {
 	}
 };
 bool bHasFocus{ true };
+using namespace moodycamel;
 struct PlayerInputSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
@@ -369,7 +378,32 @@ struct PlayerInputSystem : public System {
 		InputInfo(g_InputMap);
 	}
 };
+
+
+
+
 struct TransformUpdateSystem : public System {
+
+	
+	//struct HierarchyPool {
+	//	std::vector<std::pair<RenderMatrixComponent&,EntityID> Entities;
+	//};
+	//
+	struct HierarchyUnit {
+		RenderMatrixComponent * mat{ nullptr };
+		RenderMatrixComponent * parent{ nullptr };
+	};
+	
+	
+	
+	struct TransformHierarchy {		
+		
+		//std::vector< multi_vector<HierarchyUnit,16>> Hierarchy;
+		std::vector< ConcurrentQueue<HierarchyUnit>> Queues;
+	};
+
+	
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		SCOPE_PROFILE("TransformUpdate System");
@@ -378,16 +412,16 @@ struct TransformUpdateSystem : public System {
 		auto  scaleview = registry.view<RenderMatrixComponent, TransformComponent>(entt::persistent_t{});
 		//auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
-		
+		TransformHierarchy Hierarchy;
 
 		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
 			auto[t, p] = posview.get<TransformComponent, PositionComponent>(entity);
 			t.position = XMLoadFloat3(&p.Position);			
 		});
 
-
+	
 		
-		std::for_each(std::execution::par_unseq, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
+		std::for_each(std::execution::par, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
 			
 			auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
 
@@ -403,38 +437,31 @@ struct TransformUpdateSystem : public System {
 			matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
 		});	
 		{
-			SCOPE_PROFILE("Transform Hiearchjy System");
 
-			registry.sort<EntityParentComponent>([](const auto &lhs, const auto &rhs) {
-				return lhs.hierarchyDepth < rhs.hierarchyDepth;
-			});
+			
 
 			int iterations = 0;
 			int invalid = 0;
 			int lasthierarchy = 0;
+			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent,Level1Transform>(entt::persistent_t{});
 
-			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent>(entt::persistent_t{});
-			hierarchyview.each([&, dt](auto entity, EntityParentComponent & parent, RenderMatrixComponent & matrix) {
+			auto lvl1 = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
+			auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
 
-				//if (parent.hierarchyDepth > lasthierarchy)
-				//{
-				//	lasthierarchy = parent.hierarchyDepth;
-				//}
-				//else if (parent.hierarchyDepth < lasthierarchy)
-				//{
-				//	std::cout << "WTF";
-				//}
 
-				//uint64_t current = registry.current(parent.parent);
-				//uint64_t vers = registry.version(parent.parent);
-				//if (current == vers &&!registry.has<SpaceshipMovementComponent>(parent.parent))
-				//{
-				//	std::cout << current << vers<< "WTF";
-				//}
-				//std::cout << registry.current(parent.parent) << ":" << registry.version(parent.parent) << std::endl;
-				if (parent.Valid(registry)/* && registry.has<RenderMatrixComponent>(parent.parent)*/)//  parent.Valid(registry))
+			std::for_each(std::execution::par, lvl1.begin(), lvl1.end(), [&](const auto entity) {
+				EntityParentComponent & parent = lvl1.get<EntityParentComponent>(entity);
+				RenderMatrixComponent & matrix = lvl1.get<RenderMatrixComponent>(entity);
+
+				if (parent.Valid(registry) && parent.hierarchyDepth < 5)
 				{
-					iterations++;
+					//if (v.size() < 5) { v.reserve(100) };
+					//HierarchyUnit unit;
+					//unit.mat = &matrix;
+					//unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
+					//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
+					//Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
+					//iterations++;
 					const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
 					matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
 				}
@@ -442,10 +469,126 @@ struct TransformUpdateSystem : public System {
 				{
 					invalid++;
 					matrix.Matrix = XMMatrixScaling(0, 0, 0);
-					//registry.destroy(entity);
 					registry.accommodate<LifetimeComponent>(entity, 0.0f);
 				}
 			});
+			std::for_each(std::execution::par, lvl2.begin(), lvl2.end(), [&](const auto entity) {
+				EntityParentComponent & parent = lvl2.get<EntityParentComponent>(entity);
+				RenderMatrixComponent & matrix = lvl2.get<RenderMatrixComponent>(entity);
+
+				if (parent.Valid(registry) && parent.hierarchyDepth < 5)
+				{
+					//if (v.size() < 5) { v.reserve(100) };
+					//HierarchyUnit unit;
+					//unit.mat = &matrix;
+					//unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
+					//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
+					//Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
+					//iterations++;
+					const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+					matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
+				}
+				else
+				{
+					invalid++;
+					matrix.Matrix = XMMatrixScaling(0, 0, 0);
+					registry.accommodate<LifetimeComponent>(entity, 0.0f);
+				}
+			});
+
+
+			//registry.sort<EntityParentComponent>([](const auto &lhs, const auto &rhs) {
+			//	return lhs.hierarchyDepth < rhs.hierarchyDepth;
+			//});			
+			//hierarchyview.each([&, dt](auto entity, EntityParentComponent & parent, RenderMatrixComponent & matrix) {
+			//
+			//
+			//}
+			//for (auto& l : Hierarchy.Hierarchy) {
+			//	l.clear_all();
+			//}
+			//
+			//Hierarchy.Hierarchy.reserve(5);
+			//
+			//if (Hierarchy.Queues.size() < 2)
+			//{
+			//	for (int n = 0; n < 5; n++)
+			//	{
+			//		//Hierarchy.Hierarchy.push_back(multi_vector<HierarchyUnit, 16>{});
+			//		Hierarchy.Queues.push_back(std::move(ConcurrentQueue<HierarchyUnit>{10000}));
+			//	}
+			//}
+			//
+			//
+			//{
+			//	SCOPE_PROFILE("Transform Hiearchjy System - Enqueue");
+			//
+			//	//Hierarchy.Hierarchy[1].reserve(10000);
+			//	//Hierarchy.Hierarchy[2].reserve(10000);
+			//	//for (auto& l : Hierarchy.Hierarchy) {
+			//	//	l.clear_all();
+			//	//}
+			//	//auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent>(entt::persistent_t{});
+			//	std::for_each(std::execution::par, hierarchyview.begin(), hierarchyview.end(), [&](const auto entity) {
+			//		EntityParentComponent & parent = hierarchyview.get<EntityParentComponent>(entity);
+			//		RenderMatrixComponent & matrix = hierarchyview.get<RenderMatrixComponent>(entity);
+			//		
+			//		if (parent.Valid(registry) && parent.hierarchyDepth < 5)
+			//		{
+			//			//if (v.size() < 5) { v.reserve(100) };
+			//			HierarchyUnit unit;
+			//			unit.mat = &matrix;
+			//			unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
+			//			//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
+			//			Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
+			//			//iterations++;
+			//			//const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+			//			//matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
+			//		}
+			//		else
+			//		{
+			//			invalid++;
+			//			matrix.Matrix = XMMatrixScaling(0, 0, 0);
+			//			registry.accommodate<LifetimeComponent>(entity, 0.0f);
+			//		}
+			//
+			//	});
+			//}
+			{
+				//SCOPE_PROFILE("Transform Hiearchjy System - dequeue");
+				//
+				//for (ConcurrentQueue<HierarchyUnit>&l : Hierarchy.Queues)
+				//{
+				//	if (l.size_approx() < 1000000)
+				//	{
+				//		HierarchyUnit unit;
+				//
+				//		//l.try_dequeue_non_interleaved()
+				//		while (l.try_dequeue_non_interleaved(unit))
+				//		{
+				//			unit.mat->Matrix = unit.mat->Matrix * unit.parent->Matrix;
+				//		}
+				//	}					
+				//}
+			}
+			
+			
+														   
+			//for (auto & l : Hierarchy.Hierarchy)
+			//{
+			//	for (auto &v : l.vectors)
+			//	{
+			//		for (auto & m : v)
+			//		{
+			//			m.mat->Matrix = m.mat->Matrix * m.parent->Matrix;
+			//		}
+			//	}
+			//}
+
+			//for (auto & l : Hierarchy.Hierarchy)
+			//{
+			//	std::cout << l.size();
+			//}
 		}
 
 		//std::cout << iterations << invalid;
@@ -465,6 +608,8 @@ void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
 static int nDrawcalls;
 
 struct CubeRendererSystem: public System {
+	ObjectUniformStruct uniformBuffer;
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		SCOPE_PROFILE("Cube Render System");
@@ -488,19 +633,40 @@ struct CubeRendererSystem: public System {
 
 		Globals->g_d3dDeviceContext->PSSetShader(Globals->g_d3dPixelShader, nullptr, 0);
 
+		
+
+		int bufferidx =0;
+
 		registry.view<RenderMatrixComponent,CubeRendererComponent>().each([&, dt](auto entity, RenderMatrixComponent & matrix, CubeRendererComponent & cube) {
 			if (cube.bVisible)
 			{
 				nDrawcalls++;
 
-				ObjectUniformStruct uniform;
-				uniform.worldMatrix = matrix.Matrix;
-				uniform.color = cube.color;
-				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniform, 0, 0);
+				////ObjectUniformStruct uniform;
+				//uniform.worldMatrix = matrix.Matrix;
+				//uniform.color = XMFLOAT4( cube.color.x, cube.color.y, cube.color.z,1.0f) ;
 
-				Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
+				uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
+				uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
+				bufferidx++;
+				if (bufferidx >= 512)
+				{
+					bufferidx = 0;
+					Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
+
+					Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
+				}
+				
+				//Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
 			}			
 		});
+
+		if (bufferidx > 0)
+		{
+			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
+
+			Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
+		}
 
 
 		
@@ -643,7 +809,7 @@ public:
 		appInfo.Drawcalls = 10000;
 		appInfo.RenderTime = 1.0f;
 
-		for (float z = -1000;z < 1000; z += 200)
+		for (float z = -1000;z < 1000; z += 100)
 		{
 			BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 			BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
@@ -905,10 +1071,10 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 		D3D_FEATURE_LEVEL_11_1,
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_1,
-		D3D_FEATURE_LEVEL_10_0,
+		D3D_FEATURE_LEVEL_10_0/*,
 		D3D_FEATURE_LEVEL_9_3,
 		D3D_FEATURE_LEVEL_9_2,
-		D3D_FEATURE_LEVEL_9_1
+		D3D_FEATURE_LEVEL_9_1*/
 	};
 
 	// This will be the feature level that 
@@ -1088,6 +1254,8 @@ int Run()
 
 	return static_cast<int>(msg.wParam);
 }
+
+
 static bool g_bIMGuiInitialized{ false };
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine, int cmdShow)
 {
@@ -1096,6 +1264,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 
 	Globals = new DXGlobals();
 	g_SimpleProfiler = new SimpleProfiler();
+
+	//std::vector<int> coretest;
+	//for (int i = 0; i < 1000; i++)
+	//{
+	//	coretest.push_back(-1);
+	//}
+	//
+	//std::for_each(std::execution::par, coretest.begin(), coretest.end(), [](auto &p) {
+	//	p = GetCurrentProcessorNumber();
+	//
+	//});
+	//
+	//
+	//std::cout << coretest[505 + rng::RandomFloat() * 500];
 
 	// Check for DirectX Math library support.
 	if (!XMVerifyCPUSupport())

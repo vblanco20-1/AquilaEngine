@@ -122,6 +122,12 @@
     <ClInclude Include="src\MeshResource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\Multivector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\concurrentqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="data\Shaders\SimplePixelShader.hlsl">

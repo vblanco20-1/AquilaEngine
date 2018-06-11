@@ -246,17 +246,17 @@ std::string GetLatestProfile<ID3D11VertexShader>()
 		return "vs_4_0";
 	}
 	break;
-	case D3D_FEATURE_LEVEL_9_3:
-	{
-		return "vs_4_0_level_9_3";
-	}
-	break;
-	case D3D_FEATURE_LEVEL_9_2:
-	case D3D_FEATURE_LEVEL_9_1:
-	{
-		return "vs_4_0_level_9_1";
-	}
-	break;
+	//case D3D_FEATURE_LEVEL_9_3:
+	//{
+	//	return "vs_4_0_level_9_3";
+	//}
+	//break;
+	//case D3D_FEATURE_LEVEL_9_2:
+	//case D3D_FEATURE_LEVEL_9_1:
+	//{
+	//	return "vs_4_0_level_9_1";
+	//}
+	//break;
 	} // switch( featureLevel )
 
 	return "";
@@ -287,17 +287,17 @@ std::string GetLatestProfile<ID3D11PixelShader>()
 		return "ps_4_0";
 	}
 	break;
-	case D3D_FEATURE_LEVEL_9_3:
-	{
-		return "ps_4_0_level_9_3";
-	}
-	break;
-	case D3D_FEATURE_LEVEL_9_2:
-	case D3D_FEATURE_LEVEL_9_1:
-	{
-		return "ps_4_0_level_9_1";
-	}
-	break;
+	//case D3D_FEATURE_LEVEL_9_3:
+	//{
+	//	return "ps_4_0_level_9_3";
+	//}
+	//break;
+	//case D3D_FEATURE_LEVEL_9_2:
+	//case D3D_FEATURE_LEVEL_9_1:
+	//{
+	//	return "ps_4_0_level_9_1";
+	//}
+	//break;
 	}
 	return "";
 }

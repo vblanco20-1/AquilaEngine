@@ -7,8 +7,8 @@ bool LoadContent();
 
 struct ObjectUniformStruct
 {
-	XMMATRIX worldMatrix;
-	XMFLOAT3 color;
+	XMMATRIX worldMatrix[512];
+	XMFLOAT4 color[512];
 };
 
 
