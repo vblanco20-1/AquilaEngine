@@ -16,6 +16,12 @@
     <Filter Include="Header Files\IMGUI">
       <UniqueIdentifier>{408dc87f-7e1f-4814-b501-748863bd7fba}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\ThirdParty">
+      <UniqueIdentifier>{b0ad2cea-8c97-495e-b0ec-3b32009931b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ThirdParty\Remotery">
+      <UniqueIdentifier>{08454e47-d1cf-4345-bd90-d87e428bb1dd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -62,6 +68,9 @@
     </ClCompile>
     <ClCompile Include="src\MeshResource.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\Remotery\lib\Remotery.c">
+      <Filter>Source Files\ThirdParty\Remotery</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

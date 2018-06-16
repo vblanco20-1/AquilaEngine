@@ -50,7 +50,10 @@ struct PositionComponent {
 //		return reg.assign<NodeTree>();
 //	}
 //}
-
+struct ExplosionFXComponent {
+	
+	float elapsed;
+};
 struct TransformComponent {
 	XMVECTOR position;
 	XMVECTOR rotationQuat;

@@ -41,6 +41,8 @@
 #include "entt/entt.hpp"
 
 
+#include "Remotery.h"
+
 
 
 // Safely release a COM object.

@@ -6,6 +6,7 @@
 #include "libmorton/morton.h"
 #include <execution>
 #include <algorithm>
+#include <Remotery.h>
 //#include "ApplicationInfoUI.h"
 
 
@@ -41,15 +42,17 @@ void BoidMap::AddToGridmap(const PositionComponent & position, const BoidCompone
 	GridVec loc = GridVecFromPosition(position);
 
 	GridItem2 gr(MortonFromGrid(loc));
+
+	
 	gr.boid = boid;
 	gr.grid = loc;
-	//gr.morton = MortonFromGrid(loc);
+	
 	gr.pos = XMLoadFloat3(&position.Position);
-	Mortons.push_back(gr);
+	Mortons[MortonIdx++] = gr;	
 
 	return;	
 }
-void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid)
+void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size_t index)
 {
 	GridVec loc = GridVecFromVector(pos);
 
@@ -58,7 +61,9 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid)
 	gr.grid = loc;
 	//gr.morton = MortonFromGrid(loc);
 	gr.pos = pos;
-	Mortons.push_back(gr);
+	//Mortons[MortonIdx++] = gr;
+	Mortons[index] = gr;
+	//Mortons.push_back(gr);
 
 	return;
 }
@@ -271,7 +276,8 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 
 void BoidHashSystem::update(ECS_Registry &registry, float dt)
 {
-	
+	rmt_ScopedCPUSample(BoidHashSystem, 0);
+
 		SCOPE_PROFILE("Boid Hash System All");
 
 		iterations++;
@@ -289,42 +295,76 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 		
 		//reset data structures
-		boidref.map->Mortons.clear();
-		boidref.map->Mortons.reserve(Boidview.size());
-		boidref.map->MortonArray.clear();
-		boidref.map->MortonArray.reserve(Boidview.size()/20);
+		//boidref.map->Mortons.clear();
+		//boidref.map->Mortons.reserve(Boidview.size());
+		std::vector<size_t> indices;
+		{
+			rmt_ScopedCPUSample(DataStructureInitialization, 0);
+			boidref.map->Mortons.resize(Boidview.size());
 
+			boidref.map->MortonArray.clear();
+
+			boidref.map->MortonArray.reserve(Boidview.size() / 20);
+			
+			indices.resize(Boidview.size());
+			boidref.map->MortonIdx = 0;
+
+			boidref.map->Mortons.resize(Boidview.size());
+			//copy every entity of the view into the Mortons array (calculates morton too)
+
+
+			int i = 0;
+
+			for (size_t & dx : indices)
+			{
+				dx = i;
+				i++;
+			}
+		}
 	{
+			rmt_ScopedCPUSample(InitialFill, 0);
 		SCOPE_PROFILE("Boid Initial Fill");
 		
-		//copy every entity of the view into the Mortons array (calculates morton too)
-		std::for_each(Boidview.begin(), Boidview.end(), [&](const auto entity) {
-
-			auto[t, boid] = Boidview.get<TransformComponent, BoidComponent>(entity);
 		
-			boidref.map->AddToGridmap(t.position, boid);
+		//std::for_each(std::execution::par,Boidview.begin(), Boidview.end(), [&](const auto entity) {
+		std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](const size_t idx) {
+		//for (size_t & idx : indices)
+		//{
+			//this is done in as many threads as the STL decides, usually all
+			auto[t, boid] = Boidview.get<TransformComponent, BoidComponent>(Boidview.data()[idx]);// entity);
+		
+			boidref.map->AddToGridmap(t.position, boid, idx);
 			
 		});
 	}
+
 	{
 		
 		if (boidref.map->Mortons.size() > 0)
 		{
 			{
+				rmt_ScopedCPUSample(MortonSort, 0);
 				SCOPE_PROFILE("Boid Hash Morton sort");
+
+
 				//parallel sort all entities by morton code
 				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
+
 					if (a.morton == b.morton)
 					{
+						//use the lengt of the vector to sort, as at this point it doesnt matter much
 						return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
 					}
 					else
 					{
+						//sort by morton
 						return a.morton < b.morton;
 					}
 				});
 			}
 			{
+				
+				rmt_ScopedCPUSample(MortonHash, 0);
 				SCOPE_PROFILE("Boid Hash Morton hash");
 			
 				//compact the entities array into the grid array, to speed up binary search

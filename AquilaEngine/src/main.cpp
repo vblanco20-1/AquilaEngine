@@ -29,26 +29,159 @@ void Render();
 void Cleanup();
 
 
+void BuildExplosionEffect(const XMVECTOR Position, ECS_Registry & registry)
+{
+	auto explosion = registry.create();
+	registry.assign<CubeRendererComponent>(explosion);
+	registry.get<CubeRendererComponent>(explosion).color = XMFLOAT3(0.0, 1.0, 1.0);
+	registry.assign<TransformComponent>(explosion);
+	registry.get<TransformComponent>(explosion).position = Position;
+	//registry.get<TransformComponent>(explosion) = registry.get<TransformComponent>(e);
+	registry.assign<RenderMatrixComponent>(explosion, XMMATRIX{});						
+	//
+	registry.assign<LifetimeComponent>(explosion, 2.f /5.0f);
+	registry.assign < ExplosionFXComponent>(explosion);
+
+}
 struct DestructionSystem : public System {
+
+	struct ExplosionSpawnStruct {
+		XMFLOAT3 position;
+	};
+	struct QueueTraits : public moodycamel::ConcurrentQueueDefaultTraits
+	{
+		static const size_t BLOCK_SIZE = 256;		// Use bigger blocks
+	};
+
+
+	moodycamel::ConcurrentQueue<EntityID, QueueTraits> EntitiesToDelete;
+	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
+
+	
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		rmt_ScopedCPUSample(DestructionSystem, 0);
+
+		
+		auto  view = registry.view<LifetimeComponent>(/*entt::persistent_t{}*/);
+
+		{
+			rmt_ScopedCPUSample(Destruction_Iterate, 0);
+
+			std::for_each(std::execution::par, view.begin(), view.end(), [&](const auto e) {
+
+				auto &life = view.get(e);
+
+				//view.each([&, dt](auto & e, LifetimeComponent & life) {
+				life.TimeLeft -= dt;
+				if (life.TimeLeft < 0)
+				{
+					if (registry.has<SpaceshipMovementComponent>(e))
+					{
+						//BuildExplosionEffect(registry.get<TransformComponent>(e).position,   registry);
+						//was a spaceship, create explosion fx;
+
+						auto & p = registry.get<TransformComponent>(e).position;
+
+						ExplosionSpawnStruct ex;
+
+						ex.position.x = XMVectorGetX(p);
+						ex.position.y = XMVectorGetY(p);
+						ex.position.z = XMVectorGetZ(p);
+						ExplosionsToSpawn.enqueue(ex);
+
+
+					}
+					//registry.destroy(e);
+					EntitiesToDelete.enqueue(e);
+				}
+			});
+		}
+		{
+			rmt_ScopedCPUSample(Destruction_Apply, 0);
+
+			EntityID EntitiesToDestroy[64];
+			while (true)
+			{
+				int dequeued = EntitiesToDelete.try_dequeue_bulk(EntitiesToDestroy, 64);
+				if (dequeued > 0)
+				{
+
+					for (int i = 0; i < dequeued;i++)
+					{
+						registry.destroy(EntitiesToDestroy[i]);
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+			//while (EntitiesToDelete.try_dequeue_bulk(EntityToDestroy))
+			//{
+			//	registry.destroy(EntityToDestroy);
+			//}
+			//ExplosionSpawnStruct ex;
+			//while (ExplosionsToSpawn.try_dequeue(ex)) {
+			//
+			//	BuildExplosionEffect(XMLoadFloat3(&ex.position), registry);
+			//}
+			ExplosionSpawnStruct ex[64];
+			while (true)
+			{
+				int dequeued = ExplosionsToSpawn.try_dequeue_bulk(ex, 64);
+				if (dequeued > 0)
+				{
+
+					for (int i = 0; i < dequeued;i++)
+					{
+						BuildExplosionEffect(XMLoadFloat3(&ex[i].position), registry);
+						//registry.destroy(EntitiesToDestroy[i]);
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+	}
+};
+
+struct ExplosionFXSystem : public System {
 
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		
-		auto  lifeview = registry.view<LifetimeComponent>(/*entt::persistent_t{}*/);
-		lifeview.each([&, dt](auto & e, LifetimeComponent & life) {
-			life.TimeLeft -= dt;
-			if (life.TimeLeft < 0)
-			{
-				registry.destroy(e);
-			}
+		rmt_ScopedCPUSample(ExplosionFXSystem, 0);
+		auto  view = registry.view<ExplosionFXComponent,TransformComponent>(entt::persistent_t{});
+
+		std::for_each(std::execution::par_unseq, view.begin(), view.end(), [&](const auto entity) {
+
+
+			auto[fx, tf] = view.get<ExplosionFXComponent, TransformComponent>(entity);
+
+			
+			fx.elapsed += 5.0*dt;
+			
+			const float sc = 3 + ((1-abs(fx.elapsed-1.0)) / 1.0) * 5;
+				tf.scale = XMVectorSet(sc, sc, sc, sc);
+			//if (life.TimeLeft < 0)
+			//{
+			//	if (registry.has<SpaceshipMovementComponent>(e))
+			//	{
+			//		BuildExplosionEffect(registry.get<TransformComponent>(e).position, registry);
+			//		//was a spaceship, create explosion fx;
+			//
+			//
+			//
+			//	}
+			//
+			//	registry.destroy(e);
+			//}
 		});
-
-		
-
 	}
 };
-
 
 struct RandomFlusherSystem : public System {
 
@@ -66,6 +199,7 @@ struct RandomFlusherSystem : public System {
 struct PlayerCameraSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(PlayerCameraSystem, 0);
 		XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
 		if (registry.has<PlayerInputTag>())
 		{
@@ -104,7 +238,8 @@ struct PlayerCameraSystem : public System {
 struct CameraSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		
+		rmt_ScopedCPUSample(CameraSystem, 0);
+
 		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			
@@ -122,9 +257,11 @@ struct CameraSystem : public System {
 struct CullingSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(CullingSystem, 0);
 		SCOPE_PROFILE("Culling System ")
 		XMVECTOR CamPos;
 		XMVECTOR CamDir;
+
 		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			//XMFLOAT3::
@@ -162,6 +299,7 @@ struct SpaceshipMovementSystem : public System {
 	float elapsed{0.0f};
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
 		SCOPE_PROFILE("Spaceship Movement System");
 		//elapsed -= dt;
 		//if (elapsed < 0)
@@ -225,6 +363,7 @@ struct Level2Transform {};
 struct SpaceshipSpawnSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(SpaceshipSpawnSystem, 0);
 		//return;
 		auto  posview = registry.view<SpaceshipSpawnerComponent,TransformComponent>();
 		for (auto e : posview)
@@ -296,10 +435,10 @@ struct SpaceshipSpawnSystem : public System {
 				registry.get<EntityParentComponent>(child_right).SetParent( newe, registry);
 				registry.get<EntityParentComponent>(child_left).SetParent(  newe,registry);
 
-
-				registry.assign<LifetimeComponent>(newe, 20.0f);
-				registry.assign<LifetimeComponent>(child_right,20.0f);
-				registry.assign<LifetimeComponent>(child_left, 20.0f);
+				const float defaultlifetime = 10.f + rng::RandomFloat() *5.0;
+				registry.assign<LifetimeComponent>(newe, defaultlifetime);
+				registry.assign<LifetimeComponent>(child_right, defaultlifetime);
+				registry.assign<LifetimeComponent>(child_left, defaultlifetime);
 
 				registry.assign<Level1Transform>(child_right);
 				registry.assign<Level1Transform>(child_left);
@@ -325,7 +464,7 @@ struct PlayerInputSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-
+		rmt_ScopedCPUSample(PlayerInputSystem, 0);
 		if (!registry.has<PlayerInputTag>())
 		{
 			auto player = registry.create();
@@ -406,6 +545,7 @@ struct TransformUpdateSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(TransformSystem, 0);
 		SCOPE_PROFILE("TransformUpdate System");
 
 		auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
@@ -414,30 +554,35 @@ struct TransformUpdateSystem : public System {
 
 		TransformHierarchy Hierarchy;
 
-		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
-			auto[t, p] = posview.get<TransformComponent, PositionComponent>(entity);
-			t.position = XMLoadFloat3(&p.Position);			
-		});
-
-	
-		
-		std::for_each(std::execution::par, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
-			
-			auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
-
-			const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
-			const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
-			const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
-
-			if (XMVectorGetX(t.scale) > 10)
-			{
-				
-			}
-
-			matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
-		});	
 		{
+			rmt_ScopedCPUSample(ApplyPosition, 0);
 
+
+			std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
+
+				
+
+				auto[t, p] = posview.get<TransformComponent, PositionComponent>(entity);
+				t.position = XMLoadFloat3(&p.Position);
+			});
+		}
+	
+		{
+			rmt_ScopedCPUSample(CalculateMatrices, 0);
+
+			std::for_each(std::execution::par, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
+				
+				auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
+
+				const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
+				const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
+				const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
+
+				matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
+			});
+		}
+		{
+			rmt_ScopedCPUSample(CalculateHierarchy, 0);
 			
 
 			int iterations = 0;
@@ -450,6 +595,8 @@ struct TransformUpdateSystem : public System {
 
 
 			std::for_each(std::execution::par, lvl1.begin(), lvl1.end(), [&](const auto entity) {
+				
+
 				EntityParentComponent & parent = lvl1.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = lvl1.get<RenderMatrixComponent>(entity);
 
@@ -473,6 +620,7 @@ struct TransformUpdateSystem : public System {
 				}
 			});
 			std::for_each(std::execution::par, lvl2.begin(), lvl2.end(), [&](const auto entity) {
+				
 				EntityParentComponent & parent = lvl2.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = lvl2.get<RenderMatrixComponent>(entity);
 
@@ -612,6 +760,9 @@ struct CubeRendererSystem: public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
+		rmt_ScopedCPUSample(CubeRendererSystem, 0);
+		rmt_ScopedD3D11Sample(CubeRendererSystemDX);
+
 		SCOPE_PROFILE("Cube Render System");
 		//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
 		const UINT vertexStride = sizeof(VertexPosColor);
@@ -636,6 +787,9 @@ struct CubeRendererSystem: public System {
 		
 
 		int bufferidx =0;
+		rmt_ScopedD3D11Sample(IterateCubes);
+
+		//rmt_BeginD3D11Sample(RenderCubeBatch);
 
 		registry.view<RenderMatrixComponent,CubeRendererComponent>().each([&, dt](auto entity, RenderMatrixComponent & matrix, CubeRendererComponent & cube) {
 			if (cube.bVisible)
@@ -655,6 +809,9 @@ struct CubeRendererSystem: public System {
 					Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
 					Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
+
+					//rmt_EndD3D11Sample();
+					//rmt_BeginD3D11Sample(RenderCubeBatch);
 				}
 				
 				//Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
@@ -666,6 +823,8 @@ struct CubeRendererSystem: public System {
 			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
 			Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
+			//rmt_EndD3D11Sample();
+			//rmt_BeginD3D11Sample(RenderCubeBatch);
 		}
 
 
@@ -695,6 +854,9 @@ struct RenderSystem : public System {
 	}
 
 	void render_start() {
+
+		rmt_BeginD3D11Sample(RenderFrameDX);
+
 		assert(Globals->g_d3dDevice);
 		assert(Globals->g_d3dDeviceContext);
 
@@ -707,10 +869,20 @@ struct RenderSystem : public System {
 		ImGui::Render();
 	}
 	void render_end() {
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-		Present(Globals->g_EnableVSync);
+		{
+			rmt_ScopedD3D11Sample(ImGuiRender);
+		
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		}
+		{
+			rmt_ScopedD3D11Sample(DirectXPresent);
+			Present(Globals->g_EnableVSync);
+		}
+		
 		ImGui_ImplDX11_NewFrame();
+
+		rmt_EndD3D11Sample();
 	}
 	void Present(bool vSync)
 	{
@@ -778,14 +950,18 @@ public:
 		Systems.push_back(new PlayerCameraSystem());
 		Systems.push_back(new RandomFlusherSystem());
 		Systems.push_back(new SpaceshipSpawnSystem());
-
+		Systems.push_back(new ExplosionFXSystem());
 
 		Systems.push_back(new BoidHashSystem());
+		Systems.push_back(new ExplosionFXSystem());
 		Systems.push_back(new SpaceshipMovementSystem());
+		Systems.push_back(new DestructionSystem());
+
+
 		Systems.push_back(new RotatorSystem());
 		Systems.push_back(new TransformUpdateSystem());
 		
-		Systems.push_back(new DestructionSystem());
+		
 		Renderer.reset( /*std::make_unique<RenderSystem>(*/new RenderSystem());
 
 		//auto testdestroy = registry.create();
@@ -857,36 +1033,44 @@ public:
 		Bench_Start(AllBench);
 		BenchmarkInfo bench;
 		Bench_Start(bench);
-		for (auto s : Systems)
+
 		{
-			s->update(registry,dt);
-		}
-		Bench_End(bench);
-		appInfo.SimTime = Bench_GetMiliseconds(bench);
-		appInfo.Drawcalls = nDrawcalls;
-		
+			rmt_ScopedCPUSample(SimulationUpdate, 0);
+			for (auto s : Systems)
+			{
+				s->update(registry, dt);
+			}
+			Bench_End(bench);
+			appInfo.SimTime = Bench_GetMiliseconds(bench);
+			appInfo.Drawcalls = nDrawcalls;
 
-		debug_elapsed+= dt;
-		if (debug_elapsed > 1)
+
+			debug_elapsed += dt;
+			if (debug_elapsed > 1)
+			{
+				debug_elapsed = 0;
+				debugiterations = 0;
+				g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
+				g_SimpleProfiler->units.clear();
+			}
+			AppInfoUI(appInfo);
+			DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
+
+
+		}
 		{
-			debug_elapsed = 0;
-			debugiterations = 0;
-			g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
-			g_SimpleProfiler->units.clear();
+			rmt_ScopedCPUSample(RenderUpdate, 0);
+			Bench_Start(bench);
+			Renderer->update(registry, dt);
+			Bench_End(bench);
+			appInfo.RenderTime = Bench_GetMiliseconds(bench);
+
 		}
-		AppInfoUI(appInfo);
-		DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
-
-
-		Bench_Start(bench);
-		Renderer->update(registry, dt);
-		Bench_End(bench);
-		appInfo.RenderTime = Bench_GetMiliseconds(bench);
-		
 		for (auto s : Systems)
 		{
 			s->cleanup(registry);
 		}
+
 	}
 	BenchmarkInfo AllBench;
 	//ApplicationInfo appInfo;
@@ -903,6 +1087,9 @@ ECS_GameWorld *GameWorld{nullptr};
 */
 int InitApplication(HINSTANCE hInstance, int cmdShow)
 {
+	Remotery* rmt;
+	rmt_CreateGlobalInstance(&rmt);
+
 	WNDCLASSEX wndClass = { 0 };
 	wndClass.cbSize = sizeof(WNDCLASSEX);
 	wndClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -1186,6 +1373,8 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	Globals->g_Viewport.MinDepth = 0.0f;
 	Globals->g_Viewport.MaxDepth = 1.0f;
 
+	rmt_BindD3D11(Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
+
 	return 0;
 }
 
@@ -1217,6 +1406,8 @@ int Run()
 	GameWorld = new ECS_GameWorld();
 	GameWorld->Initialize();
 
+	
+
 	while (msg.message != WM_QUIT)
 	{
 		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
@@ -1226,6 +1417,9 @@ int Run()
 		}
 		else
 		{
+			rmt_ScopedCPUSample(AllFrame, 0);
+			rmt_LogText("Time me, too!");
+
 			DWORD currentTime = timeGetTime();
 			float deltaTime = (currentTime - previousTime) / 1000.0f;
 			previousTime = currentTime;

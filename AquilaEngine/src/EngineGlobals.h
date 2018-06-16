@@ -25,7 +25,7 @@ struct DXGlobals {
   const LONG g_WindowWidth = 1280;
   const LONG g_WindowHeight = 720;
   LPCSTR g_WindowClassName = "DirectXWindowClass";
-  LPCSTR g_WindowName = "DirectX Template";
+  LPCSTR g_WindowName = "Battle Experiment";
   HWND g_WindowHandle = 0;
 
   const BOOL g_EnableVSync = FALSE;

@@ -3,7 +3,7 @@
 #include "ECSCore.h"
 #define SPP_USE_SPP_ALLOC 1
 #include <sparsepp/spp.h>
-
+#include <atomic>
 struct BoidComponent {
 	int Type;
 	int Faction;
@@ -40,9 +40,9 @@ const float GRID_DIMENSIONS = 20;
 using GridItem = std::pair<BoidComponent, PositionComponent>;
 
 struct GridHashmark {
-	size_t start_idx;
-	size_t stop_idx;
 	uint64_t morton;
+	uint32_t start_idx;
+	uint32_t stop_idx;
 };
 bool operator==(const GridHashmark&a, const GridHashmark&b);
 struct GridBucket {
@@ -61,11 +61,14 @@ struct BoidMap {
 	std::vector<GridHashmark> MortonArray;
 	
 	BoidMap() {};
+
+	std::atomic_uint32_t MortonIdx;
+
 	bool Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start, const size_t end, const uint64_t morton) const;
 	GridVec GridVecFromPosition(const PositionComponent & position);
 	GridVec GridVecFromVector(const XMVECTOR & position);
 	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid);
-	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid);
+	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid, size_t index);
 
 	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body);
 
