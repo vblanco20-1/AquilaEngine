@@ -533,6 +533,12 @@ public:
         direct.clear();
     }
 
+	void clone_to(SparseSet<Entity> &other)
+	{
+		other.reverse = reverse;
+		other.direct = direct;
+	}
+
 private:
     std::vector<entity_type> reverse;
     std::vector<entity_type> direct;
@@ -1094,6 +1100,7 @@ public:
         instances.clear();
     }
 
+	
 private:
     std::vector<object_type> instances;
 };

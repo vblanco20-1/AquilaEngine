@@ -3,6 +3,25 @@
 
 
 struct RotatorSystem : public System {
+
+	RotatorSystem() { uses_threading = true; };
+
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+
+		task.name("Rotator System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		auto  rotview = registry.view<TransformComponent, RotatorComponent>(entt::persistent_t{});

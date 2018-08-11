@@ -22,6 +22,9 @@
     <Filter Include="Source Files\ThirdParty\Remotery">
       <UniqueIdentifier>{08454e47-d1cf-4345-bd90-d87e428bb1dd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Taskflow">
+      <UniqueIdentifier>{986b789f-d5e0-4179-8cbe-93196fc8fa0a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -136,6 +139,9 @@
     </ClInclude>
     <ClInclude Include="include\concurrentqueue.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\taskflow\taskflow.hpp">
+      <Filter>Header Files\Taskflow</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

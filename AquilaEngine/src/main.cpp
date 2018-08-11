@@ -56,6 +56,19 @@ struct DestructionSystem : public System {
 
 	moodycamel::ConcurrentQueue<EntityID, QueueTraits> EntitiesToDelete;
 	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
+	DestructionSystem() { uses_threading = true; };
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+		task.name("Destruction System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
 
 	
 	virtual void update(ECS_Registry &registry, float dt)
@@ -68,7 +81,7 @@ struct DestructionSystem : public System {
 		{
 			rmt_ScopedCPUSample(Destruction_Iterate, 0);
 
-			std::for_each(std::execution::par, view.begin(), view.end(), [&](const auto e) {
+			std::for_each(/*std::execution::par,*/ view.begin(), view.end(), [&](const auto e) {
 
 				auto &life = view.get(e);
 
@@ -150,22 +163,37 @@ struct DestructionSystem : public System {
 
 struct ExplosionFXSystem : public System {
 
+	ExplosionFXSystem() { uses_threading = true; };
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+		task.name("ExplosionFX System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(ExplosionFXSystem, 0);
 		auto  view = registry.view<ExplosionFXComponent,TransformComponent>(entt::persistent_t{});
 
-		std::for_each(std::execution::par_unseq, view.begin(), view.end(), [&](const auto entity) {
+		std::for_each(/*std::execution::par_unseq, */view.begin(), view.end(), [&](const auto entity) {
 
 
-			auto[fx, tf] = view.get<ExplosionFXComponent, TransformComponent>(entity);
+			auto[fx, tfc] = view.get<ExplosionFXComponent, TransformComponent>(entity);
 
 			
 			fx.elapsed += 5.0*dt;
 			
 			const float sc = 3 + ((1-abs(fx.elapsed-1.0)) / 1.0) * 5;
-				tf.scale = XMVectorSet(sc, sc, sc, sc);
+			tfc.scale = XMVectorSet(sc, sc, sc, sc);
 			//if (life.TimeLeft < 0)
 			//{
 			//	if (registry.has<SpaceshipMovementComponent>(e))
@@ -185,6 +213,24 @@ struct ExplosionFXSystem : public System {
 
 struct RandomFlusherSystem : public System {
 
+	RandomFlusherSystem() { uses_threading = true; };
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		//ecs::TaskEngine::Task task = task_engine.placeholder();
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+
+		task.name("Random Flusher System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
@@ -197,6 +243,25 @@ struct RandomFlusherSystem : public System {
 	}
 };
 struct PlayerCameraSystem : public System {
+
+	PlayerCameraSystem() { uses_threading = true; };
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		//ecs::TaskEngine::Task task = task_engine.placeholder();
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&,dt]() {
+
+			update(registry, dt);
+		});
+
+		task.name("Player Camera System ");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(PlayerCameraSystem, 0);
@@ -236,11 +301,22 @@ struct PlayerCameraSystem : public System {
 	};
 };
 struct CameraSystem : public System {
+
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		ecs::TaskEngine::Task task = task_engine.placeholder();
+		task.name("Camera System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(CameraSystem, 0);
 
-		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+		registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			
 			XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
@@ -255,6 +331,17 @@ struct CameraSystem : public System {
 	};
 };
 struct CullingSystem : public System {
+
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		ecs::TaskEngine::Task task = task_engine.placeholder();
+		task.name("Culling System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(CullingSystem, 0);
@@ -262,7 +349,7 @@ struct CullingSystem : public System {
 		XMVECTOR CamPos;
 		XMVECTOR CamDir;
 
-		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+		registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 			//XMFLOAT3::
 			CamPos = XMLoadFloat3(&campos.Position);
@@ -297,6 +384,23 @@ struct CullingSystem : public System {
 };
 struct SpaceshipMovementSystem : public System {
 	float elapsed{0.0f};
+
+	SpaceshipMovementSystem() { uses_threading = true; };
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+
+
+		task.name("Spaceship Movement System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
@@ -361,6 +465,24 @@ struct SpaceshipMovementSystem : public System {
 struct Level1Transform {};
 struct Level2Transform {};
 struct SpaceshipSpawnSystem : public System {
+
+	SpaceshipSpawnSystem() { uses_threading = true; }
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+
+
+		task.name("Spaceship Spawn System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+	
+	
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(SpaceshipSpawnSystem, 0);
@@ -462,6 +584,21 @@ bool bHasFocus{ true };
 using namespace moodycamel;
 struct PlayerInputSystem : public System {
 
+	PlayerInputSystem() { uses_threading = true; };
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&,dt]() {
+
+			update(registry,dt);
+		});
+
+		task.name("Player Input System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(PlayerInputSystem, 0);
@@ -523,6 +660,19 @@ struct PlayerInputSystem : public System {
 
 struct TransformUpdateSystem : public System {
 
+	TransformUpdateSystem() { uses_threading = true; };
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		const float dt = get_delta_time(registry);
+		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+			update(registry, dt);
+		});
+		task.name("Transform Update System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
 	
 	//struct HierarchyPool {
 	//	std::vector<std::pair<RenderMatrixComponent&,EntityID> Entities;
@@ -558,7 +708,7 @@ struct TransformUpdateSystem : public System {
 			rmt_ScopedCPUSample(ApplyPosition, 0);
 
 
-			std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&posview](const auto entity) {
+			std::for_each(/*std::execution::par_unseq,*/ posview.begin(), posview.end(), [&posview](const auto entity) {
 
 				
 
@@ -570,7 +720,7 @@ struct TransformUpdateSystem : public System {
 		{
 			rmt_ScopedCPUSample(CalculateMatrices, 0);
 
-			std::for_each(std::execution::par, scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
+			std::for_each(/*std::execution::par, */scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
 				
 				auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
 
@@ -594,7 +744,7 @@ struct TransformUpdateSystem : public System {
 			auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
 
 
-			std::for_each(std::execution::par, lvl1.begin(), lvl1.end(), [&](const auto entity) {
+			std::for_each(/*std::execution::par, */lvl1.begin(), lvl1.end(), [&](const auto entity) {
 				
 
 				EntityParentComponent & parent = lvl1.get<EntityParentComponent>(entity);
@@ -619,7 +769,7 @@ struct TransformUpdateSystem : public System {
 					registry.accommodate<LifetimeComponent>(entity, 0.0f);
 				}
 			});
-			std::for_each(std::execution::par, lvl2.begin(), lvl2.end(), [&](const auto entity) {
+			std::for_each(/*std::execution::par, */lvl2.begin(), lvl2.end(), [&](const auto entity) {
 				
 				EntityParentComponent & parent = lvl2.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = lvl2.get<RenderMatrixComponent>(entity);
@@ -758,6 +908,16 @@ static int nDrawcalls;
 struct CubeRendererSystem: public System {
 	ObjectUniformStruct uniformBuffer;
 
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		ecs::TaskEngine::Task task = task_engine.placeholder();
+		task.name("Cube Renderer System");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
+
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(CubeRendererSystem, 0);
@@ -833,6 +993,39 @@ struct CubeRendererSystem: public System {
 };
 
 struct RenderSystem : public System {
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+
+		ecs::TaskEngine::Task root_task = task_engine.placeholder();
+		root_task.name("Render Start");
+		//run after the parent
+		root_task.gather(parent);
+
+		
+		ecs::TaskEngine::Task end_task = task_engine.placeholder();
+
+		{
+			//rmt_ScopedCPUSample(ScheduleUpdate, 0);
+
+
+			//root_task.name("Root");
+
+			ecs::TaskEngine::Task last_task = root_task;
+			for (auto s : Renderers)
+			{
+				last_task = s->schedule(registry, task_engine, last_task);
+			}
+
+			
+			end_task.gather(last_task);
+			end_task.name("Render End");
+
+		}
+
+
+		return std::move(end_task);
+	};
+
 
 	RenderSystem()
 	{
@@ -940,6 +1133,7 @@ class ECS_GameWorld {
 public:
 	float debug_elapsed;
 	int debugiterations{ 0 };
+	ecs::TaskEngine task_engine{ 4/*std::thread::hardware_concurrency()*/ };
 	void Initialize()
 	{
 		Bench_Start(AllBench);
@@ -953,7 +1147,7 @@ public:
 		Systems.push_back(new ExplosionFXSystem());
 
 		Systems.push_back(new BoidHashSystem());
-		Systems.push_back(new ExplosionFXSystem());
+		//Systems.push_back(new ExplosionFXSystem());
 		Systems.push_back(new SpaceshipMovementSystem());
 		Systems.push_back(new DestructionSystem());
 
@@ -963,6 +1157,41 @@ public:
 		
 		
 		Renderer.reset( /*std::make_unique<RenderSystem>(*/new RenderSystem());
+
+
+
+		//ecs::TaskEngine::Task root_task = task_engine.placeholder();
+		//ecs::TaskEngine::Task end_task = task_engine.placeholder();
+		//{
+		//	rmt_ScopedCPUSample(ScheduleUpdate, 0);
+		//
+		//
+		//	root_task.name("Root");
+		//
+		//	ecs::TaskEngine::Task last_task = root_task;
+		//	//game systems
+		//	for (auto s : Systems)
+		//	{
+		//		last_task = s->schedule(registry, task_engine, last_task);
+		//	}
+		//
+		//	last_task = Renderer->schedule(registry, task_engine, last_task);
+		//
+		//	end_task = task_engine.placeholder();
+		//	end_task.gather(last_task);
+		//	end_task.name("End");
+		//
+		//}
+		//
+		//std::ofstream debug_graph;
+		//debug_graph.open("debug_graph.txt");
+		//
+		//
+		//debug_graph << task_engine.dump();
+		//
+		//debug_graph.close();
+
+		
 
 		//auto testdestroy = registry.create();
 		//std::cout <<"created entity:"<< testdestroy << std::endl;
@@ -978,6 +1207,9 @@ public:
 		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
 		registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
+		registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
+		registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
+
 		//auto spawner1 = registry.create();
 		ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
 		appInfo.averagedDeltaTime = 0.03f;
@@ -1034,11 +1266,48 @@ public:
 		BenchmarkInfo bench;
 		Bench_Start(bench);
 
+
+		auto & timec = registry.get<EngineTimeComponent>();
+		timec.delta_time = dt;
+
+
+		ecs::TaskEngine::Task root_task = task_engine.placeholder();
+		ecs::TaskEngine::Task end_task = task_engine.placeholder();
+		{
+			rmt_ScopedCPUSample(ScheduleUpdate, 0);
+
+			
+			root_task.name("Root");
+
+			ecs::TaskEngine::Task last_task = root_task;
+			for (auto s : Systems)
+			{
+				last_task = s->schedule(registry, task_engine, last_task);
+			}
+
+			end_task = task_engine.placeholder();
+			end_task.gather(last_task);
+			end_task.name("End");
+
+		}
+		//std::stringstream s;
+		//s << task_engine.dump();
+
+		{
+			rmt_ScopedCPUSample(TaskWait, 0);
+			task_engine.wait_for_all();
+			
+
+		}
+
 		{
 			rmt_ScopedCPUSample(SimulationUpdate, 0);
 			for (auto s : Systems)
 			{
-				s->update(registry, dt);
+				if (!s->uses_threading)
+				{				
+					s->update(registry, dt);
+				}
 			}
 			Bench_End(bench);
 			appInfo.SimTime = Bench_GetMiliseconds(bench);
@@ -1059,6 +1328,15 @@ public:
 
 		}
 		{
+			//rmt_ScopedCPUSample(DeepClone, 0);
+			//registry.clone_to(registry);
+
+			//RendererRegistryReferenceComponent & render_reg = registry.get<RendererRegistryReferenceComponent>();
+			//render_reg.rg = &render_registry;
+
+		}
+
+		{
 			rmt_ScopedCPUSample(RenderUpdate, 0);
 			Bench_Start(bench);
 			Renderer->update(registry, dt);
@@ -1077,6 +1355,7 @@ public:
 	
 	std::unique_ptr<RenderSystem> Renderer;
 	ECS_Registry registry;
+	ECS_Registry render_registry;
 	std::vector<System*> Systems;
 };
 

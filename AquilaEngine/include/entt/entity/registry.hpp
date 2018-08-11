@@ -1482,6 +1482,61 @@ public:
         return { (*this = {}), assure };
     }
 
+	void clone_to(Registry &other)
+	{
+		other.handlers.clear();
+		other.handlers.reserve(handlers.size());
+		for (std::unique_ptr<SparseSet<Entity>> &h : handlers)
+		{
+			
+			auto setptr = std::make_unique<SparseSet<Entity>>();
+			h->clone_to(*setptr);
+			other.handlers.push_back(std::move(setptr));
+		}
+		other.pools.clear();
+		other.pools.reserve(pools.size());
+		for (std::tuple<std::unique_ptr<SparseSet<Entity>>, signal_type, signal_type> &tup : pools)
+		{
+			auto&[f, s, t] = tup;			
+
+			auto setptr = std::make_unique<SparseSet<Entity>>();
+			f->clone_to(*setptr);
+			
+			std::tuple<std::unique_ptr<SparseSet<Entity>>, signal_type, signal_type> copy(
+				std::move(setptr),
+				s,
+				t
+			) ;
+			other.pools.push_back(std::move(copy));
+		}
+		other.tags.clear();
+		other.tags.reserve(tags.size());
+		for (std::tuple<std::unique_ptr<Attachee>, signal_type, signal_type> &tup : tags)
+		{
+			auto&[f, s, t] = tup;
+
+			//std::tuple<std::unique_ptr<Attachee>, signal_type, signal_type> copy;
+			//
+			//copy[0] = std::make_unique<Attachee>(Attachee(tup[0]));
+			//copy[1] = tup[1];
+			//copy[2] = tup[2];
+
+			std::tuple<std::unique_ptr<Attachee>, signal_type, signal_type> copy(
+				std::make_unique<Attachee>(f->entity),
+				s,
+				t
+			);
+
+			other.tags.push_back(std::move(copy));
+		}
+
+		//other.handlers = handlers;
+		//other.pools = pools;
+		//other.tags = tags;
+		other.entities = entities;
+		other.available = available;
+		other.next = next;
+	}
 private:
     std::vector<std::unique_ptr<SparseSet<Entity>>> handlers;
     std::vector<std::tuple<std::unique_ptr<SparseSet<Entity>>, signal_type, signal_type>> pools;

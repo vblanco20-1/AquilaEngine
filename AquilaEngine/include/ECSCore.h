@@ -1,11 +1,11 @@
 #pragma once
-//#include <PrecompiledHeader.h>
-#include <stdint.h>
-#include "entt/entt.hpp"
+#include <PrecompiledHeader.h>
+//#include <stdint.h>
+//#include "entt/entt.hpp"
 
+//#include "taskflow/taskflow.hpp"
 
-
-#include <DirectXMath.h>
+//#include <DirectXMath.h>
 
 using namespace DirectX;
 using EntityID = std::uint64_t;
@@ -50,6 +50,11 @@ struct PositionComponent {
 //		return reg.assign<NodeTree>();
 //	}
 //}
+
+struct EngineTimeComponent {
+	float delta_time;
+};
+
 struct ExplosionFXComponent {
 	
 	float elapsed;
@@ -88,10 +93,36 @@ struct EntityParentComponent {
 };
 
 
+namespace ecs {
+	using TaskEngine = tf::BasicTaskflow<std::function<void()>>;
+}
+
+struct RendererRegistryReferenceComponent {
+
+	ECS_Registry * rg;
+};
 
 struct  System {
 
+	bool uses_threading{ false };
+
 	virtual ~System() {}
+
+	float get_delta_time(ECS_Registry &registry) {
+		return registry.get<EngineTimeComponent>().delta_time;
+
+	}
+	
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry,ecs::TaskEngine & task_engine , ecs::TaskEngine::Task & parent) { 
+	
+		ecs::TaskEngine::Task task = task_engine.placeholder();
+		task.name("Base System Schedule");
+		//run after the parent
+		task.gather(parent);
+		return std::move(task);
+	};
+
 	virtual void initialize(ECS_Registry &registry) {
 
 	};
@@ -138,4 +169,6 @@ struct SpaceshipSpawnerComponent {
 	XMVECTOR ShipMoveTarget;
 	float Elapsed;
 };
+
+
 

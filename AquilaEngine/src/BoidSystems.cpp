@@ -274,6 +274,21 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 	return a.morton == b.morton;
 }
 
+ecs::TaskEngine::Task BoidHashSystem::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent)
+{
+	const float dt = get_delta_time(registry);
+	ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+
+		update(registry, dt);
+	});
+
+
+	task.name("Boid Hash system");
+	//run after the parent
+	task.gather(parent);
+	return std::move(task);
+}
+
 void BoidHashSystem::update(ECS_Registry &registry, float dt)
 {
 	rmt_ScopedCPUSample(BoidHashSystem, 0);
@@ -348,7 +363,7 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 
 				//parallel sort all entities by morton code
-				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
+				std::sort(/*std::execution::par, */boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
 
 					if (a.morton == b.morton)
 					{

@@ -87,6 +87,9 @@ static int iterations{ 0 };
 static int individualiterations{ 0 };
 struct BoidHashSystem : public System {
 
+	BoidHashSystem() { uses_threading = true; };
+
+	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent);;
 
 	virtual void update(ECS_Registry &registry, float dt);
 };
