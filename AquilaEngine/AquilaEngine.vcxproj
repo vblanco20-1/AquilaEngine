@@ -153,6 +153,7 @@
     </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp" />
     <ClCompile Include="src\SimpleProfiler.cpp" />
+    <ClCompile Include="src\SpaceshipSystems.cpp" />
     <ClCompile Include="src\Timer.cpp" />
     <ClCompile Include="third_party\Remotery\lib\Remotery.c" />
   </ItemGroup>
@@ -175,6 +176,7 @@
     <ClInclude Include="include\PrecompiledHeader.h" />
     <ClInclude Include="include\RandomUtils.h" />
     <ClInclude Include="include\SimpleProfiler.h" />
+    <ClInclude Include="include\SpaceshipSystems.h" />
     <ClInclude Include="include\taskflow\taskflow.hpp" />
     <ClInclude Include="include\Timer.h" />
     <ClInclude Include="src\EngineGlobals.h" />

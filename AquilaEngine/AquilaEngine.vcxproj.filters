@@ -75,6 +75,9 @@
     <ClCompile Include="third_party\Remotery\lib\Remotery.c">
       <Filter>Source Files\ThirdParty\Remotery</Filter>
     </ClCompile>
+    <ClCompile Include="src\SpaceshipSystems.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\PrecompiledHeader.h">
@@ -142,6 +145,9 @@
     </ClInclude>
     <ClInclude Include="include\taskflow\taskflow.hpp">
       <Filter>Header Files\Taskflow</Filter>
+    </ClInclude>
+    <ClInclude Include="include\SpaceshipSystems.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -16,6 +16,10 @@
 #include "SimpleProfiler.h"
 #include "Multivector.h"
 
+
+
+#include "SpaceshipSystems.h"
+
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -380,85 +384,6 @@ struct CullingSystem : public System {
 				cube.bVisible = false;
 			}			
 		});
-	}
-};
-struct SpaceshipMovementSystem : public System {
-	float elapsed{0.0f};
-
-	SpaceshipMovementSystem() { uses_threading = true; };
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
-
-		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
-
-			update(registry, dt);
-		});
-
-
-		task.name("Spaceship Movement System");
-		//run after the parent
-		task.gather(parent);
-		return std::move(task);
-	};
-
-	virtual void update(ECS_Registry &registry, float dt)
-	{
-		rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
-		SCOPE_PROFILE("Spaceship Movement System");
-		//elapsed -= dt;
-		//if (elapsed < 0)
-		//{
-			//if (!registry.has<BoidReferenceTag>())
-			//{
-			//	auto player = registry.create();
-			//	registry.assign<BoidReferenceTag>(entt::tag_t{}, player,nullptr);
-			//}
-
-			BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-			
-
-
-			//120 fps simulation
-			dt = 1.0 /60.0;
-			elapsed = dt;
-
-			auto  posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
-
-			std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
-				
-				
-				auto & ship = posview.get<SpaceshipMovementComponent>(entity);
-				auto & t = posview.get<TransformComponent>(entity);
-				
-
-				XMVECTOR Mov = ship.Target - t.position;
-				Mov = XMVector3Normalize(Mov);
-				Mov = Mov * ship.speed * dt;
-
-				ship.Velocity += Mov;
-
-				
-				XMVECTOR OffsetVelocity{0.0f,0.0f,0.0f,0.0f};
-				boidref.map->Foreach_EntitiesInRadius_Morton(10, t.position, [&](const GridItem2& boid) {
-
-					XMVECTOR Avoidance = t.position - boid.pos;
-					float dist = XMVectorGetX(XMVector3Length(Avoidance));
-					OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
-
-				});
-
-				
-
-				ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
-
-				XMMATRIX rotmat = XMMatrixLookAtLH(t.position, t.position + ship.Velocity *10, XMVectorSet(0,1,0,0));
-
-				t.rotationQuat = XMQuaternionRotationMatrix(rotmat);
-				
-				t.position = t.position + ship.Velocity;
-			});
-		//}
-		
 	}
 };
 
@@ -1136,6 +1061,18 @@ public:
 	ecs::TaskEngine task_engine{ 4/*std::thread::hardware_concurrency()*/ };
 	void Initialize()
 	{
+
+		auto cam = registry.create();
+		registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
+		registry.assign<CameraComponent>(cam);
+		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
+
+		registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
+		registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
+		registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
+		BoidMap * map = new BoidMap();
+		registry.assign<BoidReferenceTag>(entt::tag_t{}, cam, map);
+
 		Bench_Start(AllBench);
 		ImGui_ImplDX11_NewFrame();
 		
@@ -1201,14 +1138,14 @@ public:
 
 		//create camera
 
-		auto cam = registry.create();
-		registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
-		registry.assign<CameraComponent>(cam);
-		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
-
-		registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
-		registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
-		registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
+		//auto cam = registry.create();
+		//registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
+		//registry.assign<CameraComponent>(cam);
+		//registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
+		//
+		//registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
+		//registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
+		//registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
 
 		//auto spawner1 = registry.create();
 		ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
