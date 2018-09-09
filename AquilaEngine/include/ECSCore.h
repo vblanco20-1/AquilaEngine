@@ -94,7 +94,9 @@ struct EntityParentComponent {
 
 
 namespace ecs {
-	using TaskEngine = tf::BasicTaskflow<std::function<void()>>;
+	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
+	using Task = typename TaskEngine::TaskType;
+	using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
 }
 
 struct RendererRegistryReferenceComponent {
@@ -114,9 +116,9 @@ struct  System {
 	}
 	
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry,ecs::TaskEngine & task_engine , ecs::TaskEngine::Task & parent) { 
+	virtual ecs::Task schedule(ECS_Registry &registry,ecs::TaskEngine & task_engine , ecs::Task & parent, ecs::Task & grandparent) { 
 	
-		ecs::TaskEngine::Task task = task_engine.placeholder();
+		ecs::Task task = task_engine.placeholder();
 		task.name("Base System Schedule");
 		//run after the parent
 		task.gather(parent);
@@ -172,3 +174,43 @@ struct SpaceshipSpawnerComponent {
 
 
 
+
+
+template <typename C, typename V>
+auto parallel_for_ecs(ecs::SubflowBuilder &builder, V& view, /*std::function<void(EntityID, V&)>*/C&& c, size_t g, const char*profile_name = "par_for") {
+
+	auto beg = view.begin();
+	auto end = view.end();
+
+	auto source = builder.placeholder();
+	auto target = builder.placeholder();
+
+	V *mview = new V(std::move(view));
+
+	while (beg != end) {
+
+		auto e = beg;
+		
+		size_t r = std::distance(beg, end);
+		std::advance(e, std::min(r, g));
+		
+		// Create a task
+		auto task = builder.silent_emplace([mview,profile_name, beg, e, c]() mutable {
+			rmt_BeginCPUSampleDynamic(profile_name, 0);
+
+
+			for (auto it = beg; it != e; it++)
+			{
+				c(*it,*mview);
+			}
+			//std::for_each(beg, e, c);
+			rmt_EndCPUSample();
+		});
+		source.precede(task);
+		task.precede(target);
+		
+		beg = e;
+	}
+
+	return std::make_pair(source, target);
+}

@@ -7,10 +7,10 @@ struct RotatorSystem : public System {
 	RotatorSystem() { uses_threading = true; };
 
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
 			update(registry, dt);
 		});

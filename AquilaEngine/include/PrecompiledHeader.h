@@ -6,7 +6,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "winmm.lib")
 
-
+#pragma warning(disable: 4838 4267 4244 4530)
 #include "taskflow/taskflow.hpp"
 
 
@@ -73,3 +73,4 @@ inline DWORD GetCurrentProcessorNumber() {
 	return (unsigned)CPUInfo[1] >> 24;
 
 }
+

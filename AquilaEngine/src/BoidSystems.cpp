@@ -274,10 +274,10 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 	return a.morton == b.morton;
 }
 
-ecs::TaskEngine::Task BoidHashSystem::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent)
+ecs::Task BoidHashSystem::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
 {
 	const float dt = get_delta_time(registry);
-	ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+	ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
 		update(registry, dt);
 	});
@@ -363,7 +363,7 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 
 				//parallel sort all entities by morton code
-				std::sort(/*std::execution::par, */boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
+				std::sort(std::execution::par,boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
 
 					if (a.morton == b.morton)
 					{

@@ -61,29 +61,39 @@ struct DestructionSystem : public System {
 	moodycamel::ConcurrentQueue<EntityID, QueueTraits> EntitiesToDelete;
 	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
 	DestructionSystem() { uses_threading = true; };
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
+
+		ecs::Task synctask = grandparent;//task_engine.placeholder();
+		//synctask.precede(parent);
+		//synctask.name("destruction sync");
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
-
-			update(registry, dt);
+		ecs::Task lifetask = task_engine.silent_emplace([&, dt]() {
+			CountLifetimes(registry, dt);
+			//update(registry, dt);
 		});
-		task.name("Destruction System");
+		lifetask.name("Lifetime System");
+
+		synctask.precede(lifetask);
+
+
+		ecs::Task applytask = task_engine.silent_emplace([&, dt]() {
+			ApplyDestruction(registry, dt);
+			//update(registry, dt);
+		});
+		applytask.name("ApplyDestruction System");
+
+
 		//run after the parent
-		task.gather(parent);
-		return std::move(task);
+		applytask.gather(parent,lifetask);
+		return std::move(applytask);
 	};
-
-	
-	virtual void update(ECS_Registry &registry, float dt)
+	void CountLifetimes(ECS_Registry &registry, float dt)
 	{
-		rmt_ScopedCPUSample(DestructionSystem, 0);
-
-		
+		rmt_ScopedCPUSample(Destruction_Iterate, 0);
 		auto  view = registry.view<LifetimeComponent>(/*entt::persistent_t{}*/);
 
-		{
-			rmt_ScopedCPUSample(Destruction_Iterate, 0);
+			
 
 			std::for_each(/*std::execution::par,*/ view.begin(), view.end(), [&](const auto e) {
 
@@ -113,55 +123,57 @@ struct DestructionSystem : public System {
 					EntitiesToDelete.enqueue(e);
 				}
 			});
-		}
+		
+	}
+	
+	void ApplyDestruction(ECS_Registry & registry, float dt)
+	{
+		rmt_ScopedCPUSample(Destruction_Apply, 0);
+
+		EntityID EntitiesToDestroy[64];
+		while (true)
 		{
-			rmt_ScopedCPUSample(Destruction_Apply, 0);
-
-			EntityID EntitiesToDestroy[64];
-			while (true)
+			int dequeued = EntitiesToDelete.try_dequeue_bulk(EntitiesToDestroy, 64);
+			if (dequeued > 0)
 			{
-				int dequeued = EntitiesToDelete.try_dequeue_bulk(EntitiesToDestroy, 64);
-				if (dequeued > 0)
-				{
 
-					for (int i = 0; i < dequeued;i++)
-					{
-						registry.destroy(EntitiesToDestroy[i]);
-					}
-				}
-				else
+				for (int i = 0; i < dequeued; i++)
 				{
-					break;
+					registry.destroy(EntitiesToDestroy[i]);
 				}
 			}
-			//while (EntitiesToDelete.try_dequeue_bulk(EntityToDestroy))
-			//{
-			//	registry.destroy(EntityToDestroy);
-			//}
-			//ExplosionSpawnStruct ex;
-			//while (ExplosionsToSpawn.try_dequeue(ex)) {
-			//
-			//	BuildExplosionEffect(XMLoadFloat3(&ex.position), registry);
-			//}
-			ExplosionSpawnStruct ex[64];
-			while (true)
+			else
 			{
-				int dequeued = ExplosionsToSpawn.try_dequeue_bulk(ex, 64);
-				if (dequeued > 0)
-				{
-
-					for (int i = 0; i < dequeued;i++)
-					{
-						BuildExplosionEffect(XMLoadFloat3(&ex[i].position), registry);
-						//registry.destroy(EntitiesToDestroy[i]);
-					}
-				}
-				else
-				{
-					break;
-				}
+				break;
 			}
 		}
+
+		ExplosionSpawnStruct ex[64];
+		while (true)
+		{
+			int dequeued = ExplosionsToSpawn.try_dequeue_bulk(ex, 64);
+			if (dequeued > 0)
+			{
+
+				for (int i = 0; i < dequeued; i++)
+				{
+					BuildExplosionEffect(XMLoadFloat3(&ex[i].position), registry);
+					//registry.destroy(EntitiesToDestroy[i]);
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	virtual void update(ECS_Registry &registry, float dt)
+	{
+		rmt_ScopedCPUSample(DestructionSystem, 0);
+
+		CountLifetimes(registry, dt);
+		ApplyDestruction(registry, dt);
 	}
 };
 
@@ -169,10 +181,10 @@ struct ExplosionFXSystem : public System {
 
 	ExplosionFXSystem() { uses_threading = true; };
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
 			update(registry, dt);
 		});
@@ -196,7 +208,7 @@ struct ExplosionFXSystem : public System {
 			
 			fx.elapsed += 5.0*dt;
 			
-			const float sc = 3 + ((1-abs(fx.elapsed-1.0)) / 1.0) * 5;
+			const float sc = 3 + ((1-abs(fx.elapsed-1.0f)) / 1.0f) * 5;
 			tfc.scale = XMVectorSet(sc, sc, sc, sc);
 			//if (life.TimeLeft < 0)
 			//{
@@ -219,12 +231,12 @@ struct RandomFlusherSystem : public System {
 
 	RandomFlusherSystem() { uses_threading = true; };
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		//ecs::TaskEngine::Task task = task_engine.placeholder();
+		//ecs::Task task = task_engine.placeholder();
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
 			update(registry, dt);
 		});
@@ -250,12 +262,12 @@ struct PlayerCameraSystem : public System {
 
 	PlayerCameraSystem() { uses_threading = true; };
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		//ecs::TaskEngine::Task task = task_engine.placeholder();
+		//ecs::Task task = task_engine.placeholder();
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&,dt]() {
+		ecs::Task task = task_engine.silent_emplace([&,dt]() {
 
 			update(registry, dt);
 		});
@@ -307,9 +319,9 @@ struct PlayerCameraSystem : public System {
 struct CameraSystem : public System {
 
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		ecs::TaskEngine::Task task = task_engine.placeholder();
+		ecs::Task task = task_engine.placeholder();
 		task.name("Camera System");
 		//run after the parent
 		task.gather(parent);
@@ -337,9 +349,9 @@ struct CameraSystem : public System {
 struct CullingSystem : public System {
 
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		ecs::TaskEngine::Task task = task_engine.placeholder();
+		ecs::Task task = task_engine.placeholder();
 		task.name("Culling System");
 		//run after the parent
 		task.gather(parent);
@@ -392,10 +404,10 @@ struct Level2Transform {};
 struct SpaceshipSpawnSystem : public System {
 
 	SpaceshipSpawnSystem() { uses_threading = true; }
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
 			update(registry, dt);
 		});
@@ -482,7 +494,7 @@ struct SpaceshipSpawnSystem : public System {
 				registry.get<EntityParentComponent>(child_right).SetParent( newe, registry);
 				registry.get<EntityParentComponent>(child_left).SetParent(  newe,registry);
 
-				const float defaultlifetime = 10.f + rng::RandomFloat() *5.0;
+				const float defaultlifetime = 10.f + rng::RandomFloat() *5.0f;
 				registry.assign<LifetimeComponent>(newe, defaultlifetime);
 				registry.assign<LifetimeComponent>(child_right, defaultlifetime);
 				registry.assign<LifetimeComponent>(child_left, defaultlifetime);
@@ -510,10 +522,10 @@ using namespace moodycamel;
 struct PlayerInputSystem : public System {
 
 	PlayerInputSystem() { uses_threading = true; };
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&,dt]() {
+		ecs::Task task = task_engine.silent_emplace([&,dt]() {
 
 			update(registry,dt);
 		});
@@ -584,14 +596,108 @@ struct PlayerInputSystem : public System {
 
 
 struct TransformUpdateSystem : public System {
+	struct HierarchyUnit {
+		RenderMatrixComponent * mat{ nullptr };
+		RenderMatrixComponent * parent{ nullptr };
+	};
 
+
+
+	struct TransformHierarchy {
+
+		//std::vector< multi_vector<HierarchyUnit,16>> Hierarchy;
+		std::vector< ConcurrentQueue<HierarchyUnit>> Queues;
+	};
 	TransformUpdateSystem() { uses_threading = true; };
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	static void ApplyPosition(TransformComponent & t, const PositionComponent & p)
+	{
+		t.position = XMLoadFloat3(&p.Position);
+	}
+	static void BuildMatrix(const TransformComponent & t, RenderMatrixComponent & matrix)
+	{
+		const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
+		const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
+		const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
+
+		matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
+	}
+	static void ApplyParentMatrix(ECS_Registry &registry, EntityParentComponent & parent, RenderMatrixComponent & matrix)
+	{
+		if (parent.Valid(registry) && parent.hierarchyDepth < 5)
+		{
+			const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+			matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
+		}
+		else
+		{
+			
+			matrix.Matrix = XMMatrixScaling(0, 0, 0);
+			//registry.accommodate<LifetimeComponent>(entity, 0.0f);
+		}
+	}
+	
+	
+	
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
 		const float dt = get_delta_time(registry);
-		ecs::TaskEngine::Task task = task_engine.silent_emplace([&, dt]() {
+		ecs::Task task = task_engine.silent_emplace([&, dt](auto& subflow) {
 
-			update(registry, dt);
+			auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
+			auto  scaleview = registry.view<RenderMatrixComponent, TransformComponent>(entt::persistent_t{});
+
+			auto[Sp, Tp] = parallel_for_ecs(subflow,
+				posview,
+				[&](EntityID entity, auto view) {
+				auto[t, p] = view.get<TransformComponent, PositionComponent>(entity);
+				ApplyPosition(t, p);
+			}
+				,
+				2048  // execute one task at a time,
+				, "Worker: Apply Position"
+				);
+
+			auto[Ss, Ts] = parallel_for_ecs(subflow,scaleview,
+				[&](EntityID entity, auto view) {
+				auto[matrix, t] = view.get<RenderMatrixComponent, TransformComponent>(entity);
+				BuildMatrix(t, matrix);
+				}
+				,2048, "Worker: Apply Transform"
+				);
+
+			int iterations = 0;
+			int invalid = 0;
+			int lasthierarchy = 0;
+			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
+
+			auto lvl1 = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
+			auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
+
+			auto[S1, T1] = parallel_for_ecs(subflow, lvl1,
+				[&](EntityID entity, auto view) {
+				EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
+				RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
+
+				ApplyParentMatrix(registry, parent, matrix);
+				}
+				, 1024, "Worker:Lvl 1 Parent"
+				);
+			auto[S2, T2] = parallel_for_ecs(subflow, lvl2,
+				[&](EntityID entity, auto view) {
+				EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
+				RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
+
+				ApplyParentMatrix(registry, parent, matrix);
+			}
+				, 1024, "Worker:Lvl 2 Parent"
+				);
+			
+			Tp.precede(Ss);
+			Ts.precede(S1);
+			T1.precede(S2);
+			//subflow.linearize(Tp,Ts,T1,T2);
+
+			//update(registry, dt);
 		});
 		task.name("Transform Update System");
 		//run after the parent
@@ -603,18 +709,7 @@ struct TransformUpdateSystem : public System {
 	//	std::vector<std::pair<RenderMatrixComponent&,EntityID> Entities;
 	//};
 	//
-	struct HierarchyUnit {
-		RenderMatrixComponent * mat{ nullptr };
-		RenderMatrixComponent * parent{ nullptr };
-	};
 	
-	
-	
-	struct TransformHierarchy {		
-		
-		//std::vector< multi_vector<HierarchyUnit,16>> Hierarchy;
-		std::vector< ConcurrentQueue<HierarchyUnit>> Queues;
-	};
 
 	
 
@@ -634,11 +729,8 @@ struct TransformUpdateSystem : public System {
 
 
 			std::for_each(/*std::execution::par_unseq,*/ posview.begin(), posview.end(), [&posview](const auto entity) {
-
-				
-
 				auto[t, p] = posview.get<TransformComponent, PositionComponent>(entity);
-				t.position = XMLoadFloat3(&p.Position);
+				ApplyPosition(t, p);				
 			});
 		}
 	
@@ -648,12 +740,8 @@ struct TransformUpdateSystem : public System {
 			std::for_each(/*std::execution::par, */scaleview.begin(), scaleview.end(), [&scaleview](const auto entity) {
 				
 				auto[matrix, t] = scaleview.get<RenderMatrixComponent, TransformComponent>(entity);
-
-				const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
-				const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
-				const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
-
-				matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
+				BuildMatrix(t, matrix);
+				
 			});
 		}
 		{
@@ -675,143 +763,36 @@ struct TransformUpdateSystem : public System {
 				EntityParentComponent & parent = lvl1.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = lvl1.get<RenderMatrixComponent>(entity);
 
-				if (parent.Valid(registry) && parent.hierarchyDepth < 5)
-				{
-					//if (v.size() < 5) { v.reserve(100) };
-					//HierarchyUnit unit;
-					//unit.mat = &matrix;
-					//unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
-					//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
-					//Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
-					//iterations++;
-					const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
-					matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
-				}
-				else
-				{
-					invalid++;
-					matrix.Matrix = XMMatrixScaling(0, 0, 0);
-					registry.accommodate<LifetimeComponent>(entity, 0.0f);
-				}
+				ApplyParentMatrix(registry,parent, matrix);
+
+				
 			});
 			std::for_each(/*std::execution::par, */lvl2.begin(), lvl2.end(), [&](const auto entity) {
 				
 				EntityParentComponent & parent = lvl2.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = lvl2.get<RenderMatrixComponent>(entity);
 
-				if (parent.Valid(registry) && parent.hierarchyDepth < 5)
-				{
-					//if (v.size() < 5) { v.reserve(100) };
-					//HierarchyUnit unit;
-					//unit.mat = &matrix;
-					//unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
-					//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
-					//Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
-					//iterations++;
-					const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
-					matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
-				}
-				else
-				{
-					invalid++;
-					matrix.Matrix = XMMatrixScaling(0, 0, 0);
-					registry.accommodate<LifetimeComponent>(entity, 0.0f);
-				}
-			});
+				ApplyParentMatrix(registry, parent, matrix);
 
-
-			//registry.sort<EntityParentComponent>([](const auto &lhs, const auto &rhs) {
-			//	return lhs.hierarchyDepth < rhs.hierarchyDepth;
-			//});			
-			//hierarchyview.each([&, dt](auto entity, EntityParentComponent & parent, RenderMatrixComponent & matrix) {
-			//
-			//
-			//}
-			//for (auto& l : Hierarchy.Hierarchy) {
-			//	l.clear_all();
-			//}
-			//
-			//Hierarchy.Hierarchy.reserve(5);
-			//
-			//if (Hierarchy.Queues.size() < 2)
-			//{
-			//	for (int n = 0; n < 5; n++)
-			//	{
-			//		//Hierarchy.Hierarchy.push_back(multi_vector<HierarchyUnit, 16>{});
-			//		Hierarchy.Queues.push_back(std::move(ConcurrentQueue<HierarchyUnit>{10000}));
-			//	}
-			//}
-			//
-			//
-			//{
-			//	SCOPE_PROFILE("Transform Hiearchjy System - Enqueue");
-			//
-			//	//Hierarchy.Hierarchy[1].reserve(10000);
-			//	//Hierarchy.Hierarchy[2].reserve(10000);
-			//	//for (auto& l : Hierarchy.Hierarchy) {
-			//	//	l.clear_all();
-			//	//}
-			//	//auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent>(entt::persistent_t{});
-			//	std::for_each(std::execution::par, hierarchyview.begin(), hierarchyview.end(), [&](const auto entity) {
-			//		EntityParentComponent & parent = hierarchyview.get<EntityParentComponent>(entity);
-			//		RenderMatrixComponent & matrix = hierarchyview.get<RenderMatrixComponent>(entity);
-			//		
-			//		if (parent.Valid(registry) && parent.hierarchyDepth < 5)
-			//		{
-			//			//if (v.size() < 5) { v.reserve(100) };
-			//			HierarchyUnit unit;
-			//			unit.mat = &matrix;
-			//			unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
-			//			//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
-			//			Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
-			//			//iterations++;
-			//			//const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
-			//			//matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
-			//		}
-			//		else
-			//		{
-			//			invalid++;
-			//			matrix.Matrix = XMMatrixScaling(0, 0, 0);
-			//			registry.accommodate<LifetimeComponent>(entity, 0.0f);
-			//		}
-			//
-			//	});
-			//}
-			{
-				//SCOPE_PROFILE("Transform Hiearchjy System - dequeue");
-				//
-				//for (ConcurrentQueue<HierarchyUnit>&l : Hierarchy.Queues)
+				//if (parent.Valid(registry) && parent.hierarchyDepth < 5)
 				//{
-				//	if (l.size_approx() < 1000000)
-				//	{
-				//		HierarchyUnit unit;
-				//
-				//		//l.try_dequeue_non_interleaved()
-				//		while (l.try_dequeue_non_interleaved(unit))
-				//		{
-				//			unit.mat->Matrix = unit.mat->Matrix * unit.parent->Matrix;
-				//		}
-				//	}					
+				//	//if (v.size() < 5) { v.reserve(100) };
+				//	//HierarchyUnit unit;
+				//	//unit.mat = &matrix;
+				//	//unit.parent = &registry.get<RenderMatrixComponent>(parent.parent);
+				//	//Hierarchy.Hierarchy[parent.hierarchyDepth].get_vector().push_back(unit);
+				//	//Hierarchy.Queues[parent.hierarchyDepth].enqueue(unit);
+				//	//iterations++;
+				//	const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+				//	matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
 				//}
-			}
-			
-			
-														   
-			//for (auto & l : Hierarchy.Hierarchy)
-			//{
-			//	for (auto &v : l.vectors)
-			//	{
-			//		for (auto & m : v)
-			//		{
-			//			m.mat->Matrix = m.mat->Matrix * m.parent->Matrix;
-			//		}
-			//	}
-			//}
-
-			//for (auto & l : Hierarchy.Hierarchy)
-			//{
-			//	std::cout << l.size();
-			//}
+				//else
+				//{
+				//	invalid++;
+				//	matrix.Matrix = XMMatrixScaling(0, 0, 0);
+				//	registry.accommodate<LifetimeComponent>(entity, 0.0f);
+				//}
+			});			
 		}
 
 		//std::cout << iterations << invalid;
@@ -833,9 +814,9 @@ static int nDrawcalls;
 struct CubeRendererSystem: public System {
 	ObjectUniformStruct uniformBuffer;
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		ecs::TaskEngine::Task task = task_engine.placeholder();
+		ecs::Task task = task_engine.placeholder();
 		task.name("Cube Renderer System");
 		//run after the parent
 		task.gather(parent);
@@ -919,15 +900,15 @@ struct CubeRendererSystem: public System {
 
 struct RenderSystem : public System {
 
-	virtual ecs::TaskEngine::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::TaskEngine::Task & parent) {
+	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
-		ecs::TaskEngine::Task root_task = task_engine.placeholder();
+		ecs::Task root_task = task_engine.placeholder();
 		root_task.name("Render Start");
 		//run after the parent
 		root_task.gather(parent);
 
 		
-		ecs::TaskEngine::Task end_task = task_engine.placeholder();
+		ecs::Task end_task = task_engine.placeholder();
 
 		{
 			//rmt_ScopedCPUSample(ScheduleUpdate, 0);
@@ -935,10 +916,10 @@ struct RenderSystem : public System {
 
 			//root_task.name("Root");
 
-			ecs::TaskEngine::Task last_task = root_task;
+			ecs::Task last_task = root_task;
 			for (auto s : Renderers)
 			{
-				last_task = s->schedule(registry, task_engine, last_task);
+				last_task = s->schedule(registry, task_engine, last_task, last_task);
 			}
 
 			
@@ -1058,7 +1039,7 @@ class ECS_GameWorld {
 public:
 	float debug_elapsed;
 	int debugiterations{ 0 };
-	ecs::TaskEngine task_engine{ 4/*std::thread::hardware_concurrency()*/ };
+	ecs::TaskEngine task_engine{6/*std::thread::hardware_concurrency()*/};
 	void Initialize()
 	{
 
@@ -1087,6 +1068,8 @@ public:
 		//Systems.push_back(new ExplosionFXSystem());
 		Systems.push_back(new SpaceshipMovementSystem());
 		Systems.push_back(new DestructionSystem());
+		//Systems.push_back(new DestructionApplySystem());
+		
 
 
 		Systems.push_back(new RotatorSystem());
@@ -1094,58 +1077,6 @@ public:
 		
 		
 		Renderer.reset( /*std::make_unique<RenderSystem>(*/new RenderSystem());
-
-
-
-		//ecs::TaskEngine::Task root_task = task_engine.placeholder();
-		//ecs::TaskEngine::Task end_task = task_engine.placeholder();
-		//{
-		//	rmt_ScopedCPUSample(ScheduleUpdate, 0);
-		//
-		//
-		//	root_task.name("Root");
-		//
-		//	ecs::TaskEngine::Task last_task = root_task;
-		//	//game systems
-		//	for (auto s : Systems)
-		//	{
-		//		last_task = s->schedule(registry, task_engine, last_task);
-		//	}
-		//
-		//	last_task = Renderer->schedule(registry, task_engine, last_task);
-		//
-		//	end_task = task_engine.placeholder();
-		//	end_task.gather(last_task);
-		//	end_task.name("End");
-		//
-		//}
-		//
-		//std::ofstream debug_graph;
-		//debug_graph.open("debug_graph.txt");
-		//
-		//
-		//debug_graph << task_engine.dump();
-		//
-		//debug_graph.close();
-
-		
-
-		//auto testdestroy = registry.create();
-		//std::cout <<"created entity:"<< testdestroy << std::endl;
-		//registry.destroy(testdestroy);
-		//std::cout << "destroyed entity:" << testdestroy << std::endl;
-
-
-		//create camera
-
-		//auto cam = registry.create();
-		//registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
-		//registry.assign<CameraComponent>(cam);
-		//registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
-		//
-		//registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
-		//registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
-		//registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
 
 		//auto spawner1 = registry.create();
 		ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
@@ -1208,18 +1139,21 @@ public:
 		timec.delta_time = dt;
 
 
-		ecs::TaskEngine::Task root_task = task_engine.placeholder();
-		ecs::TaskEngine::Task end_task = task_engine.placeholder();
+		ecs::Task root_task = task_engine.placeholder();
+		ecs::Task end_task = task_engine.placeholder();
 		{
 			rmt_ScopedCPUSample(ScheduleUpdate, 0);
 
 			
 			root_task.name("Root");
 
-			ecs::TaskEngine::Task last_task = root_task;
+			ecs::Task last_task = root_task;
+			ecs::Task latest_task = last_task;
 			for (auto s : Systems)
 			{
-				last_task = s->schedule(registry, task_engine, last_task);
+				auto temp = last_task;
+				last_task = s->schedule(registry, task_engine, last_task, latest_task);
+				latest_task = temp;
 			}
 
 			end_task = task_engine.placeholder();
@@ -1227,9 +1161,13 @@ public:
 			end_task.name("End");
 
 		}
-		//std::stringstream s;
-		//s << task_engine.dump();
+		
+		
 
+		std::ofstream myfile;
+		myfile.open("example.txt", std::ios::trunc);
+		myfile << task_engine.dump();
+		myfile.close();
 		{
 			rmt_ScopedCPUSample(TaskWait, 0);
 			task_engine.wait_for_all();
