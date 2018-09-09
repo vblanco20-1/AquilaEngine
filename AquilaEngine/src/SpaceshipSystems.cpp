@@ -1,5 +1,5 @@
-#include "SpaceshipSystems.h"
-#include "BoidSystems.h"
+#include "Systems/SpaceshipSystems.h"
+#include "Systems/BoidSystems.h"
 #include "SimpleProfiler.h"
 #include "taskflow/taskflow.hpp"
 

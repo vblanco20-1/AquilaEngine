@@ -18,6 +18,8 @@ struct PlayerInputTag {
 	//XMMATRIX Matrix;
 };
 
+static bool bHasFocus{ true };
+
 void InputInfo(InputMap & info);
 
 InputMap HandleInputEvent(InputMap & Input, HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);

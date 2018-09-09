@@ -25,24 +25,18 @@
     <Filter Include="Header Files\Taskflow">
       <UniqueIdentifier>{986b789f-d5e0-4179-8cbe-93196fc8fa0a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\IMGUI">
+      <UniqueIdentifier>{d122abec-01ed-4687-ae96-36442a5c20ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Systems">
+      <UniqueIdentifier>{929515c1-9162-437b-8335-239d159e31c0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\PrecompiledHeader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_demo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_draw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\imgui_impl_dx11.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Input.cpp">
@@ -56,9 +50,6 @@
     </ClCompile>
     <ClCompile Include="src\DXShaders.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SimpleProfiler.cpp">
-      <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Timer.cpp">
       <Filter>Source Files</Filter>
@@ -76,6 +67,24 @@
       <Filter>Source Files\ThirdParty\Remotery</Filter>
     </ClCompile>
     <ClCompile Include="src\SpaceshipSystems.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui.cpp">
+      <Filter>Source Files\IMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp">
+      <Filter>Source Files\IMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp">
+      <Filter>Source Files\IMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SimpleProfiler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameWorld.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\GameSystems.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -122,13 +131,7 @@
     <ClInclude Include="include\ECSCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\CoreSystems.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\RandomUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BoidSystems.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\SimpleProfiler.h">
@@ -146,7 +149,28 @@
     <ClInclude Include="include\taskflow\taskflow.hpp">
       <Filter>Header Files\Taskflow</Filter>
     </ClInclude>
+    <ClInclude Include="include\BoidSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CoreSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Systems\LifetimeSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="include\SpaceshipSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Systems\GameSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Systems\TransformSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Systems\RenderSystems.h">
+      <Filter>Header Files\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GameWorld.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
