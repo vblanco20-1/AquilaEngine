@@ -349,7 +349,7 @@ int Run()
 	static const float maxTimeStep = 1.0f / targetFramerate;
 
 	GameWorld = new ECS_GameWorld();
-	GameWorld->Initialize();
+	GameWorld->initialize();
 
 	
 
@@ -374,7 +374,7 @@ int Run()
 			deltaTime = std::min<float>(deltaTime, maxTimeStep);
 			
 			
-			GameWorld->Update_All(deltaTime);
+			GameWorld->update_all(deltaTime);
 			
 
 		}
@@ -391,21 +391,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	UNREFERENCED_PARAMETER(cmdLine);
 
 	Globals = new DXGlobals();
-	g_SimpleProfiler = new SimpleProfiler();
-
-	//std::vector<int> coretest;
-	//for (int i = 0; i < 1000; i++)
-	//{
-	//	coretest.push_back(-1);
-	//}
-	//
-	//std::for_each(std::execution::par, coretest.begin(), coretest.end(), [](auto &p) {
-	//	p = GetCurrentProcessorNumber();
-	//
-	//});
-	//
-	//
-	//std::cout << coretest[505 + rng::RandomFloat() * 500];
+	g_SimpleProfiler = new SimpleProfiler();	
 
 	// Check for DirectX Math library support.
 	if (!XMVerifyCPUSupport())

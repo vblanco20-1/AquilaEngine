@@ -59,7 +59,7 @@ ECS_GameWorld::~ECS_GameWorld()
 	}
 }
 
-void ECS_GameWorld::Initialize()
+void ECS_GameWorld::initialize()
 {
 	auto cam = registry.create();
 	registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
@@ -91,10 +91,10 @@ void ECS_GameWorld::Initialize()
 
 
 	Systems.push_back(new RotatorSystem());
-	Systems.push_back(new TransformUpdateSystem());
+	Systems.push_back(new ecs::system::UpdateTransform());
 
 
-	Renderer = new RenderSystem();
+	Renderer = new ecs::system::RenderCore();
 
 	//auto spawner1 = registry.create();
 	ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
@@ -110,7 +110,7 @@ void ECS_GameWorld::Initialize()
 	}
 }
 
-void ECS_GameWorld::Update_All(float dt)
+void ECS_GameWorld::update_all(float dt)
 {
 	ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
 	appInfo.TotalEntities = registry.size();

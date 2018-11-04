@@ -31,6 +31,9 @@
     <Filter Include="Header Files\Systems">
       <UniqueIdentifier>{929515c1-9162-437b-8335-239d159e31c0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Systems">
+      <UniqueIdentifier>{9ee631b4-4ed0-46b4-8a9f-64d691c084fc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -43,9 +46,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BoidSystems.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\DXShaders.cpp">
@@ -66,9 +66,6 @@
     <ClCompile Include="third_party\Remotery\lib\Remotery.c">
       <Filter>Source Files\ThirdParty\Remotery</Filter>
     </ClCompile>
-    <ClCompile Include="src\SpaceshipSystems.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
@@ -84,8 +81,23 @@
     <ClCompile Include="src\GameWorld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\BoidSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
     <ClCompile Include="src\Systems\GameSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SpaceshipSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\RenderSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Systems\TransformSystems.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Source.cpp">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -171,6 +183,9 @@
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
     <ClInclude Include="include\GameWorld.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\slotmap.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

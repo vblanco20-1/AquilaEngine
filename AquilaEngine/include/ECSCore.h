@@ -125,14 +125,10 @@ struct  System {
 		return std::move(task);
 	};
 
-	virtual void initialize(ECS_Registry &registry) {
-
-	};
+	virtual void initialize(ECS_Registry &registry) {};
 	virtual void update(ECS_Registry &registry, float dt) = 0;
 
-	virtual void cleanup(ECS_Registry &registry) {
-
-	};
+	virtual void cleanup(ECS_Registry &registry) {};
 
 };
 

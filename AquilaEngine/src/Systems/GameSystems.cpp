@@ -67,46 +67,6 @@ void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 	}
 }
 
-void CullingSystem::update(ECS_Registry &registry, float dt)
-{
-	rmt_ScopedCPUSample(CullingSystem, 0);
-	SCOPE_PROFILE("Culling System ")
-		XMVECTOR CamPos;
-	XMVECTOR CamDir;
-
-	registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
-
-		//XMFLOAT3::
-		CamPos = XMLoadFloat3(&campos.Position);
-		//XMFLOAT3 FocalPoint{ XMVectorGetX(cam.focusPoint),XMVectorGetY(cam.focusPoint),XMVectorGetZ(cam.focusPoint) };
-		CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
-	});
-
-	CamDir = XMVector3Normalize(CamDir);
-	auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});
-
-	//XMVECTOR VecDir = 
-	std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
-
-
-		auto[matrix, cube] = posview.get<RenderMatrixComponent, CubeRendererComponent>(entity);
-		//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
-
-		XMVECTOR pos = XMVector3Transform(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), matrix.Matrix);
-		XMVECTOR ToCube = CamPos - pos;
-		XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube, CamDir);
-
-		if (XMVectorGetX(angle) < XMConvertToRadians(40))
-		{
-			cube.bVisible = true;
-		}
-		else
-		{
-			cube.bVisible = false;
-		}
-	});
-}
-
 void SpaceshipSpawnSystem::update(ECS_Registry &registry, float dt)
 {
 	rmt_ScopedCPUSample(SpaceshipSpawnSystem, 0);
@@ -257,22 +217,4 @@ void PlayerInputSystem::update(ECS_Registry &registry, float dt)
 	registry.get<PlayerInputTag>().Input = g_InputMap;
 
 	InputInfo(g_InputMap);
-}
-
-void CameraSystem::update(ECS_Registry &registry, float dt)
-{
-	rmt_ScopedCPUSample(CameraSystem, 0);
-
-	registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
-
-
-		XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
-		XMVECTOR focusPoint = cam.focusPoint;// + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
-		XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
-
-		Globals->g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
-		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Frame], 0, nullptr, &Globals->g_ViewMatrix, 0, 0);
-
-		//rotation.Angle += 90.0f * dt;
-	});
 }

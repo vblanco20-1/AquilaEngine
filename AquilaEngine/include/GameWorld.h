@@ -2,7 +2,13 @@
 #include <PrecompiledHeader.h>
 #include "ECSCore.h"
 #include "Timer.h"
-struct RenderSystem;
+
+namespace ecs::system {
+	struct RenderCore;
+}
+
+
+
 class ECS_GameWorld {
 public:
 
@@ -11,13 +17,13 @@ public:
 	float debug_elapsed;
 	int debugiterations{ 0 };
 	ecs::TaskEngine task_engine{ 6/*std::thread::hardware_concurrency()*/ };
-	void Initialize();
+	void initialize();
 
-	void Update_All(float dt);
+	void update_all(float dt);
 	BenchmarkInfo AllBench;
 
 
-	RenderSystem* Renderer;
+	ecs::system::RenderCore* Renderer;
 	ECS_Registry registry;
 	ECS_Registry render_registry;
 	std::vector<System*> Systems;

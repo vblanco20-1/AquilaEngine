@@ -54,8 +54,8 @@
 #include <DirectXColors.h>
 #include <dinput.h>
 
-
-
+#include "ECSCore.h"
+#include "SimpleProfiler.h"
 
 // Safely release a COM object.
 template<typename T>

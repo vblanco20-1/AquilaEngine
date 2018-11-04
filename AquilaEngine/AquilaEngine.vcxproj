@@ -90,7 +90,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -123,7 +123,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;K:\Programming\AquilaEngine\AquilaEngine\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;C:\Programming\AquilaEngine\AquilaEngine\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -138,6 +138,8 @@
   <ItemGroup>
     <ClCompile Include="include\ApplicationInfoUI.cpp" />
     <ClCompile Include="include\ECSCore.cpp" />
+    <ClCompile Include="include\Source.cpp" />
+    <ClCompile Include="include\Systems\TransformSystems.cpp" />
     <ClCompile Include="src\BoidSystems.cpp" />
     <ClCompile Include="src\DXShaders.cpp" />
     <ClCompile Include="src\GameWorld.cpp" />
@@ -152,6 +154,7 @@
     <ClCompile Include="src\SimpleProfiler.cpp" />
     <ClCompile Include="src\SpaceshipSystems.cpp" />
     <ClCompile Include="src\Systems\GameSystems.cpp" />
+    <ClCompile Include="src\Systems\RenderSystems.cpp" />
     <ClCompile Include="src\Timer.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp" />
     <ClCompile Include="third_party\imgui\imgui_draw.cpp" />
@@ -178,6 +181,7 @@
     <ClInclude Include="include\PrecompiledHeader.h" />
     <ClInclude Include="include\RandomUtils.h" />
     <ClInclude Include="include\SimpleProfiler.h" />
+    <ClInclude Include="include\slotmap.hpp" />
     <ClInclude Include="include\SpaceshipSystems.h" />
     <ClInclude Include="include\Systems\GameSystems.h" />
     <ClInclude Include="include\Systems\LifetimeSystems.h" />

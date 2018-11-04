@@ -1,3 +1,5 @@
+#pragma once
+
 #include <PrecompiledHeader.h>
 #include "ECSCore.h"
 
@@ -9,35 +11,6 @@ struct PlayerCameraSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt);;
 };
-struct CameraSystem : public System {
-
-
-	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
-
-		ecs::Task task = task_engine.placeholder();
-		task.name("Camera System");
-		//run after the parent
-		task.gather(parent);
-		return std::move(task);
-	};
-
-	virtual void update(ECS_Registry &registry, float dt);;
-};
-struct CullingSystem : public System {
-
-
-	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
-
-		ecs::Task task = task_engine.placeholder();
-		task.name("Culling System");
-		//run after the parent
-		task.gather(parent);
-		return std::move(task);
-	};
-
-	virtual void update(ECS_Registry &registry, float dt);
-};
-
 struct Level1Transform {};
 struct Level2Transform {};
 struct SpaceshipSpawnSystem : public System {
