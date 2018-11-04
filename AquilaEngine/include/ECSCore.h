@@ -131,7 +131,7 @@ struct  System {
 
 	virtual void initialize(ECS_Registry &registry) {};
 	virtual void update(ECS_Registry &registry, float dt) = 0;
-	virtual void update(ECS_GameWorld & world) {};
+	virtual void update(ECS_GameWorld & world);;
 
 	virtual void cleanup(ECS_Registry &registry) {};
 

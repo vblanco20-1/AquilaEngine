@@ -165,9 +165,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
-    <ClInclude Include="include\BoidSystems.h" />
     <ClInclude Include="include\concurrentqueue.h" />
-    <ClInclude Include="include\CoreSystems.h" />
     <ClInclude Include="include\DXShaders.h" />
     <ClInclude Include="include\ECSCore.h" />
     <ClInclude Include="include\GameWorld.h" />
@@ -185,6 +183,7 @@
     <ClInclude Include="include\SimpleProfiler.h" />
     <ClInclude Include="include\slotmap.hpp" />
     <ClInclude Include="include\SpaceshipSystems.h" />
+    <ClInclude Include="include\Systems\CoreSystems.h" />
     <ClInclude Include="include\Systems\GameSystems.h" />
     <ClInclude Include="include\Systems\LifetimeSystems.h" />
     <ClInclude Include="include\Systems\RenderSystems.h" />

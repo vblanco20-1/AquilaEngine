@@ -161,12 +161,6 @@
     <ClInclude Include="include\taskflow\taskflow.hpp">
       <Filter>Header Files\Taskflow</Filter>
     </ClInclude>
-    <ClInclude Include="include\BoidSystems.h">
-      <Filter>Header Files\Systems</Filter>
-    </ClInclude>
-    <ClInclude Include="include\CoreSystems.h">
-      <Filter>Header Files\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="include\Systems\LifetimeSystems.h">
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
@@ -187,6 +181,9 @@
     </ClInclude>
     <ClInclude Include="include\slotmap.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Systems\CoreSystems.h">
+      <Filter>Header Files\Systems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

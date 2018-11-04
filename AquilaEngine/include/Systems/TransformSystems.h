@@ -45,6 +45,7 @@ namespace ecs::system {
 
 		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
 
+		virtual void update(ECS_GameWorld & world);
 		virtual void update(ECS_Registry &registry, float dt)
 		{
 			rmt_ScopedCPUSample(TransformSystem, 0);

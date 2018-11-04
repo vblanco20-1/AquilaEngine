@@ -1,6 +1,6 @@
 #pragma once
 #include "ECSCore.h"
-
+#include "GameWorld.h"
 
 struct RotatorSystem : public System {
 
@@ -35,4 +35,30 @@ struct RotatorSystem : public System {
 			//rotation.Angle += 90.0f * dt;
 		});
 	};
+
+	virtual  void update(ECS_GameWorld & world)
+	{
+		SCOPE_PROFILE("Rotation System-decs");
+
+		Archetype FullTrasform;
+		FullTrasform.AddComponent<RotatorComponent>();
+		FullTrasform.AddComponent<TransformComponent>();
+
+		float dt = world.GetTime().delta_time;
+		
+		//iterate blocks that have position
+		world.registry_decs.IterateBlocks(FullTrasform.componentlist, [&](ArchetypeBlock & block) {
+
+			auto rotarray = block.GetComponentArray<RotatorComponent>();
+			auto transfarray = block.GetComponentArray<TransformComponent>();
+
+			for (int i = block.last - 1; i >= 0; i--)
+			{
+				auto &t = transfarray.Get(i);
+				auto &rotator = rotarray.Get(i);
+
+				t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
+			}
+		}, true);
+	}
 };

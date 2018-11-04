@@ -63,6 +63,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	ARC_ShipSpawner.AddComponent<RenderMatrixComponent>();
 	ARC_ShipSpawner.AddComponent<TransformComponent>();
 	ARC_ShipSpawner.AddComponent<CubeRendererComponent>();
+	ARC_ShipSpawner.AddComponent<RotatorComponent>();
 
 	auto &registry = world.registry_decs;
 	auto spawner1 = registry.CreateEntity(ARC_ShipSpawner);
@@ -80,7 +81,8 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	spcomp.ShipMoveTarget = TargetLocation;
 	registry.GetComponent<SpaceshipSpawnerComponent>(spawner1) = spcomp;
 
-
+	registry.GetComponent<RotatorComponent>(spawner1).Axis = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
+	registry.GetComponent<RotatorComponent>(spawner1).rate = 1;
 	float  randomtint = rng::RandomFloat();
 	if (XMVectorGetX(Location) > 0)
 	{
@@ -98,6 +100,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	//registry.assign<TransformComponent>(spawner1);
 	registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
 	registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
+	registry.get<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
 
 	ecs::system::UpdateTransform::build_matrix(registry.get<TransformComponent>(spawner1), registry.get<RenderMatrixComponent>(spawner1));
 }
@@ -144,7 +147,7 @@ void ECS_GameWorld::initialize()
 	//
 	//
 	//
-	//Systems.push_back(new RotatorSystem());
+	Systems.push_back(new RotatorSystem());
 	Systems.push_back(new ecs::system::UpdateTransform());
 
 
@@ -189,20 +192,20 @@ void ECS_GameWorld::update_all(float dt)
 		rmt_ScopedCPUSample(ScheduleUpdate, 0);
 
 
-		root_task.name("Root");
-
-		ecs::Task last_task = root_task;
-		ecs::Task latest_task = last_task;
-		for (auto s : Systems)
-		{
-			auto temp = last_task;
-			last_task = s->schedule(registry_entt, task_engine, last_task, latest_task);
-			latest_task = temp;
-		}
-
-		end_task = task_engine.placeholder();
-		end_task.gather(last_task);
-		end_task.name("End");
+		//root_task.name("Root");
+		//
+		//ecs::Task last_task = root_task;
+		//ecs::Task latest_task = last_task;
+		//for (auto s : Systems)
+		//{
+		//	auto temp = last_task;
+		//	last_task = s->schedule(registry_entt, task_engine, last_task, latest_task);
+		//	latest_task = temp;
+		//}
+		//
+		//end_task = task_engine.placeholder();
+		//end_task.gather(last_task);
+		//end_task.name("End");
 
 	}
 
@@ -214,7 +217,7 @@ void ECS_GameWorld::update_all(float dt)
 	myfile.close();
 	{
 		rmt_ScopedCPUSample(TaskWait, 0);
-		task_engine.wait_for_all();
+		//task_engine.wait_for_all();
 
 
 	}
@@ -223,10 +226,10 @@ void ECS_GameWorld::update_all(float dt)
 		rmt_ScopedCPUSample(SimulationUpdate, 0);
 		for (auto s : Systems)
 		{
-			if (!s->uses_threading)
-			{
-				s->update(registry_entt, dt);
-			}
+			//if (!s->uses_threading)
+			//{
+				s->update(*this);
+			//}
 		}
 		Bench_End(bench);
 		appInfo.SimTime = Bench_GetMiliseconds(bench);

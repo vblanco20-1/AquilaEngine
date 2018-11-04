@@ -1,5 +1,5 @@
 #include "TransformSystems.h"
-
+#include "GameWorld.h"
 
 
 ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
@@ -67,4 +67,48 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 	//run after the parent
 	task.gather(parent);
 	return std::move(task);
+}
+
+void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
+{
+	update(world.registry_entt, world.GetTime().delta_time);
+	SCOPE_PROFILE("TransformUpdate System-decs");
+
+	Archetype FullTrasform;
+	FullTrasform.AddComponent<RenderMatrixComponent>();
+	FullTrasform.AddComponent<TransformComponent>();
+
+	Archetype PositionOnly;
+	PositionOnly.AddComponent<PositionComponent>();
+
+	Archetype TransformWithPosition;
+	TransformWithPosition.AddComponent<RenderMatrixComponent>();
+	TransformWithPosition.AddComponent<TransformComponent>();
+	TransformWithPosition.AddComponent<PositionComponent>();
+
+	//iterate blocks that have position
+	world.registry_decs.IterateBlocks(FullTrasform.componentlist, [&](ArchetypeBlock & block) {
+
+		auto matarray = block.GetComponentArray<RenderMatrixComponent>();
+		auto transfarray = block.GetComponentArray<TransformComponent>();
+
+
+		const bool bHasPosition = block.myArch.Match(PositionOnly.componentlist) == 1;
+
+		for (int i = block.last - 1; i >= 0; i--)
+		{
+			auto &t = transfarray.Get(i);
+			if (bHasPosition)
+			{
+				auto posarray = block.GetComponentArray<PositionComponent>();
+
+
+				auto &p = posarray.Get(i);
+				apply_position(t, p);
+			}			
+
+			build_matrix(t, matarray.Get(i));
+
+		}
+	}, true);
 }

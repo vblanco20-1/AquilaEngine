@@ -38,8 +38,11 @@ namespace ecs::system {
 			return std::move(task);
 		};
 
-		virtual void update(ECS_Registry &registry, float dt);
+		
 		virtual void update(ECS_GameWorld &world)override;
+
+		virtual void update(ECS_Registry &registry, float dt) override {};
+
 	};
 
 
