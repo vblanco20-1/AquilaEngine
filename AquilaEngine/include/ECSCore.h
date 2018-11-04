@@ -1,5 +1,7 @@
 #pragma once
 #include <PrecompiledHeader.h>
+
+#include "decs/decs.hpp"
 //#include <stdint.h>
 //#include "entt/entt.hpp"
 
@@ -16,7 +18,9 @@ using ECS_Registry = entt::Registry<std::uint64_t>;
 class ECS_GameWorld;
 extern ECS_GameWorld * GameWorld;
 
-struct PositionComponent {
+struct PositionComponent{
+	PositionComponent(XMFLOAT3 _Position) : Position(_Position) {};
+	PositionComponent() = default;
 	XMFLOAT3 Position;
 };
 //struct ScaleComponent {
@@ -127,6 +131,7 @@ struct  System {
 
 	virtual void initialize(ECS_Registry &registry) {};
 	virtual void update(ECS_Registry &registry, float dt) = 0;
+	virtual void update(ECS_GameWorld & world) {};
 
 	virtual void cleanup(ECS_Registry &registry) {};
 
@@ -137,13 +142,26 @@ struct RotatorComponent {
 	float rate;
 };
 
+struct Culled {
+
+};
 struct RenderMatrixComponent {
+	RenderMatrixComponent(XMMATRIX && other)
+	{
+		Matrix = other;
+	}
+	RenderMatrixComponent() {
+
+	}
 	XMMATRIX Matrix;
 };
-struct CubeRendererComponent {
+struct CubeRendererComponent{
 	float randomval;
 	bool bVisible;
 	XMFLOAT3 color;
+	CubeRendererComponent() {
+	
+	}
 	//XMMATRIX Matrix;
 };
 struct SpaceshipMovementComponent {

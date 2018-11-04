@@ -31,14 +31,16 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 	spcomp.ShipMoveTarget = TargetLocation;
 
 	registry.assign<CubeRendererComponent>(spawner1);
+
+	float  randomtint = rng::RandomFloat();
 	if (XMVectorGetX(Location) > 0)
 	{
-		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, 0.1f, 0.1f);
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
 
 	}
 	else
 	{
-		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(0.1f, 0.10f, 1.0f);
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
 	}
 
 
@@ -48,6 +50,56 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 	registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
 	registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
 
+
+	ecs::system::UpdateTransform::build_matrix(
+		registry.get<TransformComponent>(spawner1), 
+		registry.get<RenderMatrixComponent>(spawner1));
+}
+
+void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
+{
+	Archetype ARC_ShipSpawner;
+	ARC_ShipSpawner.AddComponent<SpaceshipSpawnerComponent>();
+	ARC_ShipSpawner.AddComponent<RenderMatrixComponent>();
+	ARC_ShipSpawner.AddComponent<TransformComponent>();
+	ARC_ShipSpawner.AddComponent<CubeRendererComponent>();
+
+	auto &registry = world.registry_decs;
+	auto spawner1 = registry.CreateEntity(ARC_ShipSpawner);
+
+	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 200;
+	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 200 + 200;
+	float posz = XMVectorGetZ(Location) + rng::RandomFloat() * 200;
+
+	//registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
+	//registry.AddComponent<SpaceshipSpawnerComponent>(spawner1);//registry.assign<SpaceshipSpawnerComponent>(spawner1);
+	SpaceshipSpawnerComponent  spcomp;
+	spcomp.Bounds = XMFLOAT3(10, 50, 50);
+	spcomp.Elapsed = 0;
+	spcomp.SpawnRate = 0.01;
+	spcomp.ShipMoveTarget = TargetLocation;
+	registry.GetComponent<SpaceshipSpawnerComponent>(spawner1) = spcomp;
+
+
+	float  randomtint = rng::RandomFloat();
+	if (XMVectorGetX(Location) > 0)
+	{
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
+
+	}
+	else
+	{
+		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
+	}
+
+
+
+	//registry.assign<RenderMatrixComponent>(spawner1);
+	//registry.assign<TransformComponent>(spawner1);
+	registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
+	registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
+
+	ecs::system::UpdateTransform::build_matrix(registry.get<TransformComponent>(spawner1), registry.get<RenderMatrixComponent>(spawner1));
 }
 
 ECS_GameWorld::~ECS_GameWorld()
@@ -61,16 +113,18 @@ ECS_GameWorld::~ECS_GameWorld()
 
 void ECS_GameWorld::initialize()
 {
-	auto cam = registry.create();
-	registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
-	registry.assign<CameraComponent>(cam);
-	registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
-	registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
-	registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
-	registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
+	registry_decs.BlockStorage.reserve(100);
+	auto cam = registry_entt.create();
+	registry_entt.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
+	registry_entt.assign<CameraComponent>(cam);
+	registry_entt.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
+
+	registry_entt.assign<ApplicationInfo>(entt::tag_t{}, cam);
+	registry_entt.assign<EngineTimeComponent>(entt::tag_t{}, cam);
+	registry_entt.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
 	BoidMap * map = new BoidMap();
-	registry.assign<BoidReferenceTag>(entt::tag_t{}, cam, map);
+	registry_entt.assign<BoidReferenceTag>(entt::tag_t{}, cam, map);
 
 	Bench_Start(AllBench);
 	ImGui_ImplDX11_NewFrame();
@@ -78,43 +132,46 @@ void ECS_GameWorld::initialize()
 
 	Systems.push_back(new PlayerInputSystem());
 	Systems.push_back(new PlayerCameraSystem());
-	Systems.push_back(new RandomFlusherSystem());
-	Systems.push_back(new SpaceshipSpawnSystem());
-	Systems.push_back(new ExplosionFXSystem());
-
-	Systems.push_back(new BoidHashSystem());
+	//Systems.push_back(new RandomFlusherSystem());
+	//Systems.push_back(new SpaceshipSpawnSystem());
 	//Systems.push_back(new ExplosionFXSystem());
-	Systems.push_back(new SpaceshipMovementSystem());
-	Systems.push_back(new DestructionSystem());
-	//Systems.push_back(new DestructionApplySystem());
-
-
-
-	Systems.push_back(new RotatorSystem());
+	//
+	//Systems.push_back(new BoidHashSystem());
+	////Systems.push_back(new ExplosionFXSystem());
+	//Systems.push_back(new SpaceshipMovementSystem());
+	//Systems.push_back(new DestructionSystem());
+	////Systems.push_back(new DestructionApplySystem());
+	//
+	//
+	//
+	//Systems.push_back(new RotatorSystem());
 	Systems.push_back(new ecs::system::UpdateTransform());
 
 
 	Renderer = new ecs::system::RenderCore();
 
 	//auto spawner1 = registry.create();
-	ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
+	ApplicationInfo & appInfo = registry_entt.get<ApplicationInfo>();
 	appInfo.averagedDeltaTime = 0.03f;
 	appInfo.deltaTime = 0.012343f;
 	appInfo.Drawcalls = 10000;
 	appInfo.RenderTime = 1.0f;
 
-	for (float z = -1000; z < 1000; z += 100)
+	for (float z = -1000.0; z < 1000.0; z += 0.01)
 	{
-		BuildShipSpawner(registry, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
-		BuildShipSpawner(registry, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+		//BuildShipSpawner(registry_entt, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+		//BuildShipSpawner(registry_entt, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+
+		BuildShipSpawner(*this, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+		BuildShipSpawner(*this, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 	}
 }
 
 void ECS_GameWorld::update_all(float dt)
 {
-	ApplicationInfo & appInfo = registry.get<ApplicationInfo>();
-	appInfo.TotalEntities = registry.size();
-	appInfo.BoidEntities = registry.view<BoidComponent>().size();
+	ApplicationInfo & appInfo = registry_entt.get<ApplicationInfo>();
+	appInfo.TotalEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
+	appInfo.BoidEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();//registry_entt.view<BoidComponent>().size();
 	Bench_End(AllBench);
 	appInfo.deltaTime = Bench_GetMiliseconds(AllBench);
 	Bench_Start(AllBench);
@@ -122,7 +179,7 @@ void ECS_GameWorld::update_all(float dt)
 	Bench_Start(bench);
 
 
-	auto & timec = registry.get<EngineTimeComponent>();
+	auto & timec = registry_entt.get<EngineTimeComponent>();
 	timec.delta_time = dt;
 
 
@@ -139,7 +196,7 @@ void ECS_GameWorld::update_all(float dt)
 		for (auto s : Systems)
 		{
 			auto temp = last_task;
-			last_task = s->schedule(registry, task_engine, last_task, latest_task);
+			last_task = s->schedule(registry_entt, task_engine, last_task, latest_task);
 			latest_task = temp;
 		}
 
@@ -168,7 +225,7 @@ void ECS_GameWorld::update_all(float dt)
 		{
 			if (!s->uses_threading)
 			{
-				s->update(registry, dt);
+				s->update(registry_entt, dt);
 			}
 		}
 		Bench_End(bench);
@@ -184,8 +241,7 @@ void ECS_GameWorld::update_all(float dt)
 			g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
 			g_SimpleProfiler->units.clear();
 		}
-		AppInfoUI(appInfo);
-		DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
+		
 
 
 	}
@@ -201,13 +257,21 @@ void ECS_GameWorld::update_all(float dt)
 	{
 		rmt_ScopedCPUSample(RenderUpdate, 0);
 		Bench_Start(bench);
-		Renderer->update(registry, dt);
+		Renderer->update(*this);
 		Bench_End(bench);
 		appInfo.RenderTime = Bench_GetMiliseconds(bench);
+		appInfo.Drawcalls = Renderer->drawcalls;
 
 	}
+	AppInfoUI(appInfo);
+	DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
 	for (auto s : Systems)
 	{
-		s->cleanup(registry);
+		s->cleanup(registry_entt);
 	}
+}
+
+EngineTimeComponent ECS_GameWorld::GetTime()
+{
+	return registry_entt.get<EngineTimeComponent>();
 }

@@ -20,12 +20,15 @@ public:
 	void initialize();
 
 	void update_all(float dt);
+
+	EngineTimeComponent GetTime();
 	BenchmarkInfo AllBench;
 
 
 	ecs::system::RenderCore* Renderer;
-	ECS_Registry registry;
-	ECS_Registry render_registry;
+	ECS_Registry registry_entt;
+	ECSWorld registry_decs;
+	//ECS_Registry render_registry;
 	std::vector<System*> Systems;
 };
 

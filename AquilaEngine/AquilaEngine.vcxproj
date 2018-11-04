@@ -82,6 +82,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -90,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -107,6 +108,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -123,7 +125,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;C:\Programming\AquilaEngine\AquilaEngine\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>

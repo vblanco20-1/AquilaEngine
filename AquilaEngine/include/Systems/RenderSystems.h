@@ -24,6 +24,7 @@ namespace ecs::system {
 		};
 
 		virtual void update(ECS_Registry &registry, float dt);
+		virtual void update(ECS_GameWorld &world)override;
 	};
 	struct FrustrumCuller : public System {
 
@@ -38,6 +39,7 @@ namespace ecs::system {
 		};
 
 		virtual void update(ECS_Registry &registry, float dt);
+		virtual void update(ECS_GameWorld &world)override;
 	};
 
 
@@ -53,8 +55,9 @@ namespace ecs::system {
 			return std::move(task);
 		};
 
-
-		virtual void update(ECS_Registry &registry, float dt);;
+		void pre_render();
+		virtual void update(ECS_Registry &registry, float dt) override;
+		virtual void update(ECS_GameWorld &world)override;
 	};
 
 	struct RenderCore : public System {
@@ -63,13 +66,15 @@ namespace ecs::system {
 
 		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
 		virtual void update(ECS_Registry &registry, float dt);
-
+		virtual void update(ECS_GameWorld &world)override;
 		void render_start();
 		void render_end();
 		void Present(bool vSync);
 
 		std::vector<System*> Renderers;
 
+		int drawcalls;
+		
 	};
 }
 
