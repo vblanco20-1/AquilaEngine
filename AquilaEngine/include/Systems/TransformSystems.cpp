@@ -72,6 +72,10 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 {
 	update(world.registry_entt, world.GetTime().delta_time);
+
+	rmt_ScopedCPUSample(UpdateTransform_Decs, 0);
+	
+
 	SCOPE_PROFILE("TransformUpdate System-decs");
 
 	Archetype FullTrasform;

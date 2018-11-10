@@ -31,8 +31,16 @@ struct SpaceshipSpawnSystem : public System {
 		return std::move(task);
 	};
 
+	struct SpawnUnit {
+		XMFLOAT4 Position;
+		XMFLOAT4 MoveTarget;
+		XMFLOAT3 Color;
+	};
 
 	virtual void update(ECS_Registry &registry, float dt);
+	virtual void update(ECS_GameWorld & world);
+
+	moodycamel::ConcurrentQueue<SpawnUnit> SpawnQueue;
 };
 
 using namespace moodycamel;

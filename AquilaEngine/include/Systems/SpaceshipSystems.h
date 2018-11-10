@@ -10,6 +10,7 @@ struct SpaceshipMovementSystem : public System {
 	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
 
 	virtual void update(ECS_Registry &registry, float dt);
+	virtual void update(ECS_GameWorld & world);
 
 private:
 	//entt::PersistentView<uint64_t, SpaceshipMovementComponent, TransformComponent> *posview;

@@ -51,6 +51,7 @@ bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRende
 
 void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 {
+	{
 	rmt_ScopedCPUSample(FrustrumCuller, 0);
 	SCOPE_PROFILE("Culling System ")
 		XMVECTOR CamPos;
@@ -77,15 +78,14 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 
 	//iterate nonculled blocks
 
-	moodycamel::ConcurrentQueue<EntityHandle> SetCulledQueue;
-	moodycamel::ConcurrentQueue<EntityHandle> RemoveCulledQueue;
+
 
 	world.registry_decs.IterateBlocks(RenderTuple.componentlist, [&](ArchetypeBlock & block) {
 		const bool bHasCull = block.myArch.Match(CullTuple.componentlist) == 1;
-		
+
 		auto cubearray = block.GetComponentArray<CubeRendererComponent>();
 		auto transfarray = block.GetComponentArray<RenderMatrixComponent>();
-		for (int i = block.last-1; i >= 0; i--)
+		for (int i = block.last - 1; i >= 0; i--)
 		{
 			const CubeRendererComponent & cube = cubearray.Get(i);
 			const RenderMatrixComponent & matrix = transfarray.Get(i);
@@ -99,19 +99,42 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 			{
 				SetCulledQueue.enqueue(block.entities[i]);
 			}
-			
+
 		}
-	}, true);	
-
+	}, true);
+}
+	rmt_ScopedCPUSample(CullQueueApply, 0);
 	EntityHandle handle;
-	while (SetCulledQueue.try_dequeue(handle)) {
 
-		world.registry_decs.AddComponent<Culled>(handle);
+	while (true)
+	{
+		EntityHandle results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+		if (count == 0)break;
+		for (size_t i = 0; i != count; ++i) {
+			world.registry_decs.AddComponent<Culled>(results[i]);
+		}
+		
+		
 	}
-	while (RemoveCulledQueue.try_dequeue(handle)) {
+	while (true)
+	{
+		EntityHandle results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+		if (count == 0)break;
+		for (size_t i = 0; i != count; ++i) {
+			world.registry_decs.RemoveComponent<Culled>(results[i]);
+		}
+	}
 
-		world.registry_decs.RemoveComponent<Culled>(handle);
-	}
+	//while (SetCulledQueue.try_dequeue(handle)) {
+	//
+	//	world.registry_decs.AddComponent<Culled>(handle);
+	//}
+	//while (RemoveCulledQueue.try_dequeue(handle)) {
+	//
+	//	world.registry_decs.RemoveComponent<Culled>(handle);
+	//}
 
 	////XMVECTOR VecDir = 
 	//std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {

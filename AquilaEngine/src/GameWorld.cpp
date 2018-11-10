@@ -117,7 +117,7 @@ ECS_GameWorld::~ECS_GameWorld()
 void ECS_GameWorld::initialize()
 {
 
-	registry_decs.BlockStorage.reserve(100);
+	registry_decs.BlockStorage.reserve(10000);
 	auto cam = registry_entt.create();
 	registry_entt.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
 	registry_entt.assign<CameraComponent>(cam);
@@ -136,13 +136,13 @@ void ECS_GameWorld::initialize()
 	Systems.push_back(new PlayerInputSystem());
 	Systems.push_back(new PlayerCameraSystem());
 	//Systems.push_back(new RandomFlusherSystem());
-	//Systems.push_back(new SpaceshipSpawnSystem());
+	Systems.push_back(new SpaceshipSpawnSystem());
 	//Systems.push_back(new ExplosionFXSystem());
 	//
 	//Systems.push_back(new BoidHashSystem());
 	////Systems.push_back(new ExplosionFXSystem());
-	//Systems.push_back(new SpaceshipMovementSystem());
-	//Systems.push_back(new DestructionSystem());
+	Systems.push_back(new SpaceshipMovementSystem());
+	Systems.push_back(new DestructionSystem());
 	////Systems.push_back(new DestructionApplySystem());
 	//
 	//
@@ -160,7 +160,7 @@ void ECS_GameWorld::initialize()
 	appInfo.Drawcalls = 10000;
 	appInfo.RenderTime = 1.0f;
 
-	for (float z = -1000.0; z < 1000.0; z += 0.01)
+	for (float z = -1000.0; z < 1000.0; z += 10)
 	{
 		//BuildShipSpawner(registry_entt, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 		//BuildShipSpawner(registry_entt, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
@@ -172,6 +172,7 @@ void ECS_GameWorld::initialize()
 
 void ECS_GameWorld::update_all(float dt)
 {
+	rmt_ScopedCPUSample(AllUpdate, 0);
 	ApplicationInfo & appInfo = registry_entt.get<ApplicationInfo>();
 	appInfo.TotalEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
 	appInfo.BoidEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();//registry_entt.view<BoidComponent>().size();
@@ -211,10 +212,10 @@ void ECS_GameWorld::update_all(float dt)
 
 
 
-	std::ofstream myfile;
-	myfile.open("example.txt", std::ios::trunc);
-	myfile << task_engine.dump();
-	myfile.close();
+	//std::ofstream myfile;
+	//myfile.open("example.txt", std::ios::trunc);
+	//myfile << task_engine.dump();
+	//myfile.close();
 	{
 		rmt_ScopedCPUSample(TaskWait, 0);
 		//task_engine.wait_for_all();

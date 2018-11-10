@@ -3,6 +3,8 @@
 #include "SimpleProfiler.h"
 #include "taskflow/taskflow.hpp"
 
+#include "GameWorld.h"
+
 void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidReferenceTag & boidref, float DeltaTime);
 
 
@@ -64,13 +66,13 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 
 	XMVECTOR OffsetVelocity{ 0.0f,0.0f,0.0f,0.0f };
-	boidref.map->Foreach_EntitiesInRadius_Morton(10, t.position, [&](const GridItem2& boid) {
-
-		XMVECTOR Avoidance = t.position - boid.pos;
-		float dist = XMVectorGetX(XMVector3Length(Avoidance));
-		OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
-
-	});
+	//boidref.map->Foreach_EntitiesInRadius_Morton(10, t.position, [&](const GridItem2& boid) {
+	//
+	//	XMVECTOR Avoidance = t.position - boid.pos;
+	//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
+	//	OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
+	//
+	//});
 
 
 
@@ -103,5 +105,30 @@ void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
 		
 	});
 	//}
+}
+
+void SpaceshipMovementSystem::update(ECS_GameWorld & world)
+{
+	rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
+
+	Archetype SpaceshipTuple;
+	SpaceshipTuple.AddComponent<SpaceshipMovementComponent>();
+	SpaceshipTuple.AddComponent<TransformComponent>();
+
+
+	Archetype CullTuple;
+	CullTuple.AddComponent<Culled>();
+
+	BoidReferenceTag Fakeboid;
+
+	world.registry_decs.IterateBlocks(SpaceshipTuple.componentlist, [&](ArchetypeBlock & block) {
+		auto sparray = block.GetComponentArray<SpaceshipMovementComponent>();
+		auto transfarray = block.GetComponentArray<TransformComponent>();
+		for (int i = 0; i < block.last; i++)
+		{
+			UpdateSpaceship(sparray.Get(i), transfarray.Get(i), Fakeboid, 1.0 / 60.f);
+		}
+
+	}, true);
 }
 

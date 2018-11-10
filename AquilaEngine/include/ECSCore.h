@@ -130,7 +130,7 @@ struct  System {
 	};
 
 	virtual void initialize(ECS_Registry &registry) {};
-	virtual void update(ECS_Registry &registry, float dt) = 0;
+	virtual void update(ECS_Registry &registry, float dt) {};
 	virtual void update(ECS_GameWorld & world);;
 
 	virtual void cleanup(ECS_Registry &registry) {};
@@ -143,7 +143,7 @@ struct RotatorComponent {
 };
 
 struct Culled {
-
+	float c;
 };
 struct RenderMatrixComponent {
 	RenderMatrixComponent(XMMATRIX && other)

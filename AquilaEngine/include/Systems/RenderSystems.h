@@ -28,6 +28,11 @@ namespace ecs::system {
 	};
 	struct FrustrumCuller : public System {
 
+		struct QueueTraits : public moodycamel::ConcurrentQueueDefaultTraits
+		{
+			static const size_t BLOCK_SIZE = 256;		// Use bigger blocks
+		};
+
 
 		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
 
@@ -42,6 +47,10 @@ namespace ecs::system {
 		virtual void update(ECS_GameWorld &world)override;
 
 		virtual void update(ECS_Registry &registry, float dt) override {};
+
+	private:
+		moodycamel::ConcurrentQueue<EntityHandle,QueueTraits> SetCulledQueue;
+		moodycamel::ConcurrentQueue<EntityHandle,QueueTraits> RemoveCulledQueue;
 
 	};
 
