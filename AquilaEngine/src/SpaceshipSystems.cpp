@@ -66,13 +66,16 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 
 	XMVECTOR OffsetVelocity{ 0.0f,0.0f,0.0f,0.0f };
-	//boidref.map->Foreach_EntitiesInRadius_Morton(10, t.position, [&](const GridItem2& boid) {
-	//
-	//	XMVECTOR Avoidance = t.position - boid.pos;
-	//	float dist = XMVectorGetX(XMVector3Length(Avoidance));
-	//	OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
-	//
-	//});
+	int num = 10;
+	boidref.map->Foreach_EntitiesInRadius_Morton(3, t.position, [&](const GridItem2& boid) {
+	
+		XMVECTOR Avoidance = t.position - boid.pos;
+		float dist = XMVectorGetX(XMVector3Length(Avoidance));
+		OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
+		num--;
+
+	
+	});
 
 
 
@@ -119,14 +122,14 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	Archetype CullTuple;
 	CullTuple.AddComponent<Culled>();
 
-	BoidReferenceTag Fakeboid;
+	BoidReferenceTag & boidref = world.registry_entt.get<BoidReferenceTag>();
 
 	world.registry_decs.IterateBlocks(SpaceshipTuple.componentlist, [&](ArchetypeBlock & block) {
 		auto sparray = block.GetComponentArray<SpaceshipMovementComponent>();
 		auto transfarray = block.GetComponentArray<TransformComponent>();
 		for (int i = 0; i < block.last; i++)
 		{
-			UpdateSpaceship(sparray.Get(i), transfarray.Get(i), Fakeboid, 1.0 / 60.f);
+			UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 60.f);
 		}
 
 	}, true);

@@ -181,6 +181,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 	Spaceship.AddComponent<SpaceshipMovementComponent>();
 	Spaceship.AddComponent<CubeRendererComponent>();
 	Spaceship.AddComponent<RenderMatrixComponent>();
+	Spaceship.AddComponent<BoidComponent>();
 	
 	float dt = world.GetTime().delta_time;
 
@@ -252,14 +253,14 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 		reg.GetComponent<TransformComponent>(et).position = DirectX::XMLoadFloat4(&unit.Position);
 
 		reg.GetComponent<LifetimeComponent>(et).TimeLeft = 20;
-		
+		reg.GetComponent<BoidComponent>(et) = BoidComponent();
 
 		SpaceshipMovementComponent & mv = reg.GetComponent<SpaceshipMovementComponent>(et);
 		mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 2;
 		mv.Target =  DirectX::XMLoadFloat4(&unit.MoveTarget)  + XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 20;
 		mv.speed = 1;
 
-
+		
 		reg.GetComponent<CubeRendererComponent>(et) = CubeRendererComponent();
 		reg.GetComponent<CubeRendererComponent>(et).color = unit.Color;
 		reg.GetComponent<RenderMatrixComponent>(et) = RenderMatrixComponent();

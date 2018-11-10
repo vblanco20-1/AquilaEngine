@@ -36,7 +36,7 @@ struct GridHash {
 
 	std::size_t operator()(GridVec const& s) const noexcept;
 };
-const float GRID_DIMENSIONS = 20;
+const float GRID_DIMENSIONS = 5;
 using GridItem = std::pair<BoidComponent, PositionComponent>;
 
 struct GridHashmark {
@@ -70,13 +70,13 @@ struct BoidMap {
 	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid);
 	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid, size_t index);
 
-	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> Body);
+	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
 
-	void Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)> Body);
+	void Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)>&&Body);
 
 
-	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> Body);
-	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> Body);
+	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
+	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> &&Body);
 
 };
 
@@ -92,4 +92,5 @@ struct BoidHashSystem : public System {
 	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
 
 	virtual void update(ECS_Registry &registry, float dt);
+	virtual void update(ECS_GameWorld & world) override;
 };

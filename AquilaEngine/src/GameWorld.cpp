@@ -64,6 +64,8 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	ARC_ShipSpawner.AddComponent<TransformComponent>();
 	ARC_ShipSpawner.AddComponent<CubeRendererComponent>();
 	ARC_ShipSpawner.AddComponent<RotatorComponent>();
+	
+
 
 	auto &registry = world.registry_decs;
 	auto spawner1 = registry.CreateEntity(ARC_ShipSpawner);
@@ -139,7 +141,7 @@ void ECS_GameWorld::initialize()
 	Systems.push_back(new SpaceshipSpawnSystem());
 	//Systems.push_back(new ExplosionFXSystem());
 	//
-	//Systems.push_back(new BoidHashSystem());
+	Systems.push_back(new BoidHashSystem());
 	////Systems.push_back(new ExplosionFXSystem());
 	Systems.push_back(new SpaceshipMovementSystem());
 	Systems.push_back(new DestructionSystem());
