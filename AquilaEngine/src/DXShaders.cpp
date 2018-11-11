@@ -142,7 +142,7 @@ bool LoadContent()
 	float clientWidth = static_cast<float>(clientRect.right - clientRect.left);
 	float clientHeight = static_cast<float>(clientRect.bottom - clientRect.top);
 
-	Globals->g_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), clientWidth / clientHeight, 0.1f, 10000.0f);
+	Globals->g_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), clientWidth / clientHeight, 0.1f, 100000.0f);
 
 	Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Appliation], 0, nullptr, &Globals->g_ProjectionMatrix, 0, 0);
 

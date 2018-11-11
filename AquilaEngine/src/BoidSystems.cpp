@@ -329,7 +329,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 	//grab a view for Transform and Boid entities
 	//auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
 
-	size_t count = 500000;
+	size_t count = 100000;
 	//reset data structures
 	//boidref.map->Mortons.clear();
 	//boidref.map->Mortons.reserve(Boidview.size());

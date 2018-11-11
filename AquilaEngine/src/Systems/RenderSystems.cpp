@@ -77,10 +77,10 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 	//auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});
 
 	//iterate nonculled blocks
+	Archetype NoCullTuple;
+	NoCullTuple.AddComponent<IgnoreCull>();
 
-
-
-	world.registry_decs.IterateBlocks(RenderTuple.componentlist, [&](ArchetypeBlock & block) {
+	world.registry_decs.IterateBlocks(RenderTuple.componentlist, NoCullTuple.componentlist,[&](ArchetypeBlock & block) {
 		const bool bHasCull = block.myArch.Match(CullTuple.componentlist) == 1;
 
 		auto cubearray = block.GetComponentArray<CubeRendererComponent>();
@@ -261,14 +261,11 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 		{
 			const CubeRendererComponent & cube = cubearray.Get(i);
 			const RenderMatrixComponent & matrix = transfarray.Get(i);
-			//if (cube.bVisible)
-			//{
+			
 				nDrawcalls++;
 
-				////ObjectUniformStruct uniform;
-				//uniform.worldMatrix = matrix.Matrix;
-				//uniform.color = XMFLOAT4( cube.color.x, cube.color.y, cube.color.z,1.0f) ;
-
+			
+				
 				uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
 				uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
 				bufferidx++;
@@ -278,13 +275,8 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 					Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
 					Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
-
-					//rmt_EndD3D11Sample();
-					//rmt_BeginD3D11Sample(RenderCubeBatch);
+					
 				}
-
-				//Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
-			//}
 		}
 	});
 	

@@ -121,7 +121,7 @@ void ECS_GameWorld::initialize()
 
 	registry_decs.BlockStorage.reserve(10000);
 	auto cam = registry_entt.create();
-	registry_entt.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
+	registry_entt.assign<PositionComponent>(cam, XMFLOAT3(0, 600, 2000));
 	registry_entt.assign<CameraComponent>(cam);
 	registry_entt.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
@@ -169,6 +169,32 @@ void ECS_GameWorld::initialize()
 
 		BuildShipSpawner(*this, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 		BuildShipSpawner(*this, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
+	}
+
+
+	Archetype BackgroundBuilding;
+	BackgroundBuilding.AddComponent<CubeRendererComponent>();
+	BackgroundBuilding.AddComponent<RenderMatrixComponent>();
+	//BackgroundBuilding.AddComponent < IgnoreCull>();
+	for (float z = -20000.0; z < 20000.0; z += 220)
+	{
+		for (float x = -20000.0; x < 20000.0;x += 220)
+		{
+			float dist = sqrt(x*x +z*z);
+			float yoffset = fmax(0.0f, (dist /3.f) - 1000.f);
+			float y = rng::RandomFloat() * 100 - 1000 + yoffset;
+			TransformComponent transf;
+			transf.position = XMVectorSet(x, y, z, 1.0);
+			transf.rotationQuat = XMQuaternionIdentity();
+			transf.scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
+
+			auto e = registry_decs.CreateEntity(BackgroundBuilding);
+
+			RenderMatrixComponent & rend = registry_decs.GetComponent<RenderMatrixComponent>(e);
+			ecs::system::UpdateTransform::build_matrix(transf, rend);
+			float rngcolor = rng::RandomFloat() * 0.1 + 0.3;
+			registry_decs.GetComponent<CubeRendererComponent>(e).color = XMFLOAT3(rngcolor, rngcolor, rngcolor);
+		}
 	}
 }
 

@@ -145,6 +145,9 @@ struct RotatorComponent {
 struct Culled {
 	float c;
 };
+struct IgnoreCull {
+	float c;
+};
 struct RenderMatrixComponent {
 	RenderMatrixComponent(XMMATRIX && other)
 	{

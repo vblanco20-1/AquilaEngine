@@ -110,9 +110,12 @@ void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
 	//}
 }
 
+static bool bEven = false;
+
 void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 {
 	rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
+	SCOPE_PROFILE("Spaceship Movement System");
 
 	Archetype SpaceshipTuple;
 	SpaceshipTuple.AddComponent<SpaceshipMovementComponent>();
@@ -129,9 +132,20 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 		auto transfarray = block.GetComponentArray<TransformComponent>();
 		for (int i = 0; i < block.last; i++)
 		{
-			UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 60.f);
+			int modulo = (block.entities[i].id % 2);
+			if (bEven && modulo == 0)
+			{
+				UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 30.f);
+			}
+			else if (modulo == 1)
+			{
+				UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 30.f);
+			}
+			
 		}
 
 	}, true);
+
+	bEven = !bEven;
 }
 
