@@ -12,7 +12,7 @@ namespace entt {
 
 
 template<typename Resource>
-class ResourceCache;
+class resource_cache;
 
 
 /**
@@ -28,24 +28,24 @@ class ResourceCache;
  * @tparam Resource Type of resource managed by a handle.
  */
 template<typename Resource>
-class ResourceHandle final {
+class resource_handle final {
     /*! @brief Resource handles are friends of their caches. */
-    friend class ResourceCache<Resource>;
+    friend class resource_cache<Resource>;
 
-    ResourceHandle(std::shared_ptr<Resource> res) ENTT_NOEXCEPT
+    resource_handle(std::shared_ptr<Resource> res) ENTT_NOEXCEPT
         : resource{std::move(res)}
     {}
 
 public:
     /*! @brief Default copy constructor. */
-    ResourceHandle(const ResourceHandle &) ENTT_NOEXCEPT = default;
+    resource_handle(const resource_handle &) ENTT_NOEXCEPT = default;
     /*! @brief Default move constructor. */
-    ResourceHandle(ResourceHandle &&) ENTT_NOEXCEPT = default;
+    resource_handle(resource_handle &&) ENTT_NOEXCEPT = default;
 
     /*! @brief Default copy assignment operator. @return This handle. */
-    ResourceHandle & operator=(const ResourceHandle &) ENTT_NOEXCEPT = default;
+    resource_handle & operator=(const resource_handle &) ENTT_NOEXCEPT = default;
     /*! @brief Default move assignment operator. @return This handle. */
-    ResourceHandle & operator=(ResourceHandle &&) ENTT_NOEXCEPT = default;
+    resource_handle & operator=(resource_handle &&) ENTT_NOEXCEPT = default;
 
     /**
      * @brief Gets a reference to the managed resource.
@@ -85,7 +85,7 @@ public:
     inline const Resource & operator *() const ENTT_NOEXCEPT { return get(); }
 
     /**
-     * @brief Gets a pointer to the managed resource from a handle .
+     * @brief Gets a pointer to the managed resource from a handle.
      *
      * @warning
      * The behavior is undefined if the handle doesn't contain a resource.<br/>
@@ -101,7 +101,8 @@ public:
     }
 
     /**
-     * @brief Returns true if the handle contains a resource, false otherwise.
+     * @brief Returns true if a handle contains a resource, false otherwise.
+     * @return True if the handle contains a resource, false otherwise.
      */
     explicit operator bool() const { return static_cast<bool>(resource); }
 

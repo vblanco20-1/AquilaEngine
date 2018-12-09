@@ -300,13 +300,14 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 		{
 			auto player = registry.create();
 			BoidMap * map = new BoidMap();
-			registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
+			auto tag = registry.get_tag_entity();
+			registry.assign<BoidReferenceTag>(tag,map);
 		}
 
 		//get the "boid data" pointer
 		BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
 		//grab a view for Transform and Boid entities
-		auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
+		auto Boidview = registry.persistent_view<TransformComponent, BoidComponent>();
 
 		
 		//reset data structures

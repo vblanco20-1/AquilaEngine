@@ -22,7 +22,7 @@ ecs::Task SpaceshipMovementSystem::schedule(ECS_Registry &registry, ecs::TaskEng
 		//dt = 1.0 / 60.0;
 		elapsed = dt;
 
-		auto posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
+		auto posview = registry.persistent_view<SpaceshipMovementComponent, TransformComponent>();
 
 		auto[S, T] = parallel_for_ecs(subflow,
 			posview,			
@@ -95,7 +95,7 @@ void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
 	dt = 1.0 / 60.0;
 	elapsed = dt;
 
-	auto  posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
+	auto  posview = registry.persistent_view<SpaceshipMovementComponent, TransformComponent>();
 
 	std::for_each(/*std::execution::par_unseq, */posview.begin(), posview.end(), [&](const auto entity) {
 

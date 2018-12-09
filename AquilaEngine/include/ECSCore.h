@@ -1,5 +1,5 @@
 #pragma once
-#include <PrecompiledHeader.h>
+#include "PrecompiledHeader.h"
 //#include <stdint.h>
 //#include "entt/entt.hpp"
 
@@ -9,8 +9,8 @@
 
 using namespace DirectX;
 using EntityID = std::uint64_t;
-using EntityVersion = entt::Registry<std::uint64_t>::version_type;
-using ECS_Registry = entt::Registry<std::uint64_t>;
+using EntityVersion = entt::registry<std::uint64_t>::version_type;
+using ECS_Registry = entt::registry<std::uint64_t>;
 
 
 class ECS_GameWorld;

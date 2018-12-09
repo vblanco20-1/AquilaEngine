@@ -198,7 +198,7 @@ struct ExplosionFXSystem : public System {
 	virtual void update(ECS_Registry &registry, float dt)
 	{
 		rmt_ScopedCPUSample(ExplosionFXSystem, 0);
-		auto  view = registry.view<ExplosionFXComponent,TransformComponent>(entt::persistent_t{});
+		auto  view = registry.persistent_view<ExplosionFXComponent,TransformComponent>();
 
 		std::for_each(/*std::execution::par_unseq, */view.begin(), view.end(), [&](const auto entity) {
 
@@ -291,7 +291,7 @@ struct PlayerCameraSystem : public System {
 			CamOffset.y = -1 * (input.Input.MouseY - 500) / 15.f;
 		
 			XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z, 0.0f);
-			registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
+			registry.persistent_view<PositionComponent, CameraComponent>().each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
 				XMVECTOR CamForward= XMVector3Normalize(cam.focusPoint - XMLoadFloat3(&campos.Position));
 				XMVECTOR CamUp     = XMVector3Normalize(cam.upDirection);
@@ -374,7 +374,7 @@ struct CullingSystem : public System {
 		});
 
 		CamDir = XMVector3Normalize(CamDir);
-		auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});		
+		auto  posview = registry.persistent_view<RenderMatrixComponent, CubeRendererComponent>();		
 
 		//XMVECTOR VecDir = 
 		std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
@@ -541,8 +541,8 @@ struct PlayerInputSystem : public System {
 		rmt_ScopedCPUSample(PlayerInputSystem, 0);
 		if (!registry.has<PlayerInputTag>())
 		{
-			auto player = registry.create();
-			registry.assign<PlayerInputTag>(entt::tag_t{}, player);	
+			//auto player = registry.create();
+			registry.assign<PlayerInputTag>(registry.get_tag_entity(), PlayerInputTag());	
 		}
 		
 		g_InputMap.MoveForward = 0;
@@ -643,8 +643,8 @@ struct TransformUpdateSystem : public System {
 		const float dt = get_delta_time(registry);
 		ecs::Task task = task_engine.silent_emplace([&, dt](auto& subflow) {
 
-			auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
-			auto  scaleview = registry.view<RenderMatrixComponent, TransformComponent>(entt::persistent_t{});
+			auto  posview = registry.persistent_view<TransformComponent, PositionComponent>();
+			auto  scaleview = registry.persistent_view<RenderMatrixComponent, TransformComponent>();
 
 			auto[Sp, Tp] = parallel_for_ecs(subflow,
 				posview,
@@ -668,10 +668,10 @@ struct TransformUpdateSystem : public System {
 			int iterations = 0;
 			int invalid = 0;
 			int lasthierarchy = 0;
-			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
+			auto hierarchyview = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
 
-			auto lvl1 = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
-			auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
+			auto lvl1 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
+			auto lvl2 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level2Transform>();
 
 			auto[S1, T1] = parallel_for_ecs(subflow, lvl1,
 				[&](EntityID entity, auto view) {
@@ -718,8 +718,8 @@ struct TransformUpdateSystem : public System {
 		rmt_ScopedCPUSample(TransformSystem, 0);
 		SCOPE_PROFILE("TransformUpdate System");
 
-		auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
-		auto  scaleview = registry.view<RenderMatrixComponent, TransformComponent>(entt::persistent_t{});
+		auto  posview = registry.persistent_view<TransformComponent, PositionComponent>();
+		auto  scaleview = registry.persistent_view<RenderMatrixComponent, TransformComponent>();
 		//auto  rotview = registry.view<RenderMatrixComponent, RotationComponent>(entt::persistent_t{});
 
 		TransformHierarchy Hierarchy;
@@ -751,10 +751,10 @@ struct TransformUpdateSystem : public System {
 			int iterations = 0;
 			int invalid = 0;
 			int lasthierarchy = 0;
-			auto hierarchyview = registry.view<EntityParentComponent, RenderMatrixComponent,Level1Transform>(entt::persistent_t{});
+			auto hierarchyview = registry.persistent_view<EntityParentComponent, RenderMatrixComponent,Level1Transform>();
 
-			auto lvl1 = registry.view<EntityParentComponent, RenderMatrixComponent, Level1Transform>(entt::persistent_t{});
-			auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
+			auto lvl1 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
+			auto lvl2 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level2Transform>();
 
 
 			std::for_each(/*std::execution::par, */lvl1.begin(), lvl1.end(), [&](const auto entity) {
@@ -1043,16 +1043,16 @@ public:
 	void Initialize()
 	{
 
-		auto cam = registry.create();
+		auto cam = registry.get_tag_entity();
 		registry.assign<PositionComponent>(cam, XMFLOAT3(0, 0, -100));
 		registry.assign<CameraComponent>(cam);
 		registry.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
-		registry.assign<ApplicationInfo>(entt::tag_t{}, cam);
-		registry.assign<EngineTimeComponent>(entt::tag_t{}, cam);
-		registry.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
+		registry.assign<ApplicationInfo>(cam);
+		registry.assign<EngineTimeComponent>(cam);
+		registry.assign<RendererRegistryReferenceComponent>(cam);
 		BoidMap * map = new BoidMap();
-		registry.assign<BoidReferenceTag>(entt::tag_t{}, cam, map);
+		registry.assign<BoidReferenceTag>(cam, map);
 
 		Bench_Start(AllBench);
 		ImGui_ImplDX11_NewFrame();

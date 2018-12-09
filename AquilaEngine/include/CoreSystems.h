@@ -24,7 +24,7 @@ struct RotatorSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		auto  rotview = registry.view<TransformComponent, RotatorComponent>(entt::persistent_t{});
+		auto  rotview = registry.persistent_view<TransformComponent, RotatorComponent>();
 
 		//rotview.each([&, dt](auto entity, RotationComponent & rotation, RotatorComponent & rotator) {
 		//	rotation.Angle += 90.0f * dt;
