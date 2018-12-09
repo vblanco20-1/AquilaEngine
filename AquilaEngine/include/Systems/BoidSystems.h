@@ -5,9 +5,9 @@
 #include <sparsepp/spp.h>
 #include <atomic>
 struct BoidComponent {
-	int Type;
-	int Faction;
-	int Flags;
+	char Type;
+	char Faction;
+	char Flags;
 	EntityID SelfEntity;
 };
 
@@ -19,7 +19,7 @@ struct GridVec {
 
 };
 struct GridItem2 {
-	BoidComponent boid;
+	//BoidComponent boid;
 	XMVECTOR pos;
 	GridVec grid;
 	uint64_t morton;

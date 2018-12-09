@@ -258,7 +258,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 		SpaceshipMovementComponent & mv = reg.GetComponent<SpaceshipMovementComponent>(et);
 		mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 2;
 		mv.Target =  DirectX::XMLoadFloat4(&unit.MoveTarget)  + XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 20;
-		mv.speed = 3;
+		mv.speed = 6;
 
 		
 		reg.GetComponent<CubeRendererComponent>(et) = CubeRendererComponent();

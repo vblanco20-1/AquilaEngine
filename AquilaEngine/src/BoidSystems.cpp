@@ -46,7 +46,7 @@ void BoidMap::AddToGridmap(const PositionComponent & position, const BoidCompone
 	GridItem2 gr(MortonFromGrid(loc));
 
 	
-	gr.boid = boid;
+	//gr.boid = boid;
 	gr.grid = loc;
 	
 	gr.pos = XMLoadFloat3(&position.Position);
@@ -59,7 +59,7 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size
 	GridVec loc = GridVecFromVector(pos);
 
 	GridItem2 gr(MortonFromGrid(loc));
-	gr.boid = boid;
+	//gr.boid = boid;
 	gr.grid = loc;
 	//gr.morton = MortonFromGrid(loc);
 	gr.pos = pos;
@@ -329,7 +329,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 	//grab a view for Transform and Boid entities
 	//auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
 
-	size_t count = 100000;
+	size_t count = 150000;
 	//reset data structures
 	//boidref.map->Mortons.clear();
 	//boidref.map->Mortons.reserve(Boidview.size());
@@ -376,15 +376,12 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 
 			auto boidarray = block.GetComponentArray<BoidComponent>();
 			auto transfarray = block.GetComponentArray<TransformComponent>();
-
-
 			
 			for (int i = block.last - 1; i >= 0; i--)
 			{
 				TransformComponent & t = transfarray.Get(i);
 				BoidComponent & boid = boidarray.Get(i);
-				boidref.map->AddToGridmap(t.position, boid, idx++);
-				
+				boidref.map->AddToGridmap(t.position, boid, 0);				
 			}
 		}, false);
 
