@@ -645,57 +645,75 @@ struct TransformUpdateSystem : public System {
 
 			auto  posview = registry.persistent_view<TransformComponent, PositionComponent>();
 			auto  scaleview = registry.persistent_view<RenderMatrixComponent, TransformComponent>();
+			auto posnoparent = registry.persistent_view<RenderMatrixComponent,TransformComponent>(entt::type_list<EntityParentComponent>{});
+
+			auto[Snp, Tnp] = parallel_for_ecs(subflow,
+				posnoparent,
+				[&](EntityID entity, auto view) {
+				auto[t, mat] = view.get<TransformComponent,RenderMatrixComponent>(entity);
+				//ApplyPosition(t, p);
+				BuildMatrix(t,mat);
+			}
+				,
+				4096  // execute one task at a time,
+				, "Worker: Apply Position - noparent"
+				);
 
 			auto[Sp, Tp] = parallel_for_ecs(subflow,
 				posview,
 				[&](EntityID entity, auto view) {
-				auto[t, p] = view.get<TransformComponent, PositionComponent>(entity);
-				ApplyPosition(t, p);
+				//auto[t, p] = view.get<TransformComponent, PositionComponent>(entity);
+				//ApplyPosition(t, p);
 			}
 				,
-				2048  // execute one task at a time,
+				10000000  // execute one task at a time,
 				, "Worker: Apply Position"
 				);
 
-			auto[Ss, Ts] = parallel_for_ecs(subflow,scaleview,
+			auto[Ss, Ts] = parallel_for_ecs(subflow, scaleview,
 				[&](EntityID entity, auto view) {
-				auto[matrix, t] = view.get<RenderMatrixComponent, TransformComponent>(entity);
-				BuildMatrix(t, matrix);
-				}
-				,2048, "Worker: Apply Transform"
+				//auto[matrix, t] = view.get<RenderMatrixComponent, TransformComponent>(entity);
+				//BuildMatrix(t, matrix);
+			}
+				, 1000000, "Worker: BuildMatrix"
 				);
 
 			int iterations = 0;
 			int invalid = 0;
 			int lasthierarchy = 0;
-			auto hierarchyview = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
+			//auto hierarchyview = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
 
-			auto lvl1 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level1Transform>();
-			auto lvl2 = registry.persistent_view<EntityParentComponent, RenderMatrixComponent, Level2Transform>();
+			auto lvl1 = registry.persistent_view<EntityParentComponent,TransformComponent ,RenderMatrixComponent, Level1Transform>();
+			auto lvl2 = registry.persistent_view<EntityParentComponent,TransformComponent , RenderMatrixComponent, Level2Transform>();
 
 			auto[S1, T1] = parallel_for_ecs(subflow, lvl1,
 				[&](EntityID entity, auto view) {
 				EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
+				TransformComponent & ts = view.get<TransformComponent>(entity);
+				BuildMatrix(ts, matrix);
 
 				ApplyParentMatrix(registry, parent, matrix);
 				}
-				, 1024, "Worker:Lvl 1 Parent"
+				, 4096, "Worker:Lvl 1 Parent"
 				);
 			auto[S2, T2] = parallel_for_ecs(subflow, lvl2,
 				[&](EntityID entity, auto view) {
 				EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
 				RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
+				TransformComponent & ts = view.get<TransformComponent>(entity);
+				BuildMatrix(ts, matrix);
 
 				ApplyParentMatrix(registry, parent, matrix);
 			}
-				, 1024, "Worker:Lvl 2 Parent"
+				, 4096, "Worker:Lvl 2 Parent"
 				);
-			
+			Tnp.precede(S1);
 			Tp.precede(Ss);
+			//Ts.precede(Snp);
 			Ts.precede(S1);
 			T1.precede(S2);
-			//subflow.linearize(Tp,Ts,T1,T2);
+			//subflow.linearize(Tnp,Tp,Ts,T1,T2);
 
 			//update(registry, dt);
 		});
