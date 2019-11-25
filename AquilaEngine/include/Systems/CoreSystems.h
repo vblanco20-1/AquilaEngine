@@ -40,25 +40,13 @@ struct RotatorSystem : public System {
 	{
 		SCOPE_PROFILE("Rotation System-decs");
 
-		Archetype FullTrasform;
-		FullTrasform.AddComponent<RotatorComponent>();
-		FullTrasform.AddComponent<TransformComponent>();
+		auto* reg = &world.registry_decs;		
 
 		float dt = world.GetTime().delta_time;
-		
-		//iterate blocks that have position
-		world.registry_decs.IterateBlocks(FullTrasform.componentlist, [&](ArchetypeBlock & block) {
 
-			auto rotarray = block.GetComponentArray<RotatorComponent>();
-			auto transfarray = block.GetComponentArray<TransformComponent>();
+		reg->for_each([&](RotatorComponent& rotator, TransformComponent& t) {
 
-			for (int i = block.last - 1; i >= 0; i--)
-			{
-				auto &t = transfarray.Get(i);
-				auto &rotator = rotarray.Get(i);
-
-				t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
-			}
-		}, true);
+			t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
+		});
 	}
 };

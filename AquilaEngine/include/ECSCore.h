@@ -1,7 +1,9 @@
 #pragma once
 #include <PrecompiledHeader.h>
 
-#include "decs/decs.hpp"
+#include "decs2.h"
+using namespace decs2;
+//#include "decs/decs.hpp"
 //#include <stdint.h>
 //#include "entt/entt.hpp"
 
@@ -10,7 +12,7 @@
 //#include <DirectXMath.h>
 
 using namespace DirectX;
-using EntityID = std::uint64_t;
+using EntityID_entt = std::uint64_t;
 using EntityVersion = entt::Registry<std::uint64_t>::version_type;
 using ECS_Registry = entt::Registry<std::uint64_t>;
 
@@ -71,11 +73,13 @@ struct TransformComponent {
 	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){		
 	}
 };
+struct StaticTransform {
+};
 struct EntityParentComponent {
 
 	//depth zero for a world transform
 	uint8_t hierarchyDepth;
-	EntityID parent;
+	EntityID_entt parent;
 	EntityVersion entityVersion;
 	//EntityParentComponent() :parent(0), hierarchyDepth(0) {}
 	
@@ -83,12 +87,12 @@ struct EntityParentComponent {
 	{
 		return registry.current(parent) == registry.version(parent);
 	}
-
-	void SetParent(EntityID newParent, ECS_Registry & registry)
+	
+	void SetParent(EntityID_entt newParent, ECS_Registry & registry)
 	{
 		parent = newParent;
 		hierarchyDepth = 1;
-		//entityVersion = registry.current(newParent);
+		entityVersion = registry.current(newParent);
 		if (registry.has<EntityParentComponent>(newParent))
 		{
 			hierarchyDepth = registry.get<EntityParentComponent>(newParent).hierarchyDepth + 1;
@@ -143,7 +147,7 @@ struct RotatorComponent {
 };
 
 struct Culled {
-	float c;
+	//float c;
 };
 struct IgnoreCull {
 	float c;

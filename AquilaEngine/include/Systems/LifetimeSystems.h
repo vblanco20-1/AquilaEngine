@@ -27,8 +27,8 @@ struct DestructionSystem : public System {
 	};
 
 
-	moodycamel::ConcurrentQueue<EntityID, QueueTraits> EntitiesToDelete_entt;
-	moodycamel::ConcurrentQueue<EntityHandle, QueueTraits> EntitiesToDelete_decs;
+	moodycamel::ConcurrentQueue<EntityID_entt, QueueTraits> EntitiesToDelete_entt;
+	moodycamel::ConcurrentQueue<decs2::EntityID, QueueTraits> EntitiesToDelete_decs;
 	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
 	DestructionSystem() { uses_threading = true; };
 	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
@@ -102,7 +102,7 @@ struct DestructionSystem : public System {
 	{
 		rmt_ScopedCPUSample(Destruction_Apply, 0);
 
-		EntityID EntitiesToDestroy[64];
+		EntityID_entt EntitiesToDestroy[64];
 		while (true)
 		{
 			int dequeued = EntitiesToDelete_entt.try_dequeue_bulk(EntitiesToDestroy, 64);
@@ -146,35 +146,57 @@ struct DestructionSystem : public System {
 
 		rmt_ScopedCPUSample(DestructionSystem, 0);
 
-		Archetype Lifetime;
-		Lifetime.AddComponent<LifetimeComponent>();
 
 		const float dt = world.GetTime().delta_time;
-		world.registry_decs.IterateBlocks(Lifetime.componentlist, [&](ArchetypeBlock & block) {
 
-			auto lifearray = block.GetComponentArray<LifetimeComponent>();
-			
+		auto* reg = &world.registry_decs;
 
-			for (int i = block.last - 1; i >= 0; i--)
-			{
-				 auto & lf = lifearray.Get(i);
-				lf.TimeLeft -= dt;
-				if (lf.TimeLeft < 0)
-				{
-					EntitiesToDelete_decs.enqueue(block.entities[i]);
-				}
-			
+
+		static std::vector<DataChunk*> chunk_cache;
+		chunk_cache.clear();
+
+		Query query;
+		query.With<LifetimeComponent>();
+		query.Build();
+
+		iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
+
+			for (auto chnk : arch->chunks) {
+				chunk_cache.push_back(chnk);
 			}
-		}, true);
+		});
+
+		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+			auto lfarray = get_chunk_array<LifetimeComponent>(chnk);
+			auto idarray = get_chunk_array<EntityID>(chnk);
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				lfarray[i].TimeLeft -= dt;
+				if (lfarray[i].TimeLeft < 0)
+				{
+					EntitiesToDelete_decs.enqueue(idarray[i]);
+				}
+			}
+		});
 
 
-		EntityHandle et;
-		while (EntitiesToDelete_decs.try_dequeue(et))
+		EntityID ex[64];
+		while (true)
 		{
-			world.registry_decs.DeleteEntity(et);
+			int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
+			if (dequeued > 0)
+			{
+				for (int i = 0; i < dequeued; i++)
+				{
+					destroy_entity(reg, ex[i]);
+				}
+			}
+			else
+			{
+				break;
+			}
 		}
-		//CountLifetimes(registry, dt);
-		//ApplyDestruction(registry, dt);
+		
 	}
 };
 

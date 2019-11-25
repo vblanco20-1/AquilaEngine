@@ -4,6 +4,7 @@
 #include "taskflow/taskflow.hpp"
 
 #include "GameWorld.h"
+#include "ApplicationInfoUI.h"
 
 void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidReferenceTag & boidref, float DeltaTime);
 
@@ -28,9 +29,9 @@ ecs::Task SpaceshipMovementSystem::schedule(ECS_Registry &registry, ecs::TaskEng
 
 		auto[S, T] = parallel_for_ecs(subflow,
 			posview,			
-			[&](EntityID i,auto view) {			
+			[&](EntityID_entt i,auto view) {			
 			const auto entity = i;// view[i];
-			UpdateSpaceship(view.get<SpaceshipMovementComponent>(entity), view.get<TransformComponent>(entity), boidref, dt);
+			//UpdateSpaceship(view.get<SpaceshipMovementComponent>(entity), view.get<TransformComponent>(entity), boidref, dt);
 			}
 			,
 			512  // execute one task at a time,
@@ -72,9 +73,7 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 		XMVECTOR Avoidance = t.position - boid.pos;
 		float dist = XMVectorGetX(XMVector3Length(Avoidance));
 		OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
-		num--;
-
-	
+		num--;	
 	});
 
 
@@ -107,7 +106,6 @@ void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
 		UpdateSpaceship(posview.get<SpaceshipMovementComponent>(entity), posview.get<TransformComponent>(entity), boidref, dt);
 		
 	});
-	//}
 }
 
 static bool bEven = false;
@@ -117,35 +115,42 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
 	SCOPE_PROFILE("Spaceship Movement System");
 
-	Archetype SpaceshipTuple;
-	SpaceshipTuple.AddComponent<SpaceshipMovementComponent>();
-	SpaceshipTuple.AddComponent<TransformComponent>();
-
-
-	Archetype CullTuple;
-	CullTuple.AddComponent<Culled>();
-
 	BoidReferenceTag & boidref = world.registry_entt.get<BoidReferenceTag>();
 
-	world.registry_decs.IterateBlocks(SpaceshipTuple.componentlist, [&](ArchetypeBlock & block) {
-		auto sparray = block.GetComponentArray<SpaceshipMovementComponent>();
-		auto transfarray = block.GetComponentArray<TransformComponent>();
-		for (int i = 0; i < block.last; i++)
-		{
-			int modulo = (block.entities[i].id % 2);
-			if (bEven && modulo == 0)
-			{
-				UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 30.f);
-			}
-			else if (modulo == 1)
-			{
-				UpdateSpaceship(sparray.Get(i), transfarray.Get(i), boidref, 1.0 / 30.f);
-			}
-			
+	ApplicationInfo& appInfo = world.registry_entt.get<ApplicationInfo>();
+	appInfo.BoidEntities = 0;
+	//world.registry_decs.for_each([&](SpaceshipMovementComponent& spaceship, TransformComponent& transform) {
+	//	UpdateSpaceship(spaceship, transform, boidref, 1.0 / 30.f);
+	//	appInfo.BoidEntities++;
+	//});
+
+	Query spaceshipQuery;
+	spaceshipQuery.With<SpaceshipMovementComponent, TransformComponent>();
+	spaceshipQuery.Build();
+
+	static std::vector<DataChunk*> chunk_cache;
+	chunk_cache.clear();
+	
+
+	iterate_matching_archetypes(&world.registry_decs, spaceshipQuery, [&](Archetype* arch) {
+
+		for (auto chnk : arch->chunks) {
+
+			chunk_cache.push_back(chnk);
 		}
+	});
 
-	}, true);
+	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
 
-	bEven = !bEven;
+		auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
+		auto transfarray = get_chunk_array<TransformComponent>(chnk);
+
+		for (int i = chnk->header.last - 1; i >= 0; i--)
+		{
+			UpdateSpaceship(sparray[i], transfarray[i], boidref, 1.0 / 30.f);
+		}		
+	});
+
+
 }
 

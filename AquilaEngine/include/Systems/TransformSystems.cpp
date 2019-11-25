@@ -12,7 +12,7 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 
 		auto[Sp, Tp] = parallel_for_ecs(subflow,
 			posview,
-			[&](EntityID entity, auto view) {
+			[&](EntityID_entt entity, auto view) {
 			auto[t, p] = view.get<TransformComponent, PositionComponent>(entity);
 			apply_position(t, p);
 		}
@@ -22,7 +22,7 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 			);
 
 		auto[Ss, Ts] = parallel_for_ecs(subflow, scaleview,
-			[&](EntityID entity, auto view) {
+			[&](EntityID_entt entity, auto view) {
 			auto[matrix, t] = view.get<RenderMatrixComponent, TransformComponent>(entity);
 			build_matrix(t, matrix);
 		}
@@ -38,7 +38,7 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 		auto lvl2 = registry.view<EntityParentComponent, RenderMatrixComponent, Level2Transform>(entt::persistent_t{});
 
 		auto[S1, T1] = parallel_for_ecs(subflow, lvl1,
-			[&](EntityID entity, auto view) {
+			[&](EntityID_entt entity, auto view) {
 			EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
 			RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
 
@@ -47,7 +47,7 @@ ecs::Task ecs::system::UpdateTransform::schedule(ECS_Registry &registry, ecs::Ta
 			, 1024, "Worker:Lvl 1 Parent"
 			);
 		auto[S2, T2] = parallel_for_ecs(subflow, lvl2,
-			[&](EntityID entity, auto view) {
+			[&](EntityID_entt entity, auto view) {
 			EntityParentComponent & parent = view.get<EntityParentComponent>(entity);
 			RenderMatrixComponent & matrix = view.get<RenderMatrixComponent>(entity);
 
@@ -73,46 +73,45 @@ void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 {
 	update(world.registry_entt, world.GetTime().delta_time);
 
-	rmt_ScopedCPUSample(UpdateTransform_Decs, 0);
-	
+	rmt_ScopedCPUSample(UpdateTransform_Decs, 0);	
 
 	SCOPE_PROFILE("TransformUpdate System-decs");
 
-	Archetype FullTrasform;
-	FullTrasform.AddComponent<RenderMatrixComponent>();
-	FullTrasform.AddComponent<TransformComponent>();
-
-	Archetype PositionOnly;
-	PositionOnly.AddComponent<PositionComponent>();
-
-	Archetype TransformWithPosition;
-	TransformWithPosition.AddComponent<RenderMatrixComponent>();
-	TransformWithPosition.AddComponent<TransformComponent>();
-	TransformWithPosition.AddComponent<PositionComponent>();
-
-	//iterate blocks that have position
-	world.registry_decs.IterateBlocks(FullTrasform.componentlist, [&](ArchetypeBlock & block) {
-
-		auto matarray = block.GetComponentArray<RenderMatrixComponent>();
-		auto transfarray = block.GetComponentArray<TransformComponent>();
+	Query FullTransform;
+	FullTransform.With<RenderMatrixComponent, TransformComponent>();
+	FullTransform.Exclude<StaticTransform>();
+	FullTransform.Build();
 
 
-		const bool bHasPosition = block.myArch.Match(PositionOnly.componentlist) == 1;
+	static std::vector<DataChunk*> chunk_cache;
+	chunk_cache.clear();
 
-		for (int i = block.last - 1; i >= 0; i--)
-		{
-			auto &t = transfarray.Get(i);
-			if (bHasPosition)
-			{
-				auto posarray = block.GetComponentArray<PositionComponent>();
+	iterate_matching_archetypes(&world.registry_decs, FullTransform, [&](Archetype* arch) {
 
-
-				auto &p = posarray.Get(i);
-				apply_position(t, p);
-			}			
-
-			build_matrix(t, matarray.Get(i));
-
+		for (auto chnk : arch->chunks) {
+			chunk_cache.push_back(chnk);
 		}
-	}, true);
+	});
+
+	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+			auto transfarray = get_chunk_array<TransformComponent>(chnk);
+			auto posarray = get_chunk_array<PositionComponent>(chnk);
+			
+			const bool bHasPosition = posarray.chunkOwner == chnk;
+			
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				auto& t = transfarray[i];
+				if (bHasPosition)
+				{
+					auto& p = posarray[i];
+					apply_position(t, p);
+				}
+
+				build_matrix(t, matarray[i]);
+			}			
+	});
+
+
 }

@@ -366,24 +366,24 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 
 
 
-		Archetype BoidsArchetype;
-		BoidsArchetype.AddComponent<BoidComponent>();
-		BoidsArchetype.AddComponent<TransformComponent>();
+		//Archetype BoidsArchetype;
+		//BoidsArchetype.add_component<BoidComponent>();
+		//BoidsArchetype.add_component<TransformComponent>();
 		int idx = 0;
 
 		//iterate blocks that have position
-		world.registry_decs.IterateBlocks(BoidsArchetype.componentlist, [&](ArchetypeBlock & block) {
-
-			auto boidarray = block.GetComponentArray<BoidComponent>();
-			auto transfarray = block.GetComponentArray<TransformComponent>();
-			
-			for (int i = block.last - 1; i >= 0; i--)
-			{
-				TransformComponent & t = transfarray.Get(i);
-				BoidComponent & boid = boidarray.Get(i);
-				boidref.map->AddToGridmap(t.position, boid, 0);				
-			}
-		}, false);
+		//world.registry_decs.IterateBlocks(BoidsArchetype.componentlist, [&](ArchetypeBlock & block) {
+		//
+		//	auto boidarray = block.get_component_array_mutable<BoidComponent>();
+		//	auto transfarray = block.get_component_array_mutable<TransformComponent>();
+		//	
+		//	for (int i = block.last - 1; i >= 0; i--)
+		//	{
+		//		TransformComponent & t = transfarray.Get(i);
+		//		BoidComponent & boid = boidarray.Get(i);
+		//		boidref.map->AddToGridmap(t.position, boid, 0);				
+		//	}
+		//}, false);
 
 		////std::for_each(std::execution::par,Boidview.begin(), Boidview.end(), [&](const auto entity) {
 		//std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](const size_t idx) {

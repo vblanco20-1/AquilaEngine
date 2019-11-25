@@ -31,15 +31,15 @@ namespace ecs::system {
 
 		static void apply_parent_matrix(ECS_Registry &registry, EntityParentComponent & parent, RenderMatrixComponent & matrix)
 		{
-			if (parent.Valid(registry) && parent.hierarchyDepth < 5)
-			{
-				const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
-				matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
-			}
-			else
-			{
-				matrix.Matrix = XMMatrixScaling(0, 0, 0);				
-			}
+			//if (parent.Valid(registry) && parent.hierarchyDepth < 5)
+			//{
+			//	const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
+			//	matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
+			//}
+			//else
+			//{
+			//	matrix.Matrix = XMMatrixScaling(0, 0, 0);				
+			//}
 		}
 
 

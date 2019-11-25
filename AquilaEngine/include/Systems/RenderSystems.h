@@ -49,8 +49,8 @@ namespace ecs::system {
 		virtual void update(ECS_Registry &registry, float dt) override {};
 
 	private:
-		moodycamel::ConcurrentQueue<EntityHandle,QueueTraits> SetCulledQueue;
-		moodycamel::ConcurrentQueue<EntityHandle,QueueTraits> RemoveCulledQueue;
+		moodycamel::ConcurrentQueue<decs2::EntityID,QueueTraits> SetCulledQueue;
+		moodycamel::ConcurrentQueue<decs2::EntityID,QueueTraits> RemoveCulledQueue;
 
 	};
 

@@ -67,69 +67,112 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 
 	CamDir = XMVector3Normalize(CamDir);
 
-	Archetype RenderTuple;
-	RenderTuple.AddComponent<RenderMatrixComponent>();
-	RenderTuple.AddComponent<CubeRendererComponent>();
 
-	Archetype CullTuple;
-	CullTuple.AddComponent<Culled>();
 
-	//auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});
+	static std::vector<DataChunk*> chunk_cache;
+	chunk_cache.clear();
 
-	//iterate nonculled blocks
-	Archetype NoCullTuple;
-	NoCullTuple.AddComponent<IgnoreCull>();
+	Query query;
+	query.With<CubeRendererComponent, RenderMatrixComponent>();
+	query.Build();
 
-	world.registry_decs.IterateBlocks(RenderTuple.componentlist, NoCullTuple.componentlist,[&](ArchetypeBlock & block) {
-		const bool bHasCull = block.myArch.Match(CullTuple.componentlist) == 1;
+	iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
 
-		auto cubearray = block.GetComponentArray<CubeRendererComponent>();
-		auto transfarray = block.GetComponentArray<RenderMatrixComponent>();
-		for (int i = block.last - 1; i >= 0; i--)
+		for (auto chnk : arch->chunks) {
+			chunk_cache.push_back(chnk);
+		}
+		});
+
+	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+
+		auto entities = get_chunk_array<EntityID>(chnk);
+		auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
+		auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
+		auto cullarray = get_chunk_array<Culled>(chnk);
+
+		const bool bHasCull = cullarray.chunkOwner == chnk;
+
+
+		for (int i = chnk->header.last - 1; i >= 0; i--)
 		{
-			const CubeRendererComponent & cube = cubearray.Get(i);
-			const RenderMatrixComponent & matrix = transfarray.Get(i);
+			const CubeRendererComponent& cube = cubearray[i];
+			const RenderMatrixComponent& matrix = transfarray[i];
 			bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
 
 			if (bHasCull && bVisible)
 			{
-				RemoveCulledQueue.enqueue(block.entities[i]);
+				RemoveCulledQueue.enqueue(entities[i]);
 			}
 			else if (!bHasCull && !bVisible)
 			{
-				SetCulledQueue.enqueue(block.entities[i]);
+				SetCulledQueue.enqueue(entities[i]);
 			}
-
 		}
-	}, true);
+	});
+
+
+	//Archetype RenderTuple;
+	//RenderTuple.add_component<RenderMatrixComponent>();
+	//RenderTuple.add_component<CubeRendererComponent>();
+	//
+	//Archetype CullTuple;
+	//CullTuple.add_component<Culled>();
+
+	//auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});
+
+	//iterate nonculled blocks
+	//Archetype NoCullTuple;
+	//NoCullTuple.add_component<IgnoreCull>();
+	//
+	//world.registry_decs.IterateBlocks(RenderTuple.componentlist, NoCullTuple.componentlist,[&](ArchetypeBlock & block) {
+	//	const bool bHasCull = block.myArch.match(CullTuple.componentlist) == 1;
+	//
+	//	auto cubearray = block.get_component_array_mutable<CubeRendererComponent>();
+	//	auto transfarray = block.get_component_array_mutable<RenderMatrixComponent>();
+	//	int blocklast = block.last;
+	//	for (int i = 0; i < blocklast; i++)
+	//	{
+	//		const CubeRendererComponent & cube = cubearray.Get(i);
+	//		const RenderMatrixComponent & matrix = transfarray.Get(i);
+	//		bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
+	//
+	//		if (bHasCull && bVisible)
+	//		{				
+	//			RemoveCulledQueue.enqueue(block.entities[i]);
+	//		}
+	//		else if (!bHasCull && !bVisible)
+	//		{			
+	//			SetCulledQueue.enqueue(block.entities[i]);
+	//		}
+	//
+	//	}
+	//}, true);
 }
 	rmt_ScopedCPUSample(CullQueueApply, 0);
-	EntityHandle handle;
-
+	//EntityHandle handle;
+	//
 	while (true)
 	{
-		EntityHandle results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
 		size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
 		if (count == 0)break;
 		for (size_t i = 0; i != count; ++i) {
-			world.registry_decs.AddComponent<Culled>(results[i]);
-		}
-		
-		
+			add_component_to_entity<Culled>(&world.registry_decs, results[i], Culled{});			
+		}		
 	}
 	while (true)
 	{
-		EntityHandle results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
 		size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
 		if (count == 0)break;
 		for (size_t i = 0; i != count; ++i) {
-			world.registry_decs.RemoveComponent<Culled>(results[i]);
+			remove_component_from_entity<Culled>(&world.registry_decs, results[i]);
 		}
 	}
 
 	//while (SetCulledQueue.try_dequeue(handle)) {
 	//
-	//	world.registry_decs.AddComponent<Culled>(handle);
+	//	world.registry_decs.add_component<Culled>(handle);
 	//}
 	//while (RemoveCulledQueue.try_dequeue(handle)) {
 	//
@@ -243,44 +286,31 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 
 	int bufferidx = 0;
 	rmt_ScopedD3D11Sample(IterateCubes);
-
-	//rmt_BeginD3D11Sample(RenderCubeBatch);
-	Archetype RenderTuple;
-	RenderTuple.AddComponent<RenderMatrixComponent>();
-	RenderTuple.AddComponent<CubeRendererComponent>();
-
-
-	Archetype CullTuple;
-	CullTuple.AddComponent<Culled>();
-
-	world.registry_decs.IterateBlocks(RenderTuple.componentlist, CullTuple.componentlist,[&](ArchetypeBlock & block) {
 	
-		auto cubearray = block.GetComponentArray<CubeRendererComponent>();
-		auto transfarray = block.GetComponentArray<RenderMatrixComponent>();
-		for (int i = 0; i < block.last; i++)
+	auto* reg = &world.registry_decs;
+	float dt = world.GetTime().delta_time;
+
+	Query query;
+	query.With<CubeRendererComponent, RenderMatrixComponent>();
+	query.Exclude<Culled>();
+	query.Build();	
+
+	reg->for_each(query,[&](RenderMatrixComponent& matrix, CubeRendererComponent& cube) {
+
+		nDrawcalls++;
+
+		uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
+		uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
+		bufferidx++;
+		if (bufferidx >= 512)
 		{
-			const CubeRendererComponent & cube = cubearray.Get(i);
-			const RenderMatrixComponent & matrix = transfarray.Get(i);
-			
-				nDrawcalls++;
+			bufferidx = 0;
+			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
-			
-				
-				uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
-				uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
-				bufferidx++;
-				if (bufferidx >= 512)
-				{
-					bufferidx = 0;
-					Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
-
-					Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
-					
-				}
+			Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
 		}
 	});
-	
-	
+
 
 	if (bufferidx > 0)
 	{
