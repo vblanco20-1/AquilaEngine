@@ -99,6 +99,9 @@
     <ClCompile Include="include\Source.cpp">
       <Filter>Header Files</Filter>
     </ClCompile>
+    <ClCompile Include="third_party\tracy\TracyClient.cpp">
+      <Filter>Source Files\ThirdParty</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\PrecompiledHeader.h">
@@ -186,6 +189,9 @@
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
     <ClInclude Include="include\decs2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\tracy\Tracy.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

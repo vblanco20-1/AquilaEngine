@@ -66,7 +66,17 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size
 	//Mortons[MortonIdx++] = gr;
 	//if (index >= Mortons.size())
 	//{
+	
+	gr.pos = XMVectorSetW(gr.pos,XMVectorGetX(XMVector3LengthSq(gr.pos)));
+	
+	if (index == -1) {
 		Mortons.push_back(gr);
+	}
+	else {
+		Mortons[index] = gr;
+	}
+
+		
 	//}
 	//Mortons[index] = gr;
 	//Mortons.push_back(gr);
@@ -184,7 +194,7 @@ bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start
 	return false;
 }
 
-void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> &&Body)
+void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body)
 {
 	const float radSquared = radius * radius;	
 
@@ -232,7 +242,9 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 						const XMVECTOR Dist = XMVector3LengthSq(Pos - item.pos);
 						if (XMVectorGetX(Dist) < radSquared)
 						{
-							Body(item);
+							if (!Body(item)) {
+								return;
+							}
 						}
 					}					
 				}				
@@ -311,8 +323,8 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 void BoidHashSystem::update(ECS_GameWorld & world)
 {
-	rmt_ScopedCPUSample(BoidHashSystem, 0);
-
+	ZoneNamedNC(BoidHashSystem,"Boid Hash System", tracy::Color::Blue, true);
+	
 	SCOPE_PROFILE("Boid Hash System All");
 
 	ECS_Registry & registry = world.registry_entt;
@@ -329,13 +341,13 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 	//grab a view for Transform and Boid entities
 	//auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
 
-	size_t count = 150000;
+	size_t count = 200000;
 	//reset data structures
 	//boidref.map->Mortons.clear();
 	//boidref.map->Mortons.reserve(Boidview.size());
 	std::vector<size_t> indices;
 	{
-		rmt_ScopedCPUSample(DataStructureInitialization, 0);
+		ZoneNamedNC(DataStructureInitialization, "Accel Initialization", tracy::Color::Blue, true);
 		boidref.map->Mortons.clear();
 
 		boidref.map->Mortons.reserve(count);
@@ -360,7 +372,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 		}
 	}
 	{
-		rmt_ScopedCPUSample(InitialFill, 0);
+		ZoneNamedNC(InitialFill, "Initial Fill", tracy::Color::Red, true);
 		SCOPE_PROFILE("Boid Initial Fill");
 
 
@@ -371,30 +383,50 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 		//BoidsArchetype.add_component<TransformComponent>();
 		int idx = 0;
 
-		//iterate blocks that have position
-		//world.registry_decs.IterateBlocks(BoidsArchetype.componentlist, [&](ArchetypeBlock & block) {
+		//world.registry_decs.for_each([&](BoidComponent& boid, TransformComponent& t) {
 		//
-		//	auto boidarray = block.get_component_array_mutable<BoidComponent>();
-		//	auto transfarray = block.get_component_array_mutable<TransformComponent>();
-		//	
-		//	for (int i = block.last - 1; i >= 0; i--)
-		//	{
-		//		TransformComponent & t = transfarray.Get(i);
-		//		BoidComponent & boid = boidarray.Get(i);
-		//		boidref.map->AddToGridmap(t.position, boid, 0);				
-		//	}
-		//}, false);
+		//	boidref.map->AddToGridmap(t.position, boid, 0);
+		//	});
+		static std::vector<DataChunk*> chunk_cache;
+		chunk_cache.clear();
+		std::atomic<int> gridmap_indices = 0;
+		int total_boids = 0;
+		Query query;
+		query.with<BoidComponent, TransformComponent>();
+		query.build();
 
-		////std::for_each(std::execution::par,Boidview.begin(), Boidview.end(), [&](const auto entity) {
-		//std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](const size_t idx) {
-		//	//for (size_t & idx : indices)
-		//	//{
-		//		//this is done in as many threads as the STL decides, usually all
-		//	auto[t, boid] = Boidview.get<TransformComponent, BoidComponent>(Boidview.data()[idx]);// entity);
-		//
-		//	boidref.map->AddToGridmap(t.position, boid, idx);
-		//
-		//});
+
+		{
+			ZoneScopedNC("Boids Gather Archetypes", tracy::Color::Green, true);		
+			
+			world.registry_decs.gather_chunks(query,chunk_cache);
+			decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
+
+				for (auto chnk : arch->chunks) {
+					total_boids += chnk->header.last;
+					chunk_cache.push_back(chnk);
+				}
+			});
+		}
+
+		boidref.map->Mortons.resize(total_boids*2);
+
+		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+
+			ZoneScopedNC("Boids Execute Chunks", tracy::Color::Red, true);
+
+			auto boids = get_chunk_array<BoidComponent>(chnk);
+			auto transforms = get_chunk_array<TransformComponent>(chnk);
+
+			//add atomic to reserve space
+			int first_idx = gridmap_indices.fetch_add(chnk->header.last);
+
+			for (int i = 0; i < chnk->header.last; i++)
+			{
+				boidref.map->AddToGridmap(transforms[i].position, boids[i], first_idx + i);
+			}
+		});
+
 	}
 
 	{
@@ -402,17 +434,19 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 		if (boidref.map->Mortons.size() > 0)
 		{
 			{
-				rmt_ScopedCPUSample(MortonSort, 0);
+				ZoneNamedNC(MortonSort, "Sort", tracy::Color::Blue, true);
+				//ZoneNamed(MortonSort, true);
 				SCOPE_PROFILE("Boid Hash Morton sort");
 
 
 				//parallel sort all entities by morton code
-				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2&a, const GridItem2&b) {
+				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2&a, GridItem2&b) {
 
 					if (a.morton == b.morton)
 					{
 						//use the lengt of the vector to sort, as at this point it doesnt matter much
-						return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
+						return XMVectorGetW(a.pos) < XMVectorGetW(b.pos);
+						//return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
 					}
 					else
 					{
@@ -423,7 +457,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 			}
 			{
 
-				rmt_ScopedCPUSample(MortonHash, 0);
+				ZoneNamedNC(MortonHash, "Hash", tracy::Color::Blue, true);
 				SCOPE_PROFILE("Boid Hash Morton hash");
 
 				//compact the entities array into the grid array, to speed up binary search

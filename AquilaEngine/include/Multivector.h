@@ -11,7 +11,7 @@ struct multi_vector {
 	void push_back(T & thing) { get_vector().push_back(thing); };
 
 	
-	vec_type& get_vector() { return vectors[GetCurrentProcessorNumber()]; };
+	vec_type& get_vector() { return vectors[0/*GetCurrentProcessorNumber()*/]; };
 
 	
 	vec_type& get_vector(unsigned int n) { return vectors[n]; };

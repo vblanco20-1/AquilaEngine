@@ -28,7 +28,7 @@ struct DestructionSystem : public System {
 
 
 	moodycamel::ConcurrentQueue<EntityID_entt, QueueTraits> EntitiesToDelete_entt;
-	moodycamel::ConcurrentQueue<decs2::EntityID, QueueTraits> EntitiesToDelete_decs;
+	moodycamel::ConcurrentQueue<decs::EntityID, QueueTraits> EntitiesToDelete_decs;
 	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
 	DestructionSystem() { uses_threading = true; };
 	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
@@ -62,7 +62,7 @@ struct DestructionSystem : public System {
 	};
 	void CountLifetimes(ECS_Registry &registry, float dt)
 	{
-		rmt_ScopedCPUSample(Destruction_Iterate, 0);
+		ZoneNamed(Destruction_Iterate, true);
 		auto  view = registry.view<LifetimeComponent>(/*entt::persistent_t{}*/);
 
 
@@ -100,7 +100,7 @@ struct DestructionSystem : public System {
 
 	void ApplyDestruction(ECS_Registry & registry, float dt)
 	{
-		rmt_ScopedCPUSample(Destruction_Apply, 0);
+		ZoneNamed(Destruction_Apply, true);
 
 		EntityID_entt EntitiesToDestroy[64];
 		while (true)
@@ -144,7 +144,7 @@ struct DestructionSystem : public System {
 	{
 		SCOPE_PROFILE("Deleter System ")
 
-		rmt_ScopedCPUSample(DestructionSystem, 0);
+		ZoneNamed(DestructionSystem, true);
 
 
 		const float dt = world.GetTime().delta_time;
@@ -156,16 +156,12 @@ struct DestructionSystem : public System {
 		chunk_cache.clear();
 
 		Query query;
-		query.With<LifetimeComponent>();
-		query.Build();
-
-		iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
-
-			for (auto chnk : arch->chunks) {
-				chunk_cache.push_back(chnk);
-			}
-		});
-
+		query.with<LifetimeComponent>();
+		query.build();
+		
+		
+		reg->gather_chunks(query, chunk_cache);
+		
 		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
 			auto lfarray = get_chunk_array<LifetimeComponent>(chnk);
 			auto idarray = get_chunk_array<EntityID>(chnk);
@@ -179,6 +175,7 @@ struct DestructionSystem : public System {
 			}
 		});
 
+		
 
 		EntityID ex[64];
 		while (true)
@@ -188,7 +185,7 @@ struct DestructionSystem : public System {
 			{
 				for (int i = 0; i < dequeued; i++)
 				{
-					destroy_entity(reg, ex[i]);
+					reg->destroy(ex[i]);
 				}
 			}
 			else
@@ -196,7 +193,42 @@ struct DestructionSystem : public System {
 				break;
 			}
 		}
-		
+
+		Query query2;
+		query2.with<TransformParentComponent>();
+		query2.build();
+
+		chunk_cache.clear();
+		reg->gather_chunks(query2, chunk_cache);
+
+		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+			auto lfarray = get_chunk_array<TransformParentComponent>(chnk);
+			auto idarray = get_chunk_array<EntityID>(chnk);
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				if (!decs::adv::is_entity_valid(reg, lfarray[i].Parent))
+				{
+					EntitiesToDelete_decs.enqueue(idarray[i]);
+				}
+			}
+		});
+
+		//EntityID ex[64];
+		while (true)
+		{
+			int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
+			if (dequeued > 0)
+			{
+				for (int i = 0; i < dequeued; i++)
+				{
+					reg->destroy(ex[i]);
+				}
+			}
+			else
+			{
+				break;
+			}
+		}		
 	}
 };
 
@@ -220,7 +252,7 @@ struct ExplosionFXSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt)
 	{
-		rmt_ScopedCPUSample(ExplosionFXSystem, 0);
+		ZoneNamed(ExplosionFXSystem, true);
 		auto  view = registry.view<ExplosionFXComponent, TransformComponent>(entt::persistent_t{});
 
 		std::for_each(/*std::execution::par_unseq, */view.begin(), view.end(), [&](const auto entity) {

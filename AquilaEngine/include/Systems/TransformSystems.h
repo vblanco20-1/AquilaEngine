@@ -48,7 +48,7 @@ namespace ecs::system {
 		virtual void update(ECS_GameWorld & world);
 		virtual void update(ECS_Registry &registry, float dt)
 		{
-			rmt_ScopedCPUSample(TransformSystem, 0);
+			ZoneNamed(TransformSystem, true);
 			SCOPE_PROFILE("TransformUpdate System");
 
 			auto  posview = registry.view<TransformComponent, PositionComponent>(entt::persistent_t{});
@@ -56,7 +56,7 @@ namespace ecs::system {
 		
 			
 			{
-				rmt_ScopedCPUSample(apply_position, 0);
+				ZoneNamed(TransformApplyPosition, true);
 
 
 				std::for_each(/*std::execution::par_unseq,*/ posview.begin(), posview.end(), [&posview](const auto entity) {
@@ -66,7 +66,7 @@ namespace ecs::system {
 			}
 
 			{
-				rmt_ScopedCPUSample(CalculateMatrices, 0);
+				ZoneNamed(CalculateMatrices, true);
 
 				std::for_each(/*std::execution::par, */matview.begin(), matview.end(), [&matview](const auto entity) {
 
@@ -75,7 +75,7 @@ namespace ecs::system {
 				});
 			}
 			{
-				rmt_ScopedCPUSample(CalculateHierarchy, 0);
+				ZoneNamed(CalculateHierarchy, true);
 
 
 				int iterations = 0;

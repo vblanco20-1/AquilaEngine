@@ -33,7 +33,7 @@ ecs::Task PlayerCameraSystem::schedule(ECS_Registry &registry, ecs::TaskEngine &
 
 void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(PlayerCameraSystem, 0);
+	ZoneNamed(PlayerCameraSystem, true);
 	XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
 	if (registry.has<PlayerInputTag>())
 	{
@@ -49,7 +49,7 @@ void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 			XMVECTOR CamForward = XMVector3Normalize(cam.focusPoint - XMLoadFloat3(&campos.Position));
 			XMVECTOR CamUp = XMVector3Normalize(cam.upDirection);
 			XMVECTOR CamRight = XMVector3Cross(CamForward, XMVectorSet(0, -1, 0, 0));
-			XMVECTOR MovOffset = input.Input.MoveForward * CamForward + input.Input.MoveRight * CamRight + g_InputMap.MoveUp * XMVectorSet(0, 1, 0, 0);
+			XMVECTOR MovOffset = input.Input.MoveForward * CamForward + input.Input.MoveRight * CamRight + g_InputMap.MoveUp * XMVectorSet(0, 1, 0, true);
 
 			campos.Position.x += XMVectorGetX(MovOffset);
 			campos.Position.y += XMVectorGetY(MovOffset);
@@ -71,7 +71,7 @@ void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 
 void SpaceshipSpawnSystem::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(SpaceshipSpawnSystem, 0);
+	ZoneNamed(SpaceshipSpawnSystem, true);
 	//return;
 	auto  posview = registry.view<SpaceshipSpawnerComponent, TransformComponent>();
 	for (auto e : posview)
@@ -168,89 +168,92 @@ void SpaceshipSpawnSystem::update(ECS_Registry &registry, float dt)
 
 void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 {
-	rmt_ScopedCPUSample(SpaceshipSpawnSystem, 0);
+	ZoneNamed(SpaceshipSpawnSystem, true);
 	SCOPE_PROFILE("Spawner System ")
 
-	const Metatype* types[] = {
-		get_metatype<SpaceshipSpawnerComponent>(),
-		get_metatype<TransformComponent>()
-	};
-
-	
-
-	const Metatype* typesship[] =
-	{
-			get_metatype<TransformComponent>(),
-			get_metatype<LifetimeComponent>(),
-			get_metatype<SpaceshipMovementComponent>(),
-			get_metatype<CubeRendererComponent>(),
-			get_metatype<RenderMatrixComponent>(),
-			get_metatype<BoidComponent>()
-	};
-
 	auto* reg = &world.registry_decs;
-	Archetype* spawnerArchetype = find_or_create_archetype(reg,types, 2);
-	Archetype* spaceshipArchetype = find_or_create_archetype(reg, typesship, 6);
-
 	float dt = world.GetTime().delta_time;
-	reg->for_each([&](SpaceshipSpawnerComponent& spawner, TransformComponent& tr) {
-		
 
-		spawner.Elapsed -= dt;
-		if (spawner.Elapsed < 0)
-		{
-			spawner.Elapsed += spawner.SpawnRate;
-		
-			float roll_x = rng::RandomFloat();
-			float roll_y = rng::RandomFloat();
-			float roll_z = rng::RandomFloat();
-		
-			SpawnUnit newSpaceship;		
+	{
+		ZoneScopedN("Spawner Update", true);
 
-			float  randomtint = rng::RandomFloat();
-			if (XMVectorGetX(tr.position) > 0)
+		reg->for_each([&](SpaceshipSpawnerComponent& spawner, TransformComponent& tr) {
+
+			spawner.Elapsed -= dt;
+			
+			if (spawner.Elapsed < 0)
 			{
-				newSpaceship.Color = XMFLOAT3(1.0f, randomtint, randomtint);		
+				spawner.Elapsed += spawner.SpawnRate;
+
+				float roll_x = rng::RandomFloat();
+				float roll_y = rng::RandomFloat();
+				float roll_z = rng::RandomFloat();
+
+				SpawnUnit newSpaceship;
+
+				float  randomtint = rng::RandomFloat();
+				if (XMVectorGetX(tr.position) > 0)
+				{
+					newSpaceship.Color = XMFLOAT3(1.0f, randomtint, randomtint);
+				}
+				else
+				{
+					newSpaceship.Color = XMFLOAT3(randomtint, randomtint, 1.0f);
+				}
+
+				auto pos = tr.position + XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
+
+				DirectX::XMStoreFloat4(&newSpaceship.Position, pos);
+				DirectX::XMStoreFloat4(&newSpaceship.MoveTarget, spawner.ShipMoveTarget);
+
+				SpawnQueue.enqueue(newSpaceship);
 			}
-			else
-			{
-				newSpaceship.Color = XMFLOAT3(randomtint, randomtint, 1.0f);
-			}
+			});
 
-			auto pos = tr.position + XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
-		
-			DirectX::XMStoreFloat4(&newSpaceship.Position, pos);
-			DirectX::XMStoreFloat4(&newSpaceship.MoveTarget, spawner.ShipMoveTarget);
-		
-			SpawnQueue.enqueue(newSpaceship);
-		}		
-	});
+	}
+	{		
+		ZoneScopedNC("Spawner Spawn", tracy::Color::Red, true);
+		SpawnUnit unit;
+		while (SpawnQueue.try_dequeue(unit)) {
 
-	SpawnUnit unit;
-	while (SpawnQueue.try_dequeue(unit)) {
+			auto et = reg->new_entity<TransformComponent,
+				LifetimeComponent,
+				SpaceshipMovementComponent,
+				CubeRendererComponent,
+				BoidComponent,
+				RenderMatrixComponent
+			>();
 
-		auto et = create_entity_with_archetype(spaceshipArchetype);		
-		
-		get_component<TransformComponent>(reg,et) = TransformComponent();
-		get_component<TransformComponent>(reg,et).position = DirectX::XMLoadFloat4(&unit.Position);
-		
-		get_component<LifetimeComponent>(reg, et).TimeLeft = 5;
-		get_component<BoidComponent>(reg, et) = BoidComponent();
-		
-		SpaceshipMovementComponent & mv = get_component<SpaceshipMovementComponent>(reg, et);
-		mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 2;
-		mv.Target =  DirectX::XMLoadFloat4(&unit.MoveTarget)  + XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 20;
-		mv.speed = 6;		
-		
-		get_component<CubeRendererComponent>(reg,et) = CubeRendererComponent();
-		get_component<CubeRendererComponent>(reg,et).color = unit.Color;
-		get_component<RenderMatrixComponent>(reg,et) = RenderMatrixComponent();
+			reg->get_component<TransformComponent>(et).position = DirectX::XMLoadFloat4(&unit.Position);
+
+			reg->get_component<LifetimeComponent>(et).TimeLeft = 5;
+
+			SpaceshipMovementComponent& mv = reg->get_component<SpaceshipMovementComponent>(et);
+			mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 2;
+			mv.Target = DirectX::XMLoadFloat4(&unit.MoveTarget) + XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 20;
+			mv.speed = 6;
+
+			reg->get_component<CubeRendererComponent>(et).color = unit.Color;
+
+			auto child = reg->new_entity<TransformComponent,
+				TransformParentComponent,				
+				CubeRendererComponent,
+				RenderMatrixComponent
+			>();
+
+			reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, 0.f, 0.f, 1.f);
+			reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+
+			reg->get_component<TransformParentComponent>(child).Parent = et;
+			reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+			//reg->get_component<TransformComponent>(et).rotationQuat = XMVectorSet(0.f, 0.f, 0.f, 1);
+		}
 	}
 }
 
 void PlayerInputSystem::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(PlayerInputSystem, 0);
+	ZoneNamed(PlayerInputSystem, true);
 	if (!registry.has<PlayerInputTag>())
 	{
 		auto player = registry.create();

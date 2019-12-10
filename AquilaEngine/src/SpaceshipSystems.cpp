@@ -15,7 +15,7 @@ ecs::Task SpaceshipMovementSystem::schedule(ECS_Registry &registry, ecs::TaskEng
 	dt = 1.0 / 60.0;
 	ecs::Task task = task_engine.silent_emplace([&, dt](auto& subflow) {
 	
-		rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
+		ZoneNamed(SpaceshipMovementSystem, true);
 		SCOPE_PROFILE("Spaceship Movement System");
 
 
@@ -70,13 +70,15 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 	int num = 10;
 	boidref.map->Foreach_EntitiesInRadius_Morton(3, t.position, [&](const GridItem2& boid) {
 	
-		XMVECTOR Avoidance = t.position - boid.pos;
-		float dist = XMVectorGetX(XMVector3Length(Avoidance));
-		OffsetVelocity += XMVector3Normalize(Avoidance)*  (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
-		num--;	
+		
+			XMVECTOR Avoidance = t.position - boid.pos;
+			float dist = XMVectorGetX(XMVector3Length(Avoidance));
+			OffsetVelocity += XMVector3Normalize(Avoidance) * (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
+			num--;
+			return num > 0;
 	});
 
-
+	OffsetVelocity *= 10;
 
 	ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
 
@@ -89,7 +91,7 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
+	ZoneNamed(SpaceshipMovementSystem, true);
 	SCOPE_PROFILE("Spaceship Movement System");
 	
 
@@ -112,7 +114,7 @@ static bool bEven = false;
 
 void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 {
-	rmt_ScopedCPUSample(SpaceshipMovementSystem, 0);
+	ZoneNamed(SpaceshipMovementSystem, true);
 	SCOPE_PROFILE("Spaceship Movement System");
 
 	BoidReferenceTag & boidref = world.registry_entt.get<BoidReferenceTag>();
@@ -125,22 +127,21 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	//});
 
 	Query spaceshipQuery;
-	spaceshipQuery.With<SpaceshipMovementComponent, TransformComponent>();
-	spaceshipQuery.Build();
+	spaceshipQuery.with<SpaceshipMovementComponent, TransformComponent>();
+	spaceshipQuery.build();
 
 	static std::vector<DataChunk*> chunk_cache;
 	chunk_cache.clear();
 	
+	{
+		ZoneScopedNC("Spaceship Gather Archetypes", tracy::Color::Green, true);
 
-	iterate_matching_archetypes(&world.registry_decs, spaceshipQuery, [&](Archetype* arch) {
-
-		for (auto chnk : arch->chunks) {
-
-			chunk_cache.push_back(chnk);
-		}
-	});
+		world.registry_decs.gather_chunks(spaceshipQuery, chunk_cache);
+		
+	}
 
 	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+		ZoneScopedNC("Spaceship Execute Chunks", tracy::Color::Red, true);
 
 		auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
 		auto transfarray = get_chunk_array<TransformComponent>(chnk);

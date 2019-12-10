@@ -2,7 +2,7 @@
 #include <PrecompiledHeader.h>
 
 #include "decs2.h"
-using namespace decs2;
+using namespace decs;
 //#include "decs/decs.hpp"
 //#include <stdint.h>
 //#include "entt/entt.hpp"
@@ -72,6 +72,9 @@ struct TransformComponent {
 	
 	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){		
 	}
+};
+struct TransformParentComponent {
+	decs::EntityID Parent;
 };
 struct StaticTransform {
 };
@@ -214,18 +217,19 @@ auto parallel_for_ecs(ecs::SubflowBuilder &builder, V& view, /*std::function<voi
 		
 		size_t r = std::distance(beg, end);
 		std::advance(e, std::min(r, g));
-		
+		int namelen = strlen(profile_name);
 		// Create a task
-		auto task = builder.silent_emplace([mview,profile_name, beg, e, c]() mutable {
-			rmt_BeginCPUSampleDynamic(profile_name, 0);
-
+		auto task = builder.silent_emplace([mview,profile_name, beg, e, c, namelen]() mutable {
+			//rmt_BeginCPUSampleDynamic(profile_name, 0);
+			ZoneScoped;
+			ZoneText(profile_name, namelen);
 
 			for (auto it = beg; it != e; it++)
 			{
 				c(*it,*mview);
 			}
 			//std::for_each(beg, e, c);
-			rmt_EndCPUSample();
+			//rmt_EndCPUSample();
 		});
 		source.precede(task);
 		task.precede(target);

@@ -58,26 +58,11 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
 {
-	//Archetype ARC_ShipSpawner;
-	//ARC_ShipSpawner.add_component<SpaceshipSpawnerComponent>();
-	//ARC_ShipSpawner.add_component<RenderMatrixComponent>();
-	//ARC_ShipSpawner.add_component<TransformComponent>();
-	//ARC_ShipSpawner.add_component<CubeRendererComponent>();
-	//ARC_ShipSpawner.add_component<RotatorComponent>();
-
-	const Metatype* typesspawner[] =
-	{
-			get_metatype<SpaceshipSpawnerComponent>(),
-			get_metatype<RenderMatrixComponent>(),
-			get_metatype<TransformComponent>(),
-			get_metatype<CubeRendererComponent>(),
-			get_metatype<RotatorComponent>()
-	};
-
 	auto* reg = &world.registry_decs;
-	Archetype* spawnerArchetype = find_or_create_archetype(reg, typesspawner, 5);
+	
 
-	auto spawner1 = create_entity_with_archetype(spawnerArchetype);//registry.CreateEntity(ARC_ShipSpawner);
+	auto spawner1 = reg->new_entity<SpaceshipSpawnerComponent,RenderMatrixComponent
+		,TransformComponent, CubeRendererComponent,RotatorComponent>();
 
 	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 200;
 	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 200 + 200;
@@ -88,26 +73,27 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	spcomp.Elapsed = 0;
 	spcomp.SpawnRate = 0.01;
 	spcomp.ShipMoveTarget = TargetLocation;
-	get_component<SpaceshipSpawnerComponent>(reg,spawner1) = spcomp;
 	
-	get_component<RotatorComponent>(reg,spawner1).Axis = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
-	get_component<RotatorComponent>(reg,spawner1).rate = 1;
+	reg->get_component<SpaceshipSpawnerComponent>(spawner1) = spcomp;
+	
+	reg->get_component<RotatorComponent>(spawner1).Axis = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
+	reg->get_component<RotatorComponent>(spawner1).rate = 1;
 	float  randomtint = rng::RandomFloat();
 	if (XMVectorGetX(Location) > 0)
 	{
-		get_component<CubeRendererComponent>(reg, spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
+		reg->get_component<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
 	
 	}
 	else
 	{
-		get_component<CubeRendererComponent>(reg, spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
+		reg->get_component<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
 	}
 
-	get_component<TransformComponent>(reg,spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
-	get_component<TransformComponent>(reg,spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
-	get_component<TransformComponent>(reg,spawner1).rotationQuat = XMQuaternionIdentity();
+	reg->get_component<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
+	reg->get_component<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
+	reg->get_component<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
 
-	ecs::system::UpdateTransform::build_matrix(get_component<TransformComponent>(reg, spawner1), get_component<RenderMatrixComponent>(reg, spawner1));
+	ecs::system::UpdateTransform::build_matrix(reg->get_component<TransformComponent>(spawner1), reg->get_component<RenderMatrixComponent>(spawner1));
 
 
 	//registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
@@ -179,9 +165,9 @@ void ECS_GameWorld::initialize()
 	Systems.push_back(new SpaceshipMovementSystem());
 	Systems.push_back(new DestructionSystem());
 	////Systems.push_back(new DestructionApplySystem());
-	//
-	//
-	//
+	
+
+
 	Systems.push_back(new RotatorSystem());
 	Systems.push_back(new ecs::system::UpdateTransform());
 
@@ -195,25 +181,16 @@ void ECS_GameWorld::initialize()
 	appInfo.Drawcalls = 10000;
 	appInfo.RenderTime = 1.0f;
 
-	for (float z = -1000.0; z < 1000.0; z += 10)
+	float spawnerstepsystem = 10;
+	for (float z = -1000.0; z < 1000.0; z += spawnerstepsystem)
 	{
 		BuildShipSpawner(*this, XMVectorSet(-500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 		BuildShipSpawner(*this, XMVectorSet(500, 0, z, 0), XMVectorSet(0, 0, z, 0));
 	}
-
-
-
-	const Metatype* types[] =
-	{
-			get_metatype<RenderMatrixComponent>(),
-			get_metatype<CubeRendererComponent>(),
-			get_metatype<StaticTransform>()
-	};
-
+	
 	auto* reg = &registry_decs;
-	Archetype* blockArchetype = find_or_create_archetype(reg, types, 3);
 
-
+	
 	for (float z = -20000.0; z < 20000.0; z += 220)
 	{
 		for (float x = -20000.0; x < 20000.0;x += 220)
@@ -226,19 +203,19 @@ void ECS_GameWorld::initialize()
 			transf.rotationQuat = XMQuaternionIdentity();
 			transf.scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
 	
-			auto e = create_entity_with_archetype(blockArchetype);//registry_decs.CreateEntity(BackgroundBuilding);
+			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform>();//    create_entity_with_archetype(blockArchetype);//registry_decs.CreateEntity(BackgroundBuilding);
 	
-			RenderMatrixComponent & rend = get_component<RenderMatrixComponent>(reg,e);
+			RenderMatrixComponent & rend = reg->get_component<RenderMatrixComponent>(e);
 			ecs::system::UpdateTransform::build_matrix(transf, rend);
 			float rngcolor = rng::RandomFloat() * 0.1 + 0.3;
-			get_component<CubeRendererComponent>(reg, e).color = XMFLOAT3(rngcolor, rngcolor, rngcolor);
+			reg->get_component<CubeRendererComponent>( e).color = XMFLOAT3(rngcolor, rngcolor, rngcolor);
 		}
 	}
 }
 
 void ECS_GameWorld::update_all(float dt)
 {
-	rmt_ScopedCPUSample(AllUpdate, 0);
+	ZoneNamed(AllUpdate, true);
 	ApplicationInfo & appInfo = registry_entt.get<ApplicationInfo>();
 	//appInfo.TotalEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
 	//appInfo.BoidEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
@@ -256,7 +233,7 @@ void ECS_GameWorld::update_all(float dt)
 	ecs::Task root_task = task_engine.placeholder();
 	ecs::Task end_task = task_engine.placeholder();
 	{
-		rmt_ScopedCPUSample(ScheduleUpdate, 0);
+		ZoneNamed(ScheduleUpdate, true);
 
 
 		//root_task.name("Root");
@@ -283,14 +260,14 @@ void ECS_GameWorld::update_all(float dt)
 	//myfile << task_engine.dump();
 	//myfile.close();
 	{
-		rmt_ScopedCPUSample(TaskWait, 0);
+		ZoneNamed(TaskWait, true);
 		//task_engine.wait_for_all();
 
 
 	}
 
 	{
-		rmt_ScopedCPUSample(SimulationUpdate, 0);
+		ZoneNamed(SimulationUpdate, true);
 		for (auto s : Systems)
 		{
 			//if (!s->uses_threading)
@@ -313,7 +290,7 @@ void ECS_GameWorld::update_all(float dt)
 		}
 	}
 	{
-		//rmt_ScopedCPUSample(DeepClone, 0);
+		//ZoneNamed(DeepClone, true);
 		//registry.clone_to(registry);
 
 		//RendererRegistryReferenceComponent & render_reg = registry.get<RendererRegistryReferenceComponent>();
@@ -322,7 +299,7 @@ void ECS_GameWorld::update_all(float dt)
 	}
 
 	{
-		rmt_ScopedCPUSample(RenderUpdate, 0);
+		ZoneNamed(RenderUpdate, true);
 		Bench_Start(bench);
 		Renderer->update(*this);
 		Bench_End(bench);

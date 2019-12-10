@@ -23,6 +23,7 @@ struct GridItem2 {
 	XMVECTOR pos;
 	GridVec grid;
 	uint64_t morton;
+	
 	GridItem2(uint64_t morton_code) : morton(morton_code) {}
 	GridItem2() {};
 };
@@ -76,7 +77,7 @@ struct BoidMap {
 
 
 	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
-	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<void(const GridItem2&)> &&Body);
+	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body);
 
 };
 

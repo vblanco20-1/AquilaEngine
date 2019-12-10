@@ -73,32 +73,43 @@ void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 {
 	update(world.registry_entt, world.GetTime().delta_time);
 
-	rmt_ScopedCPUSample(UpdateTransform_Decs, 0);	
+	ZoneNamed(UpdateTransform_Decs, true);	
 
 	SCOPE_PROFILE("TransformUpdate System-decs");
 
 	Query FullTransform;
-	FullTransform.With<RenderMatrixComponent, TransformComponent>();
-	FullTransform.Exclude<StaticTransform>();
-	FullTransform.Build();
-
+	FullTransform.with<RenderMatrixComponent, TransformComponent>();
+	FullTransform.exclude<StaticTransform>();
+	FullTransform.build();
 
 	static std::vector<DataChunk*> chunk_cache;
 	chunk_cache.clear();
 
-	iterate_matching_archetypes(&world.registry_decs, FullTransform, [&](Archetype* arch) {
+	
 
-		for (auto chnk : arch->chunks) {
-			chunk_cache.push_back(chnk);
-		}
-	});
+	{
+		ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
 
+		world.registry_decs.gather_chunks(FullTransform, chunk_cache);		
+	}
+	auto midpoint = chunk_cache.end();
+	{
+		ZoneScopedNC("Transform sort Archetypes: ", tracy::Color::Green);
+
+		midpoint = std::partition(chunk_cache.begin(), chunk_cache.end(), [](DataChunk* chnk) {
+			const bool bHasParent = get_chunk_array<TransformParentComponent>(chnk).chunkOwner == chnk;
+			return !bHasParent;
+		});
+	}
 	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+
+			ZoneScopedNC("Transform chunk execute: ",tracy::Color::Red);
+
 			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
 			auto transfarray = get_chunk_array<TransformComponent>(chnk);
 			auto posarray = get_chunk_array<PositionComponent>(chnk);
 			
-			const bool bHasPosition = posarray.chunkOwner == chnk;
+			const bool bHasPosition = posarray.chunkOwner == chnk;			
 			
 			for (int i = chnk->header.last - 1; i >= 0; i--)
 			{
@@ -109,8 +120,27 @@ void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 					apply_position(t, p);
 				}
 
-				build_matrix(t, matarray[i]);
+				build_matrix(t, matarray[i]);				
 			}			
+	});
+
+	
+	std::for_each(std::execution::par, midpoint, chunk_cache.end(), [&](DataChunk* chnk) {
+	
+		ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
+	
+		auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+		auto transfarray = get_chunk_array<TransformComponent>(chnk);
+
+		auto parentarray = get_chunk_array<TransformParentComponent>(chnk);
+		
+		for (int i = chnk->header.last - 1; i >= 0; i--)
+		{
+			auto& t = transfarray[i];
+
+			const XMMATRIX& parent_matrix = world.registry_decs.get_component<RenderMatrixComponent>(parentarray[i].Parent).Matrix;
+			matarray[i].Matrix *= parent_matrix;
+		}
 	});
 
 

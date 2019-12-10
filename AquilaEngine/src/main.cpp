@@ -32,8 +32,8 @@ void Cleanup();
 */
 int InitApplication(HINSTANCE hInstance, int cmdShow)
 {
-	Remotery* rmt;
-	rmt_CreateGlobalInstance(&rmt);
+	//Remotery* rmt;
+	//rmt_CreateGlobalInstance(&rmt);
 
 	WNDCLASSEX wndClass = { 0 };
 	wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -318,7 +318,7 @@ int InitDirectX(HINSTANCE hInstance, BOOL vSync)
 	Globals->g_Viewport.MinDepth = 0.0f;
 	Globals->g_Viewport.MaxDepth = 1.0f;
 
-	rmt_BindD3D11(Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
+	//rmt_BindD3D11(Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
 
 	return 0;
 }
@@ -342,6 +342,9 @@ void UnloadContent()
 */
 int Run()
 {
+	
+
+
 	MSG msg = { 0 };
 
 	static DWORD previousTime = timeGetTime();
@@ -355,6 +358,7 @@ int Run()
 
 	while (msg.message != WM_QUIT)
 	{
+		
 		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
@@ -362,8 +366,8 @@ int Run()
 		}
 		else
 		{
-			rmt_ScopedCPUSample(AllFrame, 0);
-			rmt_LogText("Time me, too!");
+			
+			//rmt_LogText("Time me, too!");
 
 			DWORD currentTime = timeGetTime();
 			float deltaTime = (currentTime - previousTime) / 1000.0f;

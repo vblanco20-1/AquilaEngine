@@ -13,7 +13,7 @@ void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
 
 void ecs::system::CameraUpdate::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(CameraUpdate, 0);
+	ZoneNamed(CameraUpdate, true);
 
 	registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
 
@@ -52,7 +52,7 @@ bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRende
 void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 {
 	{
-	rmt_ScopedCPUSample(FrustrumCuller, 0);
+	ZoneNamed(FrustrumCuller, true);
 	SCOPE_PROFILE("Culling System ")
 		XMVECTOR CamPos;
 	XMVECTOR CamDir;
@@ -73,25 +73,23 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 	chunk_cache.clear();
 
 	Query query;
-	query.With<CubeRendererComponent, RenderMatrixComponent>();
-	query.Build();
+	query.with<CubeRendererComponent, RenderMatrixComponent>();
+	query.build();
+	{
+		ZoneScopedNC("Cull Gather Archetypes",tracy::Color::Green, true);
 
-	iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
-
-		for (auto chnk : arch->chunks) {
-			chunk_cache.push_back(chnk);
-		}
-		});
-
+		world.registry_decs.gather_chunks(query, chunk_cache);
+	}
 	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-
+		
+		ZoneScopedNC("Cull Execute Chunks", tracy::Color::Red, true);
+			
 		auto entities = get_chunk_array<EntityID>(chnk);
 		auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
 		auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
 		auto cullarray = get_chunk_array<Culled>(chnk);
 
 		const bool bHasCull = cullarray.chunkOwner == chnk;
-
 
 		for (int i = chnk->header.last - 1; i >= 0; i--)
 		{
@@ -110,90 +108,29 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 		}
 	});
 
-
-	//Archetype RenderTuple;
-	//RenderTuple.add_component<RenderMatrixComponent>();
-	//RenderTuple.add_component<CubeRendererComponent>();
-	//
-	//Archetype CullTuple;
-	//CullTuple.add_component<Culled>();
-
-	//auto  posview = registry.view<RenderMatrixComponent, CubeRendererComponent>(entt::persistent_t{});
-
-	//iterate nonculled blocks
-	//Archetype NoCullTuple;
-	//NoCullTuple.add_component<IgnoreCull>();
-	//
-	//world.registry_decs.IterateBlocks(RenderTuple.componentlist, NoCullTuple.componentlist,[&](ArchetypeBlock & block) {
-	//	const bool bHasCull = block.myArch.match(CullTuple.componentlist) == 1;
-	//
-	//	auto cubearray = block.get_component_array_mutable<CubeRendererComponent>();
-	//	auto transfarray = block.get_component_array_mutable<RenderMatrixComponent>();
-	//	int blocklast = block.last;
-	//	for (int i = 0; i < blocklast; i++)
-	//	{
-	//		const CubeRendererComponent & cube = cubearray.Get(i);
-	//		const RenderMatrixComponent & matrix = transfarray.Get(i);
-	//		bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
-	//
-	//		if (bHasCull && bVisible)
-	//		{				
-	//			RemoveCulledQueue.enqueue(block.entities[i]);
-	//		}
-	//		else if (!bHasCull && !bVisible)
-	//		{			
-	//			SetCulledQueue.enqueue(block.entities[i]);
-	//		}
-	//
-	//	}
-	//}, true);
 }
-	rmt_ScopedCPUSample(CullQueueApply, 0);
-	//EntityHandle handle;
-	//
-	while (true)
 	{
-		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-		size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-		if (count == 0)break;
-		for (size_t i = 0; i != count; ++i) {
-			add_component_to_entity<Culled>(&world.registry_decs, results[i], Culled{});			
-		}		
-	}
-	while (true)
-	{
-		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-		size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-		if (count == 0)break;
-		for (size_t i = 0; i != count; ++i) {
-			remove_component_from_entity<Culled>(&world.registry_decs, results[i]);
+		ZoneScopedN("Cull Apply", true);
+
+		while (true)
+		{
+			EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+			size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+			if (count == 0)break;
+			for (size_t i = 0; i != count; ++i) {
+				world.registry_decs.add_component<Culled>(results[i]);
+			}
+		}
+		while (true)
+		{
+			EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+			size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+			if (count == 0)break;
+			for (size_t i = 0; i != count; ++i) {
+				world.registry_decs.remove_component<Culled>(results[i]);
+			}
 		}
 	}
-
-	//while (SetCulledQueue.try_dequeue(handle)) {
-	//
-	//	world.registry_decs.add_component<Culled>(handle);
-	//}
-	//while (RemoveCulledQueue.try_dequeue(handle)) {
-	//
-	//	world.registry_decs.RemoveComponent<Culled>(handle);
-	//}
-
-	////XMVECTOR VecDir = 
-	//std::for_each(std::execution::par_unseq, posview.begin(), posview.end(), [&](const auto entity) {
-	//
-	//
-	//	auto[matrix, cube] = posview.get<RenderMatrixComponent, CubeRendererComponent>(entity);
-	//	//posview.each([&, dt](auto entity, RenderMatrixComponent & matrix, PositionComponent&posc,CubeRendererComponent &cube) {
-	//
-	//	
-	//});
-
-
-
-
-
-	//update(world.registry_entt, world.GetTime().delta_time);
 }
 
 
@@ -222,8 +159,8 @@ void ecs::system::CubeRenderer::pre_render()
 
 void ecs::system::CubeRenderer::update(ECS_Registry &registry, float dt)
 {
-	rmt_ScopedCPUSample(CubeRenderer, 0);
-	rmt_ScopedD3D11Sample(CubeRendererSystemDX);
+	ZoneNamed(CubeRenderer, true);
+	//rmt_ScopedD3D11Sample(CubeRendererSystemDX);
 
 	SCOPE_PROFILE("Cube Render System");
 	//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
@@ -232,7 +169,7 @@ void ecs::system::CubeRenderer::update(ECS_Registry &registry, float dt)
 	pre_render();
 
 	int bufferidx = 0;
-	rmt_ScopedD3D11Sample(IterateCubes);
+	//rmt_ScopedD3D11Sample(IterateCubes);
 
 	//rmt_BeginD3D11Sample(RenderCubeBatch);
 
@@ -275,8 +212,8 @@ void ecs::system::CubeRenderer::update(ECS_Registry &registry, float dt)
 
 void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 {
-	rmt_ScopedCPUSample(CubeRenderer, 0);
-	rmt_ScopedD3D11Sample(CubeRendererSystemDX);
+	ZoneNamed(CubeRenderer, true);
+	//rmt_ScopedD3D11Sample(CubeRendererSystemDX);
 
 	SCOPE_PROFILE("Cube Render System");
 	//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
@@ -285,15 +222,15 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 	pre_render();
 
 	int bufferidx = 0;
-	rmt_ScopedD3D11Sample(IterateCubes);
+	//rmt_ScopedD3D11Sample(IterateCubes);
 	
 	auto* reg = &world.registry_decs;
 	float dt = world.GetTime().delta_time;
 
 	Query query;
-	query.With<CubeRendererComponent, RenderMatrixComponent>();
-	query.Exclude<Culled>();
-	query.Build();	
+	query.with<CubeRendererComponent, RenderMatrixComponent>();
+	query.exclude<Culled>();
+	query.build();	
 
 	reg->for_each(query,[&](RenderMatrixComponent& matrix, CubeRendererComponent& cube) {
 
@@ -325,7 +262,8 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 
 void ecs::system::RenderCore::render_start()
 {
-	rmt_BeginD3D11Sample(RenderFrameDX);
+	
+	//rmt_BeginD3D11Sample(RenderFrameDX);
 
 	assert(Globals->g_d3dDevice);
 	assert(Globals->g_d3dDeviceContext);
@@ -341,6 +279,7 @@ void ecs::system::RenderCore::render_start()
 
 void ecs::system::RenderCore::Present(bool vSync)
 {
+	FrameMark;
 	if (vSync)
 	{
 		Globals->g_d3dSwapChain->Present(1, 0);
@@ -354,12 +293,12 @@ void ecs::system::RenderCore::Present(bool vSync)
 void ecs::system::RenderCore::render_end()
 {
 	{
-		rmt_ScopedD3D11Sample(ImGuiRender);
+		//rmt_ScopedD3D11Sample(ImGuiRender);
 
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	}
 	{
-		rmt_ScopedD3D11Sample(DirectXPresent);
+		//rmt_ScopedD3D11Sample(DirectXPresent);
 		Present(Globals->g_EnableVSync);
 	}
 
@@ -367,7 +306,7 @@ void ecs::system::RenderCore::render_end()
 
 	drawcalls = nDrawcalls;
 
-	rmt_EndD3D11Sample();
+	//rmt_EndD3D11Sample();
 }
 
 void ecs::system::RenderCore::update(ECS_Registry &registry, float dt)

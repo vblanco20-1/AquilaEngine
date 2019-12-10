@@ -1,3 +1,6 @@
 [submodule "Decs"]
 	path = Decs
 	url = https://github.com/vblanco20-1/decs.git
+[submodule "AquilaEngine/third_party/tracy"]
+	path = AquilaEngine/third_party/tracy
+	url = https://bitbucket.org/wolfpld/tracy.git

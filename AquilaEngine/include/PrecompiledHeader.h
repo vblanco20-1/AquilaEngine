@@ -44,7 +44,9 @@
 #include "entt/entt.hpp"
 
 
-#include "Remotery.h"
+//#include "Remotery.h"
+#define TRACY_ENABLE
+#include <Tracy.hpp>
 
 // DirectX includes
 #define DIRECTINPUT_VERSION 0x0800
@@ -73,6 +75,5 @@ inline DWORD GetCurrentProcessorNumber() {
 	// CPUInfo[1] is EBX, bits 24-31 are APIC ID
 	if ((CPUInfo[3] & (1 << 9)) == 0) return -1;  // no APIC on chip
 	return (unsigned)CPUInfo[1] >> 24;
-
 }
 
