@@ -33,19 +33,25 @@ ecs::Task PlayerCameraSystem::schedule(ECS_Registry &registry, ecs::TaskEngine &
 
 void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 {
+	
+}
+
+void PlayerCameraSystem::update(ECS_GameWorld& world)
+{
 	ZoneNamed(PlayerCameraSystem, true);
 	XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
-	if (registry.has<PlayerInputTag>())
+	auto &registry = world.registry_entt;
+	if (world.registry_entt.has<PlayerInputTag>())
 	{
-		PlayerInputTag & input = registry.get<PlayerInputTag>();
+		PlayerInputTag& input = registry.get<PlayerInputTag>();
 
 		CamOffset.z += input.Input.Mousewheel;
 		CamOffset.x = (input.Input.MouseX - 500) / 15.f;
 		CamOffset.y = -1 * (input.Input.MouseY - 500) / 15.f;
 
 		XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z, 0.0f);
-		registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
-
+		//registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent& campos, CameraComponent& cam) {
+		world.registry_decs.for_each([&](EntityID entity, PositionComponent & campos, CameraComponent & cam) {
 			XMVECTOR CamForward = XMVector3Normalize(cam.focusPoint - XMLoadFloat3(&campos.Position));
 			XMVECTOR CamUp = XMVector3Normalize(cam.upDirection);
 			XMVECTOR CamRight = XMVector3Cross(CamForward, XMVectorSet(0, -1, 0, 0));
@@ -59,12 +65,8 @@ void PlayerCameraSystem::update(ECS_Registry &registry, float dt)
 			CamForward = XMVector3Rotate(CamForward, XMQuaternionRotationAxis(CamRight, input.Input.MouseDeltaY / 300.0f));
 			XMVECTOR CamForwardRotated = XMVector3Rotate(CamForward, XMQuaternionRotationAxis(XMVectorSet(0, 1, 0, 0), input.Input.MoveUp / 3.0f));
 
-			//XMVECTOR FocusOffset = XMVectorSet(input.Input.MouseDeltaX, input.Input.MouseDeltaY,0.0f,0.0f);
 
 			cam.focusPoint = XMLoadFloat3(&campos.Position) + CamForwardRotated;
-			//cam.focusPoint.x += ;
-			//cam.focusPoint = XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 1.0f);
-
 		});
 	}
 }
@@ -234,25 +236,41 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 			mv.speed = 6;
 
 			reg->get_component<CubeRendererComponent>(et).color = unit.Color;
+			float offsets = 3;
+			{
+				auto child = reg->new_entity<TransformComponent,
+					TransformParentComponent,
+					CubeRendererComponent,
+					RenderMatrixComponent
+				>();
 
-			auto child = reg->new_entity<TransformComponent,
-				TransformParentComponent,				
-				CubeRendererComponent,
-				RenderMatrixComponent
-			>();
+				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, offsets, 0.f, 1.f);
+				reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
 
-			reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, 0.f, 0.f, 1.f);
-			reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+				reg->get_component<TransformParentComponent>(child).Parent = et;			
+				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+			}
+			{
+				auto child = reg->new_entity<TransformComponent,
+					TransformParentComponent,
+					CubeRendererComponent,
+					RenderMatrixComponent
+				>();
 
-			reg->get_component<TransformParentComponent>(child).Parent = et;
-			reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, -offsets, 0.f, 1.f);
+				reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+
+				reg->get_component<TransformParentComponent>(child).Parent = et;
+				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+			}
 			//reg->get_component<TransformComponent>(et).rotationQuat = XMVectorSet(0.f, 0.f, 0.f, 1);
 		}
 	}
 }
 
-void PlayerInputSystem::update(ECS_Registry &registry, float dt)
+void PlayerInputSystem::update(ECS_GameWorld& world)
 {
+	auto& registry = world.registry_entt;
 	ZoneNamed(PlayerInputSystem, true);
 	if (!registry.has<PlayerInputTag>())
 	{

@@ -46,12 +46,17 @@ namespace ecs::system {
 		
 		virtual void update(ECS_GameWorld &world)override;
 
+		void build_view_queues(ECS_GameWorld& world);
+
+		void chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir);
+
+		void apply_queues(ECS_GameWorld& world);
+
 		virtual void update(ECS_Registry &registry, float dt) override {};
 
 	private:
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> SetCulledQueue;
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> RemoveCulledQueue;
-
 	};
 
 
@@ -83,7 +88,10 @@ namespace ecs::system {
 		void render_end();
 		void Present(bool vSync);
 
-		std::vector<System*> Renderers;
+		//std::vector<System*> Renderers;
+		CubeRenderer* cube_renderer;
+		CameraUpdate* cam_updater;
+		FrustrumCuller* culler;
 
 		int drawcalls;
 		

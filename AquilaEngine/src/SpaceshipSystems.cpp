@@ -139,19 +139,26 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 		world.registry_decs.gather_chunks(spaceshipQuery, chunk_cache);
 		
 	}
-
+	std::atomic<int> num;
 	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-		ZoneScopedNC("Spaceship Execute Chunks", tracy::Color::Red, true);
-
-		auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
-		auto transfarray = get_chunk_array<TransformComponent>(chnk);
-
-		for (int i = chnk->header.last - 1; i >= 0; i--)
-		{
-			UpdateSpaceship(sparray[i], transfarray[i], boidref, 1.0 / 30.f);
-		}		
+		update_ship_chunk(chnk, boidref, num);
 	});
 
 
 }
 
+
+void update_ship_chunk(DataChunk* chnk, BoidReferenceTag& boidref, std::atomic<int>& count)
+{
+
+	ZoneScopedNC("Spaceship Execute Chunks", tracy::Color::Magenta, true);
+
+	auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
+	auto transfarray = get_chunk_array<TransformComponent>(chnk);
+
+	count += chnk->header.last;
+	for (int i = chnk->header.last - 1; i >= 0; i--)
+	{
+		UpdateSpaceship(sparray[i], transfarray[i], boidref, 1.0 / 30.f);
+	}
+}

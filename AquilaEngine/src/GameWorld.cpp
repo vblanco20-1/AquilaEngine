@@ -27,7 +27,7 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 	SpaceshipSpawnerComponent & spcomp = registry.assign<SpaceshipSpawnerComponent>(spawner1);
 	spcomp.Bounds = XMFLOAT3(10, 50, 50);
 	spcomp.Elapsed = 0;
-	spcomp.SpawnRate = 0.01;
+	spcomp.SpawnRate = 1;
 	spcomp.ShipMoveTarget = TargetLocation;
 
 	registry.assign<CubeRendererComponent>(spawner1);
@@ -36,7 +36,6 @@ void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR Targ
 	if (XMVectorGetX(Location) > 0)
 	{
 		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
-
 	}
 	else
 	{
@@ -144,6 +143,11 @@ void ECS_GameWorld::initialize()
 	registry_entt.assign<CameraComponent>(cam);
 	registry_entt.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 
+	auto decs_cam = registry_decs.new_entity<PositionComponent, CameraComponent>();
+	registry_decs.get_component<PositionComponent>(decs_cam).Position = XMFLOAT3(0, 600, 2000);
+	registry_decs.get_component<CameraComponent>(decs_cam).focusPoint = XMVectorSet(0, 0, 0, 1);
+	registry_decs.get_component<CameraComponent>(decs_cam).upDirection = XMVectorSet(0, 1, 0, 0);
+
 	registry_entt.assign<ApplicationInfo>(entt::tag_t{}, cam);
 	registry_entt.assign<EngineTimeComponent>(entt::tag_t{}, cam);
 	registry_entt.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
@@ -153,7 +157,7 @@ void ECS_GameWorld::initialize()
 	Bench_Start(AllBench);
 	ImGui_ImplDX11_NewFrame();
 
-
+#if 0
 	Systems.push_back(new PlayerInputSystem());
 	Systems.push_back(new PlayerCameraSystem());
 	//Systems.push_back(new RandomFlusherSystem());
@@ -171,6 +175,30 @@ void ECS_GameWorld::initialize()
 	Systems.push_back(new RotatorSystem());
 	Systems.push_back(new ecs::system::UpdateTransform());
 
+	Renderer = new ecs::system::RenderCore();
+#endif
+
+
+
+	PlayerInput_system					   = new PlayerInputSystem();
+	PlayerCamera_system				   = new PlayerCameraSystem();
+	SpaceshipSpawn_system			   = new SpaceshipSpawnSystem();
+	BoidHash_system						   = new BoidHashSystem();
+	SpaceshipMovement_system		   = new SpaceshipMovementSystem();
+	Destruction_system					   = new DestructionSystem();
+															    
+	Rotator_system							   = new RotatorSystem();
+	UpdateTransform_system	   = new ecs::system::UpdateTransform();
+
+	//Systems.push_back(new PlayerInputSystem());
+	//Systems.push_back(new PlayerCameraSystem());
+	//Systems.push_back(new SpaceshipSpawnSystem());
+	//Systems.push_back(new BoidHashSystem());
+	//Systems.push_back(new SpaceshipMovementSystem());
+	//Systems.push_back(new DestructionSystem());
+	//
+	//Systems.push_back(new RotatorSystem());
+	//Systems.push_back(new ecs::system::UpdateTransform());
 
 	Renderer = new ecs::system::RenderCore();
 
@@ -235,30 +263,8 @@ void ECS_GameWorld::update_all(float dt)
 	{
 		ZoneNamed(ScheduleUpdate, true);
 
-
-		//root_task.name("Root");
-		//
-		//ecs::Task last_task = root_task;
-		//ecs::Task latest_task = last_task;
-		//for (auto s : Systems)
-		//{
-		//	auto temp = last_task;
-		//	last_task = s->schedule(registry_entt, task_engine, last_task, latest_task);
-		//	latest_task = temp;
-		//}
-		//
-		//end_task = task_engine.placeholder();
-		//end_task.gather(last_task);
-		//end_task.name("End");
-
 	}
-
-
-
-	//std::ofstream myfile;
-	//myfile.open("example.txt", std::ios::trunc);
-	//myfile << task_engine.dump();
-	//myfile.close();
+	   
 	{
 		ZoneNamed(TaskWait, true);
 		//task_engine.wait_for_all();
@@ -268,13 +274,100 @@ void ECS_GameWorld::update_all(float dt)
 
 	{
 		ZoneNamed(SimulationUpdate, true);
-		for (auto s : Systems)
+
+		PlayerInput_system->update(*this);
+		PlayerCamera_system->update(*this);
+		SpaceshipSpawn_system->update(*this);
+		Destruction_system->update(*this);
+
+		Query spaceshipQuery;
+		spaceshipQuery.with<SpaceshipMovementComponent, TransformComponent>();
+		spaceshipQuery.build();
+		Query FullTransform;
+		FullTransform.with<RenderMatrixComponent, TransformComponent>();
+		FullTransform.exclude<StaticTransform>();
+		FullTransform.build();
+
+		Query SpaceAndTransform;
+		SpaceAndTransform.with<TransformComponent>();
+		SpaceAndTransform.build();
+		
+		static std::vector<DataChunk*> chunk_cache;
+		chunk_cache.clear();
+
 		{
-			//if (!s->uses_threading)
-			//{
-				s->update(*this);
-			//}
+			ZoneScopedNC("Spaceship Gather Archetypes", tracy::Color::Green, true);
+
+			registry_decs.gather_chunks(SpaceAndTransform, chunk_cache);
+
 		}
+		BoidReferenceTag& boidref = registry_entt.get<BoidReferenceTag>();
+
+		//for culling
+		XMVECTOR CamPos;
+		XMVECTOR CamDir;
+		registry_decs.for_each([&](EntityID entity, PositionComponent& campos, CameraComponent& cam) {
+			CamPos = XMLoadFloat3(&campos.Position);
+			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
+			});
+
+		std::atomic<int> boidcount{0};
+
+		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+			auto transfarray = get_chunk_array<TransformComponent>(chnk);			
+			auto spacearray = get_chunk_array<SpaceshipMovementComponent>(chnk);
+			auto rotarray = get_chunk_array<RotatorComponent>(chnk);
+			auto cubarray = get_chunk_array<CubeRendererComponent>(chnk);
+			auto parentarray = get_chunk_array < TransformParentComponent>(chnk);
+			//rotating update
+			if (rotarray.valid() && transfarray.valid()) {
+				update_rotators(dt, chnk);
+			}
+
+			//spaceship update----
+			if (spacearray.valid() && transfarray.valid()) {
+				update_ship_chunk(chnk, boidref, boidcount);
+			}
+			//transform update
+			if (matarray.valid()) {
+				update_root_transform(chnk);
+			}	
+			//cull, but only for root objects
+			if (cubarray.valid() && !parentarray.valid()) {
+				Renderer->culler->chull_chunk(chnk, CamPos, CamDir);
+			}
+		});
+		appInfo.BoidEntities = boidcount.load();
+		Query ChildTransform;
+		ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
+		ChildTransform.exclude<StaticTransform>();
+		ChildTransform.build();
+
+		static std::vector<DataChunk*> child_chunk_cache;
+		child_chunk_cache.clear();
+
+		{
+			ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
+
+			//world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
+			registry_decs.gather_chunks(ChildTransform, child_chunk_cache);
+		}
+
+		parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
+
+			update_children_transform(chnk, *this);
+			Renderer->culler->chull_chunk(chnk,CamPos,CamDir);
+		});
+
+		//SpaceshipMovement_system->update(*this);
+		
+		
+
+		//Rotator_system->update(*this);
+		//UpdateTransform_system->update(*this);
+
+		
 		Bench_End(bench);
 		appInfo.SimTime = Bench_GetMiliseconds(bench);
 		appInfo.Drawcalls = nDrawcalls;
@@ -289,19 +382,54 @@ void ECS_GameWorld::update_all(float dt)
 			g_SimpleProfiler->units.clear();
 		}
 	}
-	{
-		//ZoneNamed(DeepClone, true);
-		//registry.clone_to(registry);
-
-		//RendererRegistryReferenceComponent & render_reg = registry.get<RendererRegistryReferenceComponent>();
-		//render_reg.rg = &render_registry;
-
-	}
 
 	{
 		ZoneNamed(RenderUpdate, true);
 		Bench_Start(bench);
-		Renderer->update(*this);
+
+		ecs::Task render_start = task_engine.silent_emplace([&]() {
+
+			Renderer->render_start();
+		});
+		ecs::Task render_end = task_engine.silent_emplace([&]() {
+
+			Renderer->render_end();
+		});
+
+		render_end.gather(render_start);
+
+		ecs::Task render_task = task_engine.silent_emplace([&]() {
+
+			Renderer->cam_updater->update(*this);
+			//Renderer->culler->build_view_queues(*this);
+		});
+		ecs::Task cullapply_task = task_engine.silent_emplace([&]() {
+			Renderer->culler->apply_queues(*this);
+		});
+
+		ecs::Task cube_task = task_engine.silent_emplace([&]() {
+			Renderer->cube_renderer->update(*this);
+			});
+
+		ecs::Task boid_fill_task = task_engine.silent_emplace([&]() {
+			BoidHash_system->initial_fill(*this);
+		});
+
+		ecs::Task boid_sort_task = task_engine.silent_emplace([&]() {
+		
+			BoidHash_system->sort_structures(*this);
+		});
+		task_engine.linearize({ render_start, render_task, cullapply_task, cube_task, render_end });
+
+		task_engine.linearize({ boid_fill_task,boid_sort_task, render_end });		
+
+		cullapply_task.gather(boid_fill_task);
+		//task.name("Player Camera System ");
+		//run after the parent
+		
+
+		task_engine.wait_for_all();
+
 		Bench_End(bench);
 		appInfo.RenderTime = Bench_GetMiliseconds(bench);
 		appInfo.Drawcalls = Renderer->drawcalls;

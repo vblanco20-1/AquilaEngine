@@ -16,3 +16,6 @@ private:
 	//entt::PersistentView<uint64_t, SpaceshipMovementComponent, TransformComponent> *posview;
 	
 };
+struct BoidReferenceTag;
+
+void update_ship_chunk(DataChunk* chnk, BoidReferenceTag& boidref, std::atomic<int>& count);

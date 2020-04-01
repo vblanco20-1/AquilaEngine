@@ -28,7 +28,7 @@ struct DXGlobals {
   LPCSTR g_WindowName = "Battle Experiment";
   HWND g_WindowHandle = 0;
 
-  const BOOL g_EnableVSync = FALSE;
+  const BOOL g_EnableVSync = FALSE;//true;//
 
 // Direct3D device and swap chain.
   ID3D11Device* g_d3dDevice = nullptr;

@@ -31,7 +31,18 @@ void ecs::system::CameraUpdate::update(ECS_Registry &registry, float dt)
 
 void ecs::system::CameraUpdate::update(ECS_GameWorld &world)
 {
-	update(world.registry_entt, world.GetTime().delta_time);
+	//update(world.registry_entt, world.GetTime().delta_time);
+
+	world.registry_decs.for_each([&](EntityID entity, PositionComponent& campos, CameraComponent& cam) {
+		XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
+		XMVECTOR focusPoint = cam.focusPoint;// + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
+		XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
+
+		Globals->g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Frame], 0, nullptr, &Globals->g_ViewMatrix, 0, 0);
+
+		//rotation.Angle += 90.0f * dt;
+	});
 }
 
 bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRendererComponent & cube,const XMVECTOR &CamPos,const XMVECTOR& CamDir ) {
@@ -51,92 +62,100 @@ bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRende
 
 void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 {
-	{
-	ZoneNamed(FrustrumCuller, true);
-	SCOPE_PROFILE("Culling System ")
-		XMVECTOR CamPos;
-	XMVECTOR CamDir;
+	build_view_queues(world);
+	apply_queues(world);
+}
 
-	world.registry_entt.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&](auto entity, PositionComponent & campos, CameraComponent & cam) {
-
-		//XMFLOAT3::
-		CamPos = XMLoadFloat3(&campos.Position);
-		//XMFLOAT3 FocalPoint{ XMVectorGetX(cam.focusPoint),XMVectorGetY(cam.focusPoint),XMVectorGetZ(cam.focusPoint) };
-		CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
-	});
-
-	CamDir = XMVector3Normalize(CamDir);
-
-
-
-	static std::vector<DataChunk*> chunk_cache;
-	chunk_cache.clear();
-
-	Query query;
-	query.with<CubeRendererComponent, RenderMatrixComponent>();
-	query.build();
-	{
-		ZoneScopedNC("Cull Gather Archetypes",tracy::Color::Green, true);
-
-		world.registry_decs.gather_chunks(query, chunk_cache);
-	}
-	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-		
-		ZoneScopedNC("Cull Execute Chunks", tracy::Color::Red, true);
+void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
+{
+	
+		ZoneNamed(FrustrumCuller, true);
+		SCOPE_PROFILE("Culling System ")
+			XMVECTOR CamPos;
+		XMVECTOR CamDir;
+		world.registry_decs.for_each([&](EntityID entity, PositionComponent& campos, CameraComponent& cam) {
 			
-		auto entities = get_chunk_array<EntityID>(chnk);
-		auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
-		auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
-		auto cullarray = get_chunk_array<Culled>(chnk);
+			CamPos = XMLoadFloat3(&campos.Position);
+			
+			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
+		});
 
-		const bool bHasCull = cullarray.chunkOwner == chnk;
+		CamDir = XMVector3Normalize(CamDir);
 
-		for (int i = chnk->header.last - 1; i >= 0; i--)
+		static std::vector<DataChunk*> chunk_cache;
+		chunk_cache.clear();
+
+		Query query;
+		query.with<CubeRendererComponent, RenderMatrixComponent>();
+		query.build();
 		{
-			const CubeRendererComponent& cube = cubearray[i];
-			const RenderMatrixComponent& matrix = transfarray[i];
-			bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
+			ZoneScopedNC("Cull Gather Archetypes", tracy::Color::Green);
 
-			if (bHasCull && bVisible)
-			{
-				RemoveCulledQueue.enqueue(entities[i]);
-			}
-			else if (!bHasCull && !bVisible)
-			{
-				SetCulledQueue.enqueue(entities[i]);
-			}
+			world.registry_decs.gather_chunks(query, chunk_cache);
 		}
-	});
+		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+			chull_chunk(chnk, CamPos, CamDir);
 
+		});
+
+	
 }
-	{
-		ZoneScopedN("Cull Apply", true);
 
-		while (true)
-		{
-			EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-			size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-			if (count == 0)break;
-			for (size_t i = 0; i != count; ++i) {
-				world.registry_decs.add_component<Culled>(results[i]);
-			}
+void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
+{
+	
+	ZoneScopedN("Cull Apply", true);
+
+	while (true)
+	{
+		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+		if (count == 0)break;
+		for (size_t i = 0; i != count; ++i) {
+			world.registry_decs.add_component<Culled>(results[i]);
 		}
-		while (true)
+	}
+	while (true)
+	{
+		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+		size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+		if (count == 0)break;
+		for (size_t i = 0; i != count; ++i) {
+			world.registry_decs.remove_component<Culled>(results[i]);
+		}
+	}	
+}
+
+void ecs::system::FrustrumCuller::chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir)
+{
+	return;
+	auto entities = get_chunk_array<EntityID>(chnk);
+	auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
+	auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
+	auto cullarray = get_chunk_array<Culled>(chnk);
+
+	const bool bHasCull = cullarray.valid();
+
+	for (int i = chnk->header.last - 1; i >= 0; i--)
+	{
+		const CubeRendererComponent& cube = cubearray[i];
+		const RenderMatrixComponent& matrix = transfarray[i];
+		bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
+
+		if (bHasCull && bVisible)
 		{
-			EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-			size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-			if (count == 0)break;
-			for (size_t i = 0; i != count; ++i) {
-				world.registry_decs.remove_component<Culled>(results[i]);
-			}
+			RemoveCulledQueue.enqueue(entities[i]);
+		}
+		else if (!bHasCull && !bVisible)
+		{
+			SetCulledQueue.enqueue(entities[i]);
 		}
 	}
 }
-
-
 
 void ecs::system::CubeRenderer::pre_render()
 {
+	nDrawcalls = 0;
 	const UINT vertexStride = sizeof(VertexPosColor);
 	const UINT offset = 0;
 	Globals->g_d3dDeviceContext->OMSetRenderTargets(1, &Globals->g_d3dRenderTargetView, Globals->g_d3dDepthStencilView);
@@ -233,7 +252,7 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 	query.build();	
 
 	reg->for_each(query,[&](RenderMatrixComponent& matrix, CubeRendererComponent& cube) {
-
+		
 		nDrawcalls++;
 
 		uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
@@ -241,6 +260,7 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 		bufferidx++;
 		if (bufferidx >= 512)
 		{
+			//ZoneScopedNC("Render Cube Batch", tracy::Color::Magenta, true);
 			bufferidx = 0;
 			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
@@ -251,6 +271,7 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 
 	if (bufferidx > 0)
 	{
+		//ZoneScopedNC("Render Cube Batch", tracy::Color::Magenta, true);
 		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
 		Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
@@ -299,7 +320,8 @@ void ecs::system::RenderCore::render_end()
 	}
 	{
 		//rmt_ScopedD3D11Sample(DirectXPresent);
-		Present(Globals->g_EnableVSync);
+		//Present(Globals->g_EnableVSync);
+		Present(true);
 	}
 
 	ImGui_ImplDX11_NewFrame();
@@ -327,19 +349,18 @@ void ecs::system::RenderCore::update(ECS_GameWorld &world)
 	render_start();
 	nDrawcalls = 0;
 
-	for (auto s : Renderers)
-	{
-		s->update(world);
-	}
+	cam_updater->update(world);
+	culler->update(world);
+	cube_renderer->update(world);
 
 	render_end();
 }
 
 ecs::system::RenderCore::RenderCore()
 {
-	Renderers.push_back(new CameraUpdate());
-	Renderers.push_back(new FrustrumCuller());
-	Renderers.push_back(new CubeRenderer());
+	cam_updater = new CameraUpdate();
+	culler =  new FrustrumCuller();
+	cube_renderer = new CubeRenderer();
 }
 
 ecs::Task ecs::system::RenderCore::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
@@ -355,10 +376,10 @@ ecs::Task ecs::system::RenderCore::schedule(ECS_Registry &registry, ecs::TaskEng
 
 
 		ecs::Task last_task = root_task;
-		for (auto s : Renderers)
-		{
-			last_task = s->schedule(registry, task_engine, last_task, last_task);
-		}
+		//for (auto s : Renderers)
+		//{
+		//	last_task = s->schedule(registry, task_engine, last_task, last_task);
+		//}
 
 
 		end_task.gather(last_task);

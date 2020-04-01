@@ -22,7 +22,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <vector>
+#include <paged_vector.h>
 #include <algorithm>
 #include <typeinfo>
 #include <assert.h>
@@ -52,6 +52,7 @@ namespace decs {
 	struct Query;
 	struct ECSWorld;
 }
+
 
 
 namespace decs {
@@ -277,16 +278,24 @@ namespace decs {
 		DataChunk* chunk;
 		uint32_t generation;
 		uint16_t chunkIndex;
+
+		bool operator==(const EntityStorage& other) const {
+			return chunk == other.chunk && generation == other.generation && chunkIndex == other.chunkIndex;
+		}
+
+		bool operator!=(const EntityStorage& other) const{
+			return !(other == *this);
+		}
 	};
 
 	struct Query {
 		std::vector<MetatypeHash> require_comps;
 		std::vector<MetatypeHash> exclude_comps;
-		std::vector<MetatypeHash> optional_comps;
+
 
 		size_t require_matcher{ 0 };
 		size_t exclude_matcher{ 0 };
-		size_t optional_matcher{ 0 };
+
 
 		bool built{ false };
 
@@ -296,6 +305,7 @@ namespace decs {
 
 			return *this;
 		}
+		
 		template<typename... C>
 		Query& exclude() {
 			exclude_comps.insert(exclude_comps.end(), { Metatype::build_hash<C>()... });
@@ -323,31 +333,28 @@ namespace decs {
 			};
 			require_comps.erase(std::remove_if(require_comps.begin(), require_comps.end(), remove_eid), require_comps.end());
 			exclude_comps.erase(std::remove_if(exclude_comps.begin(), exclude_comps.end(), remove_eid), exclude_comps.end());
-			optional_comps.erase(std::remove_if(optional_comps.begin(), optional_comps.end(), remove_eid), optional_comps.end());
 
 			std::sort(require_comps.begin(), require_comps.end(), compare_hash);
 			std::sort(exclude_comps.begin(), exclude_comps.end(), compare_hash);
-			std::sort(optional_comps.begin(), optional_comps.end(), compare_hash);
 
 			require_matcher = build_matcher(require_comps);
 			exclude_matcher = build_matcher(exclude_comps);
-			optional_matcher = build_matcher(optional_comps);
 			built = true;
 			return *this;
 		}
 	};
 
 	struct ECSWorld {
-		std::vector<EntityStorage> entities;
-		std::vector<uint32_t> deletedEntities;
+		paged_vector<EntityStorage> entities;
+		paged_vector<uint32_t> deletedEntities;
 
 		robin_hood::unordered_flat_map<uint64_t, std::vector<Archetype*>> archetype_signature_map{};
 		robin_hood::unordered_flat_map<uint64_t, Archetype*> archetype_map{};
-		std::vector<Archetype*> archetypes;
+		paged_vector<Archetype*> archetypes;
 		//unique archetype hashes
-		std::vector<size_t> archetypeHashes;
+		paged_vector<size_t> archetypeHashes;
 		//bytemask hash for checking
-		std::vector<size_t> archetypeSignatures;
+		paged_vector<size_t> archetypeSignatures;
 
 		int live_entities{ 0 };
 		int dead_entities{ 0 };
@@ -395,7 +402,26 @@ namespace decs {
 		Archetype* get_empty_archetype() { return archetypes[0]; };
 	};
 
+	template<typename C>
+	struct CachedRef
+	{
+		C* get_from(ECSWorld* world, EntityID target);
 
+		C* pointer;
+		EntityStorage storage;
+	};
+
+	
+
+	template<typename C>
+	C* CachedRef<C>::get_from(ECSWorld* world, EntityID target)
+	{	
+		if (world->entities[target.index] != storage) {		
+			pointer = &world->get_component<C>(target);
+			storage = world->entities[target.index];
+		}
+		return pointer;		
+	}
 
 	template<typename T>
 	inline auto get_chunk_array(DataChunk* chunk) {
@@ -410,32 +436,31 @@ namespace decs {
 		else {
 			constexpr MetatypeHash hash = Metatype::build_hash<T>();
 
-			struct MCached {				
-				Archetype* arch{nullptr};
-				uint32_t chnkoffset;
-			};
+			//struct MCached {				
+			//	Archetype* arch{nullptr};
+			//	uint32_t chnkoffset;
+			//};
 
-			static thread_local MCached memoized{};
-			if (memoized.arch == chunk->header.ownerArchetype) {
-				void*ptr= (void*)((byte*)chunk + memoized.chnkoffset);
-				return ComponentArray<ActualT>(ptr, chunk);
-			}
-			else {
-				for (auto cmp : chunk->header.componentList->components) {
-					if (cmp.hash == hash)
-					{
-						void* ptr =  (void*)((byte*)chunk + cmp.chunkOffset);
-						memoized.arch = chunk->header.ownerArchetype;
-						memoized.chnkoffset = cmp.chunkOffset;
-						return ComponentArray<ActualT>(ptr, chunk);
-					}
+			//static thread_local MCached memoized{};
+			//if (memoized.arch == chunk->header.ownerArchetype) {
+			//	void*ptr= (void*)((byte*)chunk + memoized.chnkoffset);
+			//	return ComponentArray<ActualT>(ptr, chunk);
+			//} 
+			//else {
+			for (auto cmp : chunk->header.componentList->components) {
+				if (cmp.hash == hash)
+				{
+					void* ptr = (void*)((byte*)chunk + cmp.chunkOffset);
+					//memoized.arch = chunk->header.ownerArchetype;
+					//memoized.chnkoffset = cmp.chunkOffset;
+					return ComponentArray<ActualT>(ptr, chunk);
 				}
 			}
-			
+			//}
+
 			return ComponentArray<ActualT>();
 		}
 	}
-
 
 	namespace adv {
 		//forward declarations
@@ -921,7 +946,7 @@ namespace decs {
 		}
 
 
-
+#pragma optimize( "", off )
 		template<typename C>
 		  C& get_entity_component(ECSWorld* world, EntityID id)
 		{
@@ -932,7 +957,7 @@ namespace decs {
 			assert(acrray.chunkOwner != nullptr);
 			return acrray[storage.chunkIndex];
 		}
-
+#pragma optimize( "", on )
 
 		template<typename C>
 		bool has_component(ECSWorld* world, EntityID id)

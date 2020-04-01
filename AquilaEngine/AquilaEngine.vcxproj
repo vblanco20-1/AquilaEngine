@@ -119,7 +119,7 @@
       <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\Decs;K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;K:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions> /D "_CRT_SECURE_NO_WARNINGS" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions> /D "_CRT_SECURE_NO_WARNINGS"  /Bt %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -138,7 +138,8 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\Decs;K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;K:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -146,7 +147,7 @@
       <ExceptionHandling>false</ExceptionHandling>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <AdditionalOptions> /D "_CRT_SECURE_NO_WARNINGS" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions> /D "_CRT_SECURE_NO_WARNINGS"  %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -165,10 +166,6 @@
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MeshResource.cpp" />
-    <ClCompile Include="src\PrecompiledHeader.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp" />
     <ClCompile Include="src\SimpleProfiler.cpp" />
     <ClCompile Include="src\SpaceshipSystems.cpp" />
@@ -184,7 +181,6 @@
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
     <ClInclude Include="include\concurrentqueue.h" />
-    <ClInclude Include="include\decs2.h" />
     <ClInclude Include="include\DXShaders.h" />
     <ClInclude Include="include\ECSCore.h" />
     <ClInclude Include="include\GameWorld.h" />
@@ -197,6 +193,7 @@
     <ClInclude Include="include\imgui\stb_truetype.h" />
     <ClInclude Include="include\Input.h" />
     <ClInclude Include="include\Multivector.h" />
+    <ClInclude Include="include\paged_vector.h" />
     <ClInclude Include="include\PrecompiledHeader.h" />
     <ClInclude Include="include\RandomUtils.h" />
     <ClInclude Include="include\SimpleProfiler.h" />

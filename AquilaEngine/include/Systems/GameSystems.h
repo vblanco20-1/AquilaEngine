@@ -9,7 +9,8 @@ struct PlayerCameraSystem : public System {
 
 	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
 
-	virtual void update(ECS_Registry &registry, float dt);;
+	virtual void update(ECS_Registry& registry, float dt);
+	virtual void update(ECS_GameWorld& world);
 };
 struct Level1Transform {};
 struct Level2Transform {};
@@ -52,7 +53,7 @@ struct PlayerInputSystem : public System {
 		const float dt = get_delta_time(registry);
 		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
-			update(registry, dt);
+			//update(registry, dt);
 		});
 
 		task.name("Player Input System");
@@ -62,5 +63,5 @@ struct PlayerInputSystem : public System {
 		return std::move(task);
 	};
 
-	virtual void update(ECS_Registry &registry, float dt);
+	virtual void update(ECS_GameWorld& world);
 };

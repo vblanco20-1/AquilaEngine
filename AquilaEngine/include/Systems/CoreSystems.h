@@ -12,28 +12,13 @@ struct RotatorSystem : public System {
 		const float dt = get_delta_time(registry);
 		ecs::Task task = task_engine.silent_emplace([&, dt]() {
 
-			update(registry, dt);
+		//	update(registry, dt);
 		});
 
 		task.name("Rotator System");
 		//run after the parent
 		task.gather(parent);
 		return std::move(task);
-	};
-
-
-	virtual void update(ECS_Registry &registry, float dt)
-	{
-		auto  rotview = registry.view<TransformComponent, RotatorComponent>(entt::persistent_t{});
-
-		//rotview.each([&, dt](auto entity, RotationComponent & rotation, RotatorComponent & rotator) {
-		//	rotation.Angle += 90.0f * dt;
-		//});
-		rotview.each([&, dt](auto entity, TransformComponent & t, RotatorComponent & rotator) {
-
-			t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
-			//rotation.Angle += 90.0f * dt;
-		});
 	};
 
 	virtual  void update(ECS_GameWorld & world)
@@ -50,3 +35,19 @@ struct RotatorSystem : public System {
 		});
 	}
 };
+
+void update_rotators(float dt,DataChunk* chnk)
+{
+	ZoneScopedNC("Rotator chunk execute", tracy::Color::Orange);
+
+	auto rotarray = get_chunk_array<RotatorComponent>(chnk);
+	auto transfarray = get_chunk_array<TransformComponent>(chnk);	
+
+	for (int i = chnk->header.last - 1; i >= 0; i--)
+	{
+		RotatorComponent& rotator = rotarray[i];
+		TransformComponent& t = transfarray[i];
+
+		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
+	}
+}

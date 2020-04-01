@@ -1,7 +1,7 @@
 #pragma once
 #include <PrecompiledHeader.h>
 
-#include "decs2.h"
+#include "decs.h"
 using namespace decs;
 //#include "decs/decs.hpp"
 //#include <stdint.h>
@@ -73,9 +73,7 @@ struct TransformComponent {
 	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){		
 	}
 };
-struct TransformParentComponent {
-	decs::EntityID Parent;
-};
+
 struct StaticTransform {
 };
 struct EntityParentComponent {
@@ -196,9 +194,15 @@ struct SpaceshipSpawnerComponent {
 	float Elapsed;
 };
 
+struct TransformParentComponent {
+	decs::CachedRef<RenderMatrixComponent> ParentTransform;
+	decs::EntityID Parent;
+};
 
-
-
+template<typename F>
+void parallel_for_chunk(std::vector<DataChunk*>& chunks, F&& functor) {
+	std::for_each(std::execution::par, chunks.begin(), chunks.end(), functor);
+}
 
 template <typename C, typename V>
 auto parallel_for_ecs(ecs::SubflowBuilder &builder, V& view, /*std::function<void(EntityID, V&)>*/C&& c, size_t g, const char*profile_name = "par_for") {

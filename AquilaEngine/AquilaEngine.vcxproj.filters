@@ -39,9 +39,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\PrecompiledHeader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -188,10 +185,10 @@
     <ClInclude Include="include\Systems\CoreSystems.h">
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="include\decs2.h">
+    <ClInclude Include="third_party\tracy\Tracy.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="third_party\tracy\Tracy.hpp">
+    <ClInclude Include="include\paged_vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -71,6 +71,8 @@ struct BoidMap {
 	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid);
 	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid, size_t index);
 
+	
+
 	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
 
 	void Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)>&&Body);
@@ -94,4 +96,6 @@ struct BoidHashSystem : public System {
 
 	virtual void update(ECS_Registry &registry, float dt);
 	virtual void update(ECS_GameWorld & world) override;
+	void initial_fill(ECS_GameWorld& world);
+	void sort_structures(ECS_GameWorld& world);
 };

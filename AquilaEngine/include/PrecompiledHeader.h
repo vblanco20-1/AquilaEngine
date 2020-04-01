@@ -7,6 +7,9 @@
 #pragma comment(lib, "winmm.lib")
 
 #pragma warning(disable: 4838 4267 4244 4530)
+
+#include "entt/entt.hpp"
+
 #include "taskflow/taskflow.hpp"
 
 
@@ -41,11 +44,11 @@
 
 #undef min
 #undef max
-#include "entt/entt.hpp"
+
 
 
 //#include "Remotery.h"
-#define TRACY_ENABLE
+//#define TRACY_ENABLE
 #include <Tracy.hpp>
 
 // DirectX includes

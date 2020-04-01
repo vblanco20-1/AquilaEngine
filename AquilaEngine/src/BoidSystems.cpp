@@ -83,6 +83,9 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size
 
 	return;
 }
+
+
+
 void BoidMap::Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body)
 {
 	//GridVec loc = GridVecFromPosition(Position);
@@ -196,6 +199,8 @@ bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start
 
 void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body)
 {
+	if (MortonArray.size() == 0) return;
+
 	const float radSquared = radius * radius;	
 
 	const XMVECTOR Pos = position;
@@ -223,14 +228,15 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 			for (int z = MinGrid.z; z <= MaxGrid.z ; z++) {
 
 				const GridVec SearchLoc{ x, y, z };					
-				
-				
+								
 				//prepare a hashmark with the morton code for the lower bound search
 				GridHashmark testhash;
 				testhash.morton = MortonFromGrid(SearchLoc);
-				const auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
+				//const auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
 				
-				if (lower != MortonArray.end())
+				const auto lower = std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size()-1], testhash, compare_morton_array);
+				//if (lower != MortonArray.end())
+				if (lower != &MortonArray[MortonArray.size() - 1])
 				{
 					//iterate the morton ordered segment of the cubes
 					const size_t mstart = lower->start_idx;
@@ -321,31 +327,22 @@ void BoidHashSystem::update(ECS_Registry &registry, float dt)
 
 }
 
-void BoidHashSystem::update(ECS_GameWorld & world)
+void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 {
-	ZoneNamedNC(BoidHashSystem,"Boid Hash System", tracy::Color::Blue, true);
-	
-	SCOPE_PROFILE("Boid Hash System All");
-
-	ECS_Registry & registry = world.registry_entt;
+	ECS_Registry& registry = world.registry_entt;
 	iterations++;
 	if (!registry.has<BoidReferenceTag>())
 	{
 		auto player = world.registry_entt.create();
-		BoidMap * map = new BoidMap();
+		BoidMap* map = new BoidMap();
 		registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
 	}
 
 	//get the "boid data" pointer
-	BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-	//grab a view for Transform and Boid entities
-	//auto Boidview = registry.view<TransformComponent, BoidComponent>(entt::persistent_t{});
+	BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
 
 	size_t count = 200000;
-	//reset data structures
-	//boidref.map->Mortons.clear();
-	//boidref.map->Mortons.reserve(Boidview.size());
-	std::vector<size_t> indices;
+
 	{
 		ZoneNamedNC(DataStructureInitialization, "Accel Initialization", tracy::Color::Blue, true);
 		boidref.map->Mortons.clear();
@@ -356,20 +353,9 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 
 		boidref.map->MortonArray.reserve(count / 20);
 
-		indices.resize(count);
+
 		boidref.map->MortonIdx = 0;
 
-		//boidref.map->Mortons.resize(count);
-		//copy every entity of the view into the Mortons array (calculates morton too)
-
-
-		int i = 0;
-
-		for (size_t & dx : indices)
-		{
-			dx = i;
-			i++;
-		}
 	}
 	{
 		ZoneNamedNC(InitialFill, "Initial Fill", tracy::Color::Red, true);
@@ -378,15 +364,6 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 
 
 
-		//Archetype BoidsArchetype;
-		//BoidsArchetype.add_component<BoidComponent>();
-		//BoidsArchetype.add_component<TransformComponent>();
-		int idx = 0;
-
-		//world.registry_decs.for_each([&](BoidComponent& boid, TransformComponent& t) {
-		//
-		//	boidref.map->AddToGridmap(t.position, boid, 0);
-		//	});
 		static std::vector<DataChunk*> chunk_cache;
 		chunk_cache.clear();
 		std::atomic<int> gridmap_indices = 0;
@@ -397,9 +374,9 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 
 
 		{
-			ZoneScopedNC("Boids Gather Archetypes", tracy::Color::Green, true);		
-			
-			world.registry_decs.gather_chunks(query,chunk_cache);
+			ZoneScopedNC("Boids Gather Archetypes", tracy::Color::Green, true);
+
+			world.registry_decs.gather_chunks(query, chunk_cache);
 			decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
 
 				for (auto chnk : arch->chunks) {
@@ -428,55 +405,85 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 		});
 
 	}
+}
 
+void BoidHashSystem::sort_structures(ECS_GameWorld& world)
+{
+	ECS_Registry& registry = world.registry_entt;
+
+	//get the "boid data" pointer
+	BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
+	
+
+	if (boidref.map->Mortons.size() > 0)
 	{
-
-		if (boidref.map->Mortons.size() > 0)
 		{
-			{
-				ZoneNamedNC(MortonSort, "Sort", tracy::Color::Blue, true);
-				//ZoneNamed(MortonSort, true);
-				SCOPE_PROFILE("Boid Hash Morton sort");
+			ZoneNamedNC(MortonSort, "Sort", tracy::Color::Blue, true);
+			//ZoneNamed(MortonSort, true);
+			SCOPE_PROFILE("Boid Hash Morton sort");
 
 
-				//parallel sort all entities by morton code
-				std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2&a, GridItem2&b) {
+			//parallel sort all entities by morton code
+			std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2& a, GridItem2& b) {
 
-					if (a.morton == b.morton)
-					{
-						//use the lengt of the vector to sort, as at this point it doesnt matter much
-						return XMVectorGetW(a.pos) < XMVectorGetW(b.pos);
-						//return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
-					}
-					else
-					{
-						//sort by morton
-						return a.morton < b.morton;
-					}
-				});
-			}
-			{
-
-				ZoneNamedNC(MortonHash, "Hash", tracy::Color::Blue, true);
-				SCOPE_PROFILE("Boid Hash Morton hash");
-
-				//compact the entities array into the grid array, to speed up binary search
-				GridVec LastGrid = boidref.map->Mortons[0].grid;
-				GridHashmark LastMark{ 0,0 };
-				for (size_t i = 1; i < boidref.map->Mortons.size(); i++)
+				if (a.morton == b.morton)
 				{
-					GridVec NewGrid = boidref.map->Mortons[i].grid;
-					if (LastGrid != NewGrid)
-					{
-						LastMark.stop_idx = i;
-						LastMark.morton = MortonFromGrid(LastGrid);
-						boidref.map->MortonArray.push_back(LastMark);
-						LastGrid = NewGrid;
-						LastMark.start_idx = i;
-					}
+					//use the lengt of the vector to sort, as at this point it doesnt matter much
+					return XMVectorGetW(a.pos) < XMVectorGetW(b.pos);
+					//return XMVectorGetX(XMVector3LengthSq(a.pos)) < XMVectorGetX(XMVector3LengthSq(b.pos));
+				}
+				else
+				{
+					//sort by morton
+					return a.morton < b.morton;
+				}
+				});
+		}
+		{
+
+			ZoneNamedNC(MortonHash, "Hash", tracy::Color::Blue, true);
+			SCOPE_PROFILE("Boid Hash Morton hash");
+
+			//compact the entities array into the grid array, to speed up binary search
+			GridVec LastGrid = boidref.map->Mortons[0].grid;
+			GridHashmark LastMark{ 0,0 };
+			for (size_t i = 1; i < boidref.map->Mortons.size(); i++)
+			{
+				GridVec NewGrid = boidref.map->Mortons[i].grid;
+				if (LastGrid != NewGrid)
+				{
+					LastMark.stop_idx = i;
+					LastMark.morton = MortonFromGrid(LastGrid);
+					boidref.map->MortonArray.push_back(LastMark);
+					LastGrid = NewGrid;
+					LastMark.start_idx = i;
 				}
 			}
 		}
-	}
+	}	
+}
+
+void BoidHashSystem::update(ECS_GameWorld & world)
+{
+	ZoneNamedNC(BoidHashSystem,"Boid Hash System", tracy::Color::Blue, true);
+	
+	SCOPE_PROFILE("Boid Hash System All");
+
+	//ECS_Registry& registry = world.registry_entt;
+	//iterations++;
+	//if (!registry.has<BoidReferenceTag>())
+	//{
+	//	auto player = world.registry_entt.create();
+	//	BoidMap* map = new BoidMap();
+	//	registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
+	//}
+	//
+	////get the "boid data" pointer
+	//BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
+
+	initial_fill(world);
+
+	sort_structures(world);
+	
 
 }
