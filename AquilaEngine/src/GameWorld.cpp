@@ -70,7 +70,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	SpaceshipSpawnerComponent  spcomp;
 	spcomp.Bounds = XMFLOAT3(10, 50, 50);
 	spcomp.Elapsed = 0;
-	spcomp.SpawnRate = 0.01;
+	spcomp.SpawnRate = 0.05;
 	spcomp.ShipMoveTarget = TargetLocation;
 	
 	reg->get_component<SpaceshipSpawnerComponent>(spawner1) = spcomp;
@@ -290,18 +290,33 @@ void ECS_GameWorld::update_all(float dt)
 
 		Query SpaceAndTransform;
 		SpaceAndTransform.with<TransformComponent>();
+		SpaceAndTransform.exclude<StaticTransform, TransformParentComponent>();
 		SpaceAndTransform.build();
+
+		Query ChildTransform;
+		ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
+		ChildTransform.exclude<StaticTransform>();
+		ChildTransform.build();
 		
-		static std::vector<DataChunk*> chunk_cache;
-		chunk_cache.clear();
+		static std::vector<DataChunk*> spaceship_chunk_cache;
+		spaceship_chunk_cache.clear();		
+
+		static std::vector<DataChunk*> child_chunk_cache;
+		child_chunk_cache.clear();
 
 		{
+			//ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
+
+			//world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
+			registry_decs.gather_chunks(ChildTransform, child_chunk_cache);
+		
 			ZoneScopedNC("Spaceship Gather Archetypes", tracy::Color::Green, true);
 
-			registry_decs.gather_chunks(SpaceAndTransform, chunk_cache);
+			registry_decs.gather_chunks(SpaceAndTransform, spaceship_chunk_cache);
 
 		}
 		BoidReferenceTag& boidref = registry_entt.get<BoidReferenceTag>();
+
 
 		//for culling
 		XMVECTOR CamPos;
@@ -311,15 +326,17 @@ void ECS_GameWorld::update_all(float dt)
 			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
 			});
 
-		std::atomic<int> boidcount{0};
-
-		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+	
+		std::atomic<int> boidcount{ 0 };
+		
+		parallel_for_chunk(spaceship_chunk_cache, [&](DataChunk* chnk) {
 			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
 			auto transfarray = get_chunk_array<TransformComponent>(chnk);			
 			auto spacearray = get_chunk_array<SpaceshipMovementComponent>(chnk);
 			auto rotarray = get_chunk_array<RotatorComponent>(chnk);
 			auto cubarray = get_chunk_array<CubeRendererComponent>(chnk);
 			auto parentarray = get_chunk_array < TransformParentComponent>(chnk);
+			
 			//rotating update
 			if (rotarray.valid() && transfarray.valid()) {
 				update_rotators(dt, chnk);
@@ -338,26 +355,32 @@ void ECS_GameWorld::update_all(float dt)
 				Renderer->culler->chull_chunk(chnk, CamPos, CamDir);
 			}
 		});
-		appInfo.BoidEntities = boidcount.load();
-		Query ChildTransform;
-		ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
-		ChildTransform.exclude<StaticTransform>();
-		ChildTransform.build();
-
-		static std::vector<DataChunk*> child_chunk_cache;
-		child_chunk_cache.clear();
-
-		{
-			ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
-
-			//world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
-			registry_decs.gather_chunks(ChildTransform, child_chunk_cache);
-		}
+		
 
 		parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
+			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+			auto transfarray = get_chunk_array<TransformComponent>(chnk);
+			auto posarray = get_chunk_array<PositionComponent>(chnk);
+			auto parentarray = get_chunk_array<TransformParentComponent>(chnk);
 
-			update_children_transform(chnk, *this);
-			Renderer->culler->chull_chunk(chnk,CamPos,CamDir);
+			const bool bHasPosition = posarray.chunkOwner == chnk;
+
+			{
+				ZoneScopedNC("Transform chunk execute: ", tracy::Color::Red);
+				update_root_transform_arrays(chnk, matarray.data, transfarray.data,
+					bHasPosition ? posarray.data : nullptr);
+			}
+			
+
+			{
+				ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
+
+				update_children_transform_arrays(&registry_decs, chnk, matarray.data, transfarray.data, parentarray.data);
+			}
+
+			//update_root_transform(chnk);
+			//update_children_transform(chnk, *this);
+			//Renderer->culler->chull_chunk(chnk,CamPos,CamDir);
 		});
 
 		//SpaceshipMovement_system->update(*this);
@@ -367,7 +390,7 @@ void ECS_GameWorld::update_all(float dt)
 		//Rotator_system->update(*this);
 		//UpdateTransform_system->update(*this);
 
-		
+		appInfo.BoidEntities = boidcount.load();
 		Bench_End(bench);
 		appInfo.SimTime = Bench_GetMiliseconds(bench);
 		appInfo.Drawcalls = nDrawcalls;
@@ -423,7 +446,7 @@ void ECS_GameWorld::update_all(float dt)
 
 		task_engine.linearize({ boid_fill_task,boid_sort_task, render_end });		
 
-		cullapply_task.gather(boid_fill_task);
+		//cullapply_task.gather(boid_fill_task);
 		//task.name("Player Camera System ");
 		//run after the parent
 		

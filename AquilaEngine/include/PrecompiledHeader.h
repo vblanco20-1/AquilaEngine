@@ -48,7 +48,7 @@
 
 
 //#include "Remotery.h"
-//#define TRACY_ENABLE
+#define TRACY_ENABLE
 #include <Tracy.hpp>
 
 // DirectX includes

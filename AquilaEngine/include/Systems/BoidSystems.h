@@ -37,7 +37,7 @@ struct GridHash {
 
 	std::size_t operator()(GridVec const& s) const noexcept;
 };
-const float GRID_DIMENSIONS = 5;
+const float GRID_DIMENSIONS = 15;
 using GridItem = std::pair<BoidComponent, PositionComponent>;
 
 struct GridHashmark {
@@ -58,7 +58,7 @@ struct BoidMap {
 	//std::vector<uint64_t> Mortons;
 	//spp::sparse_hash_map<GridVec, GridBucket, GridHash> Grid;
 
-	//spp::sparse_hash_map<uint64_t, GridHashmark, Hash64> MortonGrid;
+	spp::sparse_hash_map<uint64_t, GridHashmark, Hash64> MortonGrid;
 	std::vector<GridHashmark> MortonArray;
 	
 	BoidMap() {};

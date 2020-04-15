@@ -58,4 +58,6 @@ namespace ecs::system {
 
 
 void update_children_transform(DataChunk* chnk, ECS_GameWorld& world);
+void update_root_transform_arrays(DataChunk* chnk, RenderMatrixComponent* __restrict matarray, TransformComponent* __restrict transfarray, PositionComponent* __restrict posarray);
 void update_root_transform(DataChunk* chnk);
+void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk, RenderMatrixComponent* __restrict matarray, TransformComponent* __restrict transfarray, TransformParentComponent* __restrict parentarray);

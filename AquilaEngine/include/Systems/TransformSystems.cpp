@@ -115,7 +115,23 @@ void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 
 
 }
+void update_root_transform_arrays(DataChunk* chnk,
+	RenderMatrixComponent* __restrict matarray,
+	TransformComponent* __restrict transfarray,
+	PositionComponent* __restrict posarray)
+{
+	for (int i = chnk->header.last - 1; i >= 0; i--)
+	{
+		TransformComponent& t = transfarray[i];
+		if (posarray)
+		{
+			PositionComponent& p = posarray[i];
+			ecs::system::UpdateTransform::apply_position(t, p);
+		}
 
+		ecs::system::UpdateTransform::build_matrix(t, matarray[i]);
+	}
+}
 void update_root_transform(DataChunk* chnk)
 {
 	ZoneScopedNC("Transform chunk execute: ", tracy::Color::Red);
@@ -126,19 +142,69 @@ void update_root_transform(DataChunk* chnk)
 
 	const bool bHasPosition = posarray.chunkOwner == chnk;
 
-	for (int i = chnk->header.last - 1; i >= 0; i--)
-	{
-		TransformComponent& t = transfarray[i];
-		if (bHasPosition)
-		{
-			PositionComponent& p = posarray[i];
-			ecs::system::UpdateTransform::apply_position(t, p);
-		}
+	update_root_transform_arrays(chnk, matarray.data, transfarray.data,
+		bHasPosition ? posarray.data : nullptr);
 
-		ecs::system::UpdateTransform::build_matrix(t, matarray[i]);
-	}	
+	//for (int i = chnk->header.last - 1; i >= 0; i--)
+	//{
+	//	TransformComponent& t = transfarray[i];
+	//	if (bHasPosition)
+	//	{
+	//		PositionComponent& p = posarray[i];
+	//		ecs::system::UpdateTransform::apply_position(t, p);
+	//	}
+	//
+	//	ecs::system::UpdateTransform::build_matrix(t, matarray[i]);
+	//}	
 }
+void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk ,
+	RenderMatrixComponent* __restrict matarray,
+	TransformComponent* __restrict transfarray,
+	TransformParentComponent* __restrict parentarray)
+{
+	//unrolled for perf
+	int i = 0;
+	for (i; i < (chnk->header.last & ~3); i += 4) {
+	
+	
+		TransformParentComponent& tpc1 = parentarray[i + 0];
+		TransformParentComponent& tpc2 = parentarray[i + 1];
+		TransformParentComponent& tpc3 = parentarray[i + 2];
+		TransformParentComponent& tpc4 = parentarray[i + 3];
+	
+	
+		const XMMATRIX* m1 = &(tpc1.ParentTransform.get_from(world, tpc1.Parent))->Matrix;
+		_mm_prefetch((const char*)(m1), 0);
+	
+		const XMMATRIX* m2 = &(tpc2.ParentTransform.get_from(world, tpc2.Parent))->Matrix;
+		_mm_prefetch((const char*)(m2), 0);
+	
+		const XMMATRIX* m3 = &(tpc3.ParentTransform.get_from(world, tpc3.Parent))->Matrix;
+		_mm_prefetch((const char*)(m3), 0);
+	
+		const XMMATRIX* m4 = &(tpc4.ParentTransform.get_from(world, tpc4.Parent))->Matrix;		
+		_mm_prefetch((const char*)(m4), 0);
+	
+		matarray[i + 0].Matrix *= *m1;
+		matarray[i + 1].Matrix *= *m2;
+		matarray[i + 2].Matrix *= *m3;
+		matarray[i + 3].Matrix *= *m4;
+	
+			//matarray[i + 0].Matrix *= (tpc1.ParentTransform.get_from(world, tpc1.Parent))->Matrix;
+			//matarray[i + 1].Matrix *= (tpc2.ParentTransform.get_from(world, tpc2.Parent))->Matrix;
+			//matarray[i + 2].Matrix *= (tpc3.ParentTransform.get_from(world, tpc3.Parent))->Matrix;
+			//matarray[i + 3].Matrix *= (tpc4.ParentTransform.get_from(world, tpc4.Parent))->Matrix;
+	}
 
+	for (i; i < (chnk->header.last); i++) {
+
+		TransformParentComponent& tpc = parentarray[i];
+
+		const XMMATRIX& parent_matrix = (tpc.ParentTransform.get_from(world, tpc.Parent))->Matrix;
+
+		matarray[i].Matrix *= parent_matrix;
+	}
+}
 void update_children_transform(DataChunk* chnk, ECS_GameWorld& world)
 {
 	ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
@@ -149,30 +215,31 @@ void update_children_transform(DataChunk* chnk, ECS_GameWorld& world)
 	auto parentarray = get_chunk_array<TransformParentComponent>(chnk);
 
 	//unrolled for perf
-	int i = 0;
-	for (i;i < (chnk->header.last & ~3); i += 4) {
-
-
-		TransformParentComponent& tpc1 = parentarray[i + 0];
-		TransformParentComponent& tpc2 = parentarray[i + 1];
-		TransformParentComponent& tpc3 = parentarray[i + 2];
-		TransformParentComponent& tpc4 = parentarray[i + 3];
-
-
-		matarray[i + 0].Matrix *= (tpc1.ParentTransform.get_from(&world.registry_decs, tpc1.Parent))->Matrix;
-		matarray[i + 1].Matrix *= (tpc2.ParentTransform.get_from(&world.registry_decs, tpc2.Parent))->Matrix;
-		matarray[i + 2].Matrix *= (tpc3.ParentTransform.get_from(&world.registry_decs, tpc3.Parent))->Matrix;
-		matarray[i + 3].Matrix *= (tpc4.ParentTransform.get_from(&world.registry_decs, tpc4.Parent))->Matrix;
-	}
-
-	for (i; i < (chnk->header.last); i++) {
-
-		TransformParentComponent& tpc = parentarray[i];	
-
-		const XMMATRIX& parent_matrix = (tpc.ParentTransform.get_from(&world.registry_decs, tpc.Parent))->Matrix;
-
-		matarray[i].Matrix *= parent_matrix;
-	}
+	update_children_transform_arrays(&world.registry_decs, chnk, matarray.data, transfarray.data, parentarray.data);
+	//int i = 0;
+	//for (i;i < (chnk->header.last & ~3); i += 4) {
+	//
+	//
+	//	TransformParentComponent& tpc1 = parentarray[i + 0];
+	//	TransformParentComponent& tpc2 = parentarray[i + 1];
+	//	TransformParentComponent& tpc3 = parentarray[i + 2];
+	//	TransformParentComponent& tpc4 = parentarray[i + 3];
+	//
+	//
+	//	matarray[i + 0].Matrix *= (tpc1.ParentTransform.get_from(&world.registry_decs, tpc1.Parent))->Matrix;
+	//	matarray[i + 1].Matrix *= (tpc2.ParentTransform.get_from(&world.registry_decs, tpc2.Parent))->Matrix;
+	//	matarray[i + 2].Matrix *= (tpc3.ParentTransform.get_from(&world.registry_decs, tpc3.Parent))->Matrix;
+	//	matarray[i + 3].Matrix *= (tpc4.ParentTransform.get_from(&world.registry_decs, tpc4.Parent))->Matrix;
+	//}
+	//
+	//for (i; i < (chnk->header.last); i++) {
+	//
+	//	TransformParentComponent& tpc = parentarray[i];	
+	//
+	//	const XMMATRIX& parent_matrix = (tpc.ParentTransform.get_from(&world.registry_decs, tpc.Parent))->Matrix;
+	//
+	//	matarray[i].Matrix *= parent_matrix;
+	//}
 
 	//for (int i = chnk->header.last - 1; i >= 0; i--)
 	//{

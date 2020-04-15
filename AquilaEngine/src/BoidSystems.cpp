@@ -213,18 +213,24 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 	//search the morton tile array for the morton that fits
 	auto compare_morton_array = [](const GridHashmark&lhs, const GridHashmark& rhs) { return lhs.morton < rhs.morton; };
 
+	GridHashmark maxhash;
+	maxhash.morton = MortonFromGrid(MaxGrid);
 
+	GridHashmark minhash;
+	minhash.morton = MortonFromGrid(MinGrid);
+
+	//calculate bounds
+	GridHashmark* lowbound = &MortonArray[0]; //std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], minhash, compare_morton_array);
+	GridHashmark* highbound = &MortonArray[MortonArray.size() - 1];// std::upper_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], maxhash, compare_morton_array);
+	
+	//if (maxhash.morton != minhash.morton) {
+	//	GridHashmark* lowbound = std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], minhash, compare_morton_array);
+	//	GridHashmark* highbound =  std::upper_bound(lowbound, &MortonArray[MortonArray.size() - 1], maxhash, compare_morton_array);
+	//
+	//}
 	//iterate that segment beetween min and max (3d)
 	for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
 		for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
-			//const GridVec SearchTop{ x, y,  MaxGrid.z };
-			//const GridVec SearchBot{ x, y,  MinGrid.z };
-			//GridHashmark maxhash,minhash;
-			//maxhash.morton = MortonFromGrid(SearchTop);
-			//minhash.morton = MortonFromGrid(SearchBot);
-			//const auto minbound = std::lower_bound(MortonArray.begin(), MortonArray.end(), minhash, compare_morton_array);
-			//const auto maxbound = std::lower_bound(minbound, MortonArray.end(), maxhash, compare_morton_array);
-
 			for (int z = MinGrid.z; z <= MaxGrid.z ; z++) {
 
 				const GridVec SearchLoc{ x, y, z };					
@@ -232,15 +238,17 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 				//prepare a hashmark with the morton code for the lower bound search
 				GridHashmark testhash;
 				testhash.morton = MortonFromGrid(SearchLoc);
-				//const auto lower = std::lower_bound(MortonArray.begin(), MortonArray.end(), testhash, compare_morton_array);
-				
-				const auto lower = std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size()-1], testhash, compare_morton_array);
-				//if (lower != MortonArray.end())
-				if (lower != &MortonArray[MortonArray.size() - 1])
+
+				const auto lower = MortonGrid.find(testhash.morton);//std::lower_bound(lowbound, highbound, testhash, compare_morton_array);
+
+				if (lower != MortonGrid.end())//!= &MortonArray[MortonArray.size() - 1])
 				{
 					//iterate the morton ordered segment of the cubes
-					const size_t mstart = lower->start_idx;
-					const size_t mend = lower->stop_idx;
+					//const size_t mstart = lower->start_idx;
+					//const size_t mend = lower->stop_idx;
+
+					const size_t mstart = lower->second.start_idx;
+					const size_t mend = lower->second.stop_idx;
 					
 					for (int i = mstart; i < mend; i++)
 					{
@@ -350,7 +358,11 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 		boidref.map->Mortons.reserve(count);
 
 		boidref.map->MortonArray.clear();
-
+		for (auto m : boidref.map->MortonGrid) {
+			m.second.start_idx = 0;
+			m.second.stop_idx = 0;
+		}
+		//boidref.map->MortonGrid.clear();
 		boidref.map->MortonArray.reserve(count / 20);
 
 
@@ -454,7 +466,9 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 				{
 					LastMark.stop_idx = i;
 					LastMark.morton = MortonFromGrid(LastGrid);
-					boidref.map->MortonArray.push_back(LastMark);
+					//boidref.map->MortonArray.push_back(LastMark);
+					boidref.map->MortonGrid[LastMark.morton] = LastMark;
+					//boidref.map->MortonGrid.insert({ LastMark.morton , LastMark });
 					LastGrid = NewGrid;
 					LastMark.start_idx = i;
 				}
