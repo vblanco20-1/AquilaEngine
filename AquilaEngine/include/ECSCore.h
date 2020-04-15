@@ -3,19 +3,9 @@
 
 #include "decs.h"
 using namespace decs;
-//#include "decs/decs.hpp"
-//#include <stdint.h>
-//#include "entt/entt.hpp"
 
-//#include "taskflow/taskflow.hpp"
-
-//#include <DirectXMath.h>
 
 using namespace DirectX;
-using EntityID_entt = std::uint64_t;
-using EntityVersion = entt::Registry<std::uint64_t>::version_type;
-using ECS_Registry = entt::Registry<std::uint64_t>;
-
 
 class ECS_GameWorld;
 extern ECS_GameWorld * GameWorld;
@@ -25,37 +15,6 @@ struct PositionComponent{
 	PositionComponent() = default;
 	XMFLOAT3 Position;
 };
-//struct ScaleComponent {
-//	XMVECTOR Scale3D;
-//
-//};
-//struct RotationComponent {
-//	XMVECTOR RotationAxis;
-//	float Angle;
-//};
-
-
-//struct HierarchyNode {
-//	XMMATRIX Transform;
-//	uint16_t Parent;
-//};
-//
-//struct NodeTree {
-//
-//	std::vector< HierarchyNode > Levels;
-//};
-
-//NodeTree & GetTransformTree(ECS_Registry & reg)
-//{
-//	if (reg.has<NodeTree>())
-//	{
-//		return reg.get<NodeTree>();
-//	}
-//	else
-//	{
-//		return reg.assign<NodeTree>();
-//	}
-//}
 
 struct EngineTimeComponent {
 	float delta_time;
@@ -76,31 +35,6 @@ struct TransformComponent {
 
 struct StaticTransform {
 };
-struct EntityParentComponent {
-
-	//depth zero for a world transform
-	uint8_t hierarchyDepth;
-	EntityID_entt parent;
-	EntityVersion entityVersion;
-	//EntityParentComponent() :parent(0), hierarchyDepth(0) {}
-	
-	bool Valid(ECS_Registry & registry)
-	{
-		return registry.current(parent) == registry.version(parent);
-	}
-	
-	void SetParent(EntityID_entt newParent, ECS_Registry & registry)
-	{
-		parent = newParent;
-		hierarchyDepth = 1;
-		entityVersion = registry.current(newParent);
-		if (registry.has<EntityParentComponent>(newParent))
-		{
-			hierarchyDepth = registry.get<EntityParentComponent>(newParent).hierarchyDepth + 1;
-		}
-	}
-};
-
 
 namespace ecs {
 	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
@@ -108,38 +42,11 @@ namespace ecs {
 	using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
 }
 
-struct RendererRegistryReferenceComponent {
-
-	ECS_Registry * rg;
-};
 
 struct  System {
+	virtual ~System() {}	
 
-	bool uses_threading{ false };
-
-	virtual ~System() {}
-
-	float get_delta_time(ECS_Registry &registry) {
-		return 0;//registry.dec registry.get<EngineTimeComponent>().delta_time;
-
-	}
-	
-
-	virtual ecs::Task schedule(ECS_Registry &registry,ecs::TaskEngine & task_engine , ecs::Task & parent, ecs::Task & grandparent) { 
-	
-		ecs::Task task = task_engine.placeholder();
-		task.name("Base System Schedule");
-		//run after the parent
-		task.gather(parent);
-		return std::move(task);
-	};
-
-	virtual void initialize(ECS_Registry &registry) {};
-	virtual void update(ECS_Registry &registry, float dt) {};
-	virtual void update(ECS_GameWorld & world);;
-
-	virtual void cleanup(ECS_Registry &registry) {};
-
+	virtual void update(ECS_GameWorld & world);
 };
 
 struct RotatorComponent {

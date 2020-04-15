@@ -12,18 +12,6 @@ namespace ecs::system {
 
 
 	struct CameraUpdate : public System {
-
-
-		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
-
-			ecs::Task task = task_engine.placeholder();
-			task.name("Camera System");
-			//run after the parent
-			task.gather(parent);
-			return std::move(task);
-		};
-
-		virtual void update(ECS_Registry &registry, float dt);
 		virtual void update(ECS_GameWorld &world)override;
 	};
 	struct FrustrumCuller : public System {
@@ -32,27 +20,14 @@ namespace ecs::system {
 		{
 			static const size_t BLOCK_SIZE = 256;		// Use bigger blocks
 		};
-
-
-		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
-
-			ecs::Task task = task_engine.placeholder();
-			task.name("Culling System");
-			//run after the parent
-			task.gather(parent);
-			return std::move(task);
-		};
-
-		
+			
 		virtual void update(ECS_GameWorld &world)override;
 
 		void build_view_queues(ECS_GameWorld& world);
 
 		void chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir);
 
-		void apply_queues(ECS_GameWorld& world);
-
-		virtual void update(ECS_Registry &registry, float dt) override {};
+		void apply_queues(ECS_GameWorld& world);		
 
 	private:
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> SetCulledQueue;
@@ -63,26 +38,15 @@ namespace ecs::system {
 	struct CubeRenderer : public System {
 		ObjectUniformStruct uniformBuffer;
 
-		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent) {
-
-			ecs::Task task = task_engine.placeholder();
-			task.name("Cube Renderer System");
-			//run after the parent
-			task.gather(parent);
-			return std::move(task);
-		};
-
 		void pre_render();
-		virtual void update(ECS_Registry &registry, float dt) override;
+		
 		virtual void update(ECS_GameWorld &world)override;
 	};
 
 	struct RenderCore : public System {
 
 		RenderCore();
-
-		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
-		virtual void update(ECS_Registry &registry, float dt);
+	
 		virtual void update(ECS_GameWorld &world)override;
 		void render_start();
 		void render_end();

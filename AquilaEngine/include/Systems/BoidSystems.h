@@ -90,11 +90,9 @@ static int iterations{ 0 };
 static int individualiterations{ 0 };
 struct BoidHashSystem : public System {
 
-	BoidHashSystem() { uses_threading = true; };
+	BoidHashSystem() {};
 
-	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
-
-	virtual void update(ECS_Registry &registry, float dt);
+	
 	virtual void update(ECS_GameWorld & world) override;
 	void initial_fill(ECS_GameWorld& world);
 	void sort_structures(ECS_GameWorld& world);

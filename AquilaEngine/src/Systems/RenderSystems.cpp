@@ -11,23 +11,6 @@ void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
 
 
 
-void ecs::system::CameraUpdate::update(ECS_Registry &registry, float dt)
-{
-	ZoneNamed(CameraUpdate, true);
-
-	registry.view<PositionComponent, CameraComponent>(/*entt::persistent_t{}*/).each([&, dt](auto entity, PositionComponent & campos, CameraComponent & cam) {
-
-
-		XMVECTOR eyePosition = XMVectorSet(campos.Position.x, campos.Position.y, campos.Position.z, 1);; //XMVectorSet(0, 0, -70, 1);
-		XMVECTOR focusPoint = cam.focusPoint;// + XMVectorSet(CamOffset.x, CamOffset.y, 0.0f, 0.0f); //XMVectorSet(0, 0, 0, 1);
-		XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
-
-		Globals->g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
-		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Frame], 0, nullptr, &Globals->g_ViewMatrix, 0, 0);
-
-		//rotation.Angle += 90.0f * dt;
-	});
-}
 
 void ecs::system::CameraUpdate::update(ECS_GameWorld &world)
 {
@@ -176,59 +159,6 @@ void ecs::system::CubeRenderer::pre_render()
 	Globals->g_d3dDeviceContext->PSSetShader(Globals->g_d3dPixelShader, nullptr, 0);
 }
 
-void ecs::system::CubeRenderer::update(ECS_Registry &registry, float dt)
-{
-	ZoneNamed(CubeRenderer, true);
-	//rmt_ScopedD3D11Sample(CubeRendererSystemDX);
-
-	SCOPE_PROFILE("Cube Render System");
-	//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
-
-
-	pre_render();
-
-	int bufferidx = 0;
-	//rmt_ScopedD3D11Sample(IterateCubes);
-
-	//rmt_BeginD3D11Sample(RenderCubeBatch);
-
-	registry.view<RenderMatrixComponent, CubeRendererComponent>().each([&, dt](auto entity, RenderMatrixComponent & matrix, CubeRendererComponent & cube) {
-		if (cube.bVisible)
-		{
-			nDrawcalls++;
-
-			////ObjectUniformStruct uniform;
-			//uniform.worldMatrix = matrix.Matrix;
-			//uniform.color = XMFLOAT4( cube.color.x, cube.color.y, cube.color.z,1.0f) ;
-
-			uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
-			uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
-			bufferidx++;
-			if (bufferidx >= 512)
-			{
-				bufferidx = 0;
-				Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
-
-				Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
-
-				//rmt_EndD3D11Sample();
-				//rmt_BeginD3D11Sample(RenderCubeBatch);
-			}
-
-			//Globals->g_d3dDeviceContext->DrawIndexed(_countof(Globals->g_CubeIndicies), 0, 0);
-		}
-	});
-
-	if (bufferidx > 0)
-	{
-		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
-
-		Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
-		//rmt_EndD3D11Sample();
-		//rmt_BeginD3D11Sample(RenderCubeBatch);
-	}
-}
-
 void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 {
 	ZoneNamed(CubeRenderer, true);
@@ -334,18 +264,6 @@ void ecs::system::RenderCore::render_end()
 	//rmt_EndD3D11Sample();
 }
 
-void ecs::system::RenderCore::update(ECS_Registry &registry, float dt)
-{
-	//render_start();
-	//nDrawcalls = 0;
-	//
-	//for (auto s : Renderers)
-	//{
-	//	s->update(registry, dt);
-	//}
-	//
-	//render_end();
-}
 
 void ecs::system::RenderCore::update(ECS_GameWorld &world)
 {
@@ -366,30 +284,3 @@ ecs::system::RenderCore::RenderCore()
 	cube_renderer = new CubeRenderer();
 }
 
-ecs::Task ecs::system::RenderCore::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
-{
-	ecs::Task root_task = task_engine.placeholder();
-	root_task.name("Render Start");
-	//run after the parent
-	root_task.gather(parent);
-
-
-	ecs::Task end_task = task_engine.placeholder();
-	{
-
-
-		ecs::Task last_task = root_task;
-		//for (auto s : Renderers)
-		//{
-		//	last_task = s->schedule(registry, task_engine, last_task, last_task);
-		//}
-
-
-		end_task.gather(last_task);
-		end_task.name("Render End");
-
-	}
-
-
-	return std::move(end_task);
-}

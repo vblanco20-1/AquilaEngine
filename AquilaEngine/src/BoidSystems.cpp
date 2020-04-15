@@ -87,15 +87,7 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size
 
 void BoidMap::Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body)
 {
-	//GridVec loc = GridVecFromPosition(Position);
-	//auto search = Grid.find(loc);
-	//if (search != Grid.end())
-	//{
-	//	for (auto g : search->second.boids)
-	//	{
-	//		Body(g);
-	//	}
-	//}
+	
 }
 
 void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)>&& Body)
@@ -113,14 +105,7 @@ void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<v
 	{
 		std::for_each(lower, upper, Body);
 	}
-	//auto search = Grid.find(loc);
-	//if (search != Grid.end())
-	//{
-	//	for (auto g : search->second.boids)
-	//	{
-	//		Body(g);
-	//	}
-	//}
+
 }
 
 void BoidMap::Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> &&Body)
@@ -314,39 +299,13 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 	return a.morton == b.morton;
 }
 
-ecs::Task BoidHashSystem::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
-{
-	const float dt = get_delta_time(registry);
-	ecs::Task task = task_engine.silent_emplace([&, dt]() {
-
-		update(registry, dt);
-	});
-
-
-	task.name("Boid Hash system");
-	//run after the parent
-	task.gather(parent);
-	return std::move(task);
-}
-
-void BoidHashSystem::update(ECS_Registry &registry, float dt)
-{
-
-}
 
 void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 {
-	ECS_Registry& registry = world.registry_entt;
 	iterations++;
-	if (!registry.has<BoidReferenceTag>())
-	{
-		auto player = world.registry_entt.create();
-		BoidMap* map = new BoidMap();
-		registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
-	}
 
 	//get the "boid data" pointer
-	BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
+	BoidReferenceTag& boidref = *world.registry_decs.get_singleton<BoidReferenceTag>(); 
 
 	size_t count = 200000;
 
@@ -420,10 +379,10 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 
 void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 {
-	ECS_Registry& registry = world.registry_entt;
+	//ECS_Registry& registry = world.registry_entt;
 
 	//get the "boid data" pointer
-	BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
+	BoidReferenceTag& boidref = *world.registry_decs.get_singleton<BoidReferenceTag>(); //registry.get<BoidReferenceTag>();
 	
 
 	if (boidref.map->Mortons.size() > 0)
@@ -482,21 +441,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 	
 	SCOPE_PROFILE("Boid Hash System All");
 
-	//ECS_Registry& registry = world.registry_entt;
-	//iterations++;
-	//if (!registry.has<BoidReferenceTag>())
-	//{
-	//	auto player = world.registry_entt.create();
-	//	BoidMap* map = new BoidMap();
-	//	registry.assign<BoidReferenceTag>(entt::tag_t{}, player, map);
-	//}
-	//
-	////get the "boid data" pointer
-	//BoidReferenceTag& boidref = registry.get<BoidReferenceTag>();
-
 	initial_fill(world);
 
 	sort_structures(world);
-	
-
 }

@@ -6,10 +6,8 @@
 struct SpaceshipMovementSystem : public System {
 	float elapsed{ 0.0f };
 
-	SpaceshipMovementSystem() { uses_threading = true; };
-	virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
+	SpaceshipMovementSystem() {};
 
-	virtual void update(ECS_Registry &registry, float dt);
 	virtual void update(ECS_GameWorld & world);
 
 private:

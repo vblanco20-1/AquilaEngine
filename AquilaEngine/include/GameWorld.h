@@ -28,7 +28,7 @@ public:
 
 
 	ecs::system::RenderCore* Renderer;
-	ECS_Registry registry_entt;
+	//ECS_Registry registry_entt;
 	ECSWorld registry_decs;
 	//ECS_Registry render_registry;
 	std::vector<System*> Systems;

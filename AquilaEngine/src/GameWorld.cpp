@@ -15,50 +15,10 @@
 #include "Systems/GameSystems.h"
 #include "Systems/TransformSystems.h"
 #include "Systems/RenderSystems.h"
-void BuildShipSpawner(ECS_Registry & registry, XMVECTOR  Location, XMVECTOR TargetLocation)
-{
-	auto spawner1 = registry.create();
-
-	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 100;
-	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 100 + 200;
-	float posz = XMVectorGetZ(Location) + rng::RandomFloat() * 100;
-
-	//registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
-	SpaceshipSpawnerComponent & spcomp = registry.assign<SpaceshipSpawnerComponent>(spawner1);
-	spcomp.Bounds = XMFLOAT3(10, 50, 50);
-	spcomp.Elapsed = 0;
-	spcomp.SpawnRate = 1;
-	spcomp.ShipMoveTarget = TargetLocation;
-
-	registry.assign<CubeRendererComponent>(spawner1);
-
-	float  randomtint = rng::RandomFloat();
-	if (XMVectorGetX(Location) > 0)
-	{
-		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
-	}
-	else
-	{
-		registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
-	}
-
-
-
-	registry.assign<RenderMatrixComponent>(spawner1);
-	registry.assign<TransformComponent>(spawner1);
-	registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
-	registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
-
-
-	ecs::system::UpdateTransform::build_matrix(
-		registry.get<TransformComponent>(spawner1), 
-		registry.get<RenderMatrixComponent>(spawner1));
-}
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
 {
-	auto* reg = &world.registry_decs;
-	
+	auto* reg = &world.registry_decs;	
 
 	auto spawner1 = reg->new_entity<SpaceshipSpawnerComponent,RenderMatrixComponent
 		,TransformComponent, CubeRendererComponent,RotatorComponent>();
@@ -93,36 +53,6 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	reg->get_component<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
 
 	ecs::system::UpdateTransform::build_matrix(reg->get_component<TransformComponent>(spawner1), reg->get_component<RenderMatrixComponent>(spawner1));
-
-
-	//registry.assign<PositionComponent>(spawner1, XMFLOAT3(posx, posy, posz));
-	//registry.add_component<SpaceshipSpawnerComponent>(spawner1);//registry.assign<SpaceshipSpawnerComponent>(spawner1);
-	//SpaceshipSpawnerComponent  spcomp;
-	//spcomp.Bounds = XMFLOAT3(10, 50, 50);
-	//spcomp.Elapsed = 0;
-	//spcomp.SpawnRate = 0.01;
-	//spcomp.ShipMoveTarget = TargetLocation;
-	//registry.GetComponent<SpaceshipSpawnerComponent>(spawner1) = spcomp;
-	//
-	//registry.GetComponent<RotatorComponent>(spawner1).Axis = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
-	//registry.GetComponent<RotatorComponent>(spawner1).rate = 1;
-	//float  randomtint = rng::RandomFloat();
-	//if (XMVectorGetX(Location) > 0)
-	//{
-	//	registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(1.0f, randomtint, randomtint);
-	//
-	//}
-	//else
-	//{
-	//	registry.get<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
-	//}
-
-
-	//registry.get<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
-	//registry.get<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
-	//registry.get<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
-	//
-	//ecs::system::UpdateTransform::build_matrix(registry.get<TransformComponent>(spawner1), registry.get<RenderMatrixComponent>(spawner1));
 }
 
 ECS_GameWorld::~ECS_GameWorld()
@@ -136,56 +66,22 @@ ECS_GameWorld::~ECS_GameWorld()
 
 void ECS_GameWorld::initialize()
 {
-
-	//registry_decs.BlockStorage.reserve(10000);
-	auto cam = registry_entt.create();
-	registry_entt.assign<PositionComponent>(cam, XMFLOAT3(0, 600, 2000));
-	registry_entt.assign<CameraComponent>(cam);
-	registry_entt.get<CameraComponent>(cam).focusPoint = XMVectorSet(0, 0, 0, 1);
-
 	auto decs_cam = registry_decs.new_entity<PositionComponent, CameraComponent>();
 	registry_decs.get_component<PositionComponent>(decs_cam).Position = XMFLOAT3(0, 600, 2000);
 	registry_decs.get_component<CameraComponent>(decs_cam).focusPoint = XMVectorSet(0, 0, 0, 1);
 	registry_decs.get_component<CameraComponent>(decs_cam).upDirection = XMVectorSet(0, 1, 0, 0);
 
 	registry_decs.set_singleton<ApplicationInfo>();
-	//registry_entt.assign<ApplicationInfo>(entt::tag_t{}, cam);
 
 	registry_decs.set_singleton<EngineTimeComponent>();
-	//registry_entt.assign<EngineTimeComponent>(entt::tag_t{}, cam);
 
-	registry_entt.assign<RendererRegistryReferenceComponent>(entt::tag_t{}, cam);
 	BoidMap * map = new BoidMap();
-	registry_entt.assign<BoidReferenceTag>(entt::tag_t{}, cam, map);
-
+	registry_decs.set_singleton<BoidReferenceTag>({ map });
 	Bench_Start(AllBench);
 
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-
-#if 0
-	Systems.push_back(new PlayerInputSystem());
-	Systems.push_back(new PlayerCameraSystem());
-	//Systems.push_back(new RandomFlusherSystem());
-	Systems.push_back(new SpaceshipSpawnSystem());
-	//Systems.push_back(new ExplosionFXSystem());
-	//
-	Systems.push_back(new BoidHashSystem());
-	////Systems.push_back(new ExplosionFXSystem());
-	Systems.push_back(new SpaceshipMovementSystem());
-	Systems.push_back(new DestructionSystem());
-	////Systems.push_back(new DestructionApplySystem());
-	
-
-
-	Systems.push_back(new RotatorSystem());
-	Systems.push_back(new ecs::system::UpdateTransform());
-
-	Renderer = new ecs::system::RenderCore();
-#endif
-
-
 
 	PlayerInput_system					   = new PlayerInputSystem();
 	PlayerCamera_system				   = new PlayerCameraSystem();
@@ -196,16 +92,7 @@ void ECS_GameWorld::initialize()
 															    
 	Rotator_system							   = new RotatorSystem();
 	UpdateTransform_system	   = new ecs::system::UpdateTransform();
-
-	//Systems.push_back(new PlayerInputSystem());
-	//Systems.push_back(new PlayerCameraSystem());
-	//Systems.push_back(new SpaceshipSpawnSystem());
-	//Systems.push_back(new BoidHashSystem());
-	//Systems.push_back(new SpaceshipMovementSystem());
-	//Systems.push_back(new DestructionSystem());
-	//
-	//Systems.push_back(new RotatorSystem());
-	//Systems.push_back(new ecs::system::UpdateTransform());
+	
 
 	Renderer = new ecs::system::RenderCore();
 
@@ -337,7 +224,7 @@ void ECS_GameWorld::update_all(float dt)
 			registry_decs.gather_chunks(SpaceAndTransform, spaceship_chunk_cache);
 
 		}
-		BoidReferenceTag& boidref = registry_entt.get<BoidReferenceTag>();
+		BoidReferenceTag& boidref = *registry_decs.get_singleton<BoidReferenceTag>();
 
 
 		//for culling
@@ -496,7 +383,7 @@ void ECS_GameWorld::update_all(float dt)
 	DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
 	for (auto s : Systems)
 	{
-		s->cleanup(registry_entt);
+		//s->cleanup(registry_entt);
 	}
 }
 

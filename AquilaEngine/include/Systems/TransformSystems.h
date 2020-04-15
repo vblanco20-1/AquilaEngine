@@ -12,7 +12,7 @@ namespace ecs::system {
 			RenderMatrixComponent * parent{ nullptr };
 		};
 		
-		ecs::system::UpdateTransform() { uses_threading = true; };
+		ecs::system::UpdateTransform() {  };
 		static void apply_position(TransformComponent & t, const PositionComponent & p)
 		{
 			t.position = XMLoadFloat3(&p.Position);
@@ -29,27 +29,8 @@ namespace ecs::system {
 		}
 
 
-		static void apply_parent_matrix(ECS_Registry &registry, EntityParentComponent & parent, RenderMatrixComponent & matrix)
-		{
-			//if (parent.Valid(registry) && parent.hierarchyDepth < 5)
-			//{
-			//	const RenderMatrixComponent & parentmatrix = registry.get<RenderMatrixComponent>(parent.parent);
-			//	matrix.Matrix = matrix.Matrix * parentmatrix.Matrix;
-			//}
-			//else
-			//{
-			//	matrix.Matrix = XMMatrixScaling(0, 0, 0);				
-			//}
-		}
-
-
-		virtual ecs::Task schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent);;
-
-		virtual void update(ECS_GameWorld & world);
-		virtual void update(ECS_Registry &registry, float dt)
-		{
-			
-		};
+			virtual void update(ECS_GameWorld & world);
+		
 
 		
 

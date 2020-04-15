@@ -8,51 +8,6 @@
 
 void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidReferenceTag & boidref, float DeltaTime);
 
-
-ecs::Task SpaceshipMovementSystem::schedule(ECS_Registry &registry, ecs::TaskEngine & task_engine, ecs::Task & parent, ecs::Task & grandparent)
-{
-	float dt = get_delta_time(registry);
-	dt = 1.0 / 60.0;
-	ecs::Task task = task_engine.silent_emplace([&, dt](auto& subflow) {
-	
-		ZoneNamed(SpaceshipMovementSystem, true);
-		SCOPE_PROFILE("Spaceship Movement System");
-
-
-		BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-
-		//120 fps simulation
-		//dt = 1.0 / 60.0;
-		elapsed = dt;
-
-		auto posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
-
-		auto[S, T] = parallel_for_ecs(subflow,
-			posview,			
-			[&](EntityID_entt i,auto view) {			
-			const auto entity = i;// view[i];
-			//UpdateSpaceship(view.get<SpaceshipMovementComponent>(entity), view.get<TransformComponent>(entity), boidref, dt);
-			}
-			,
-			512  // execute one task at a time,
-			,"Worker: Spaceship Movement"
-			);
-		//subflow.wait_for_all();
-
-
-		//update(registry, dt);
-	});
-	
-
-	//task_engine.linearize(parent, pre_task, S);
-
-	//task.name("Spaceship Movement System");
-	//run after the parent
-	task.gather(parent);
-	
-	return std::move(task);
-}
-
 void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidReferenceTag & boidref, float DeltaTime)
 {
 	auto & ship = SpaceshipMov;//posview.get<SpaceshipMovementComponent>(entity);
@@ -89,26 +44,6 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 	t.position = t.position + ship.Velocity;
 }
 
-void SpaceshipMovementSystem::update(ECS_Registry &registry, float dt)
-{
-	ZoneNamed(SpaceshipMovementSystem, true);
-	SCOPE_PROFILE("Spaceship Movement System");
-	
-
-	BoidReferenceTag & boidref = registry.get<BoidReferenceTag>();
-
-	//120 fps simulation
-	dt = 1.0 / 60.0;
-	elapsed = dt;
-
-	auto  posview = registry.view<SpaceshipMovementComponent, TransformComponent>(entt::persistent_t{});
-
-	std::for_each(/*std::execution::par_unseq, */posview.begin(), posview.end(), [&](const auto entity) {
-
-		UpdateSpaceship(posview.get<SpaceshipMovementComponent>(entity), posview.get<TransformComponent>(entity), boidref, dt);
-		
-	});
-}
 
 static bool bEven = false;
 
@@ -117,14 +52,11 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	ZoneNamed(SpaceshipMovementSystem, true);
 	SCOPE_PROFILE("Spaceship Movement System");
 
-	BoidReferenceTag & boidref = world.registry_entt.get<BoidReferenceTag>();
+	BoidReferenceTag & boidref = *world.registry_decs.get_singleton<BoidReferenceTag>();
 
 	ApplicationInfo& appInfo = *world.registry_decs.get_singleton<ApplicationInfo>();
 	appInfo.BoidEntities = 0;
-	//world.registry_decs.for_each([&](SpaceshipMovementComponent& spaceship, TransformComponent& transform) {
-	//	UpdateSpaceship(spaceship, transform, boidref, 1.0 / 30.f);
-	//	appInfo.BoidEntities++;
-	//});
+
 
 	Query spaceshipQuery;
 	spaceshipQuery.with<SpaceshipMovementComponent, TransformComponent>();
