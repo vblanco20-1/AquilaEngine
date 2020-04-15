@@ -120,7 +120,7 @@ struct  System {
 	virtual ~System() {}
 
 	float get_delta_time(ECS_Registry &registry) {
-		return registry.get<EngineTimeComponent>().delta_time;
+		return 0;//registry.dec registry.get<EngineTimeComponent>().delta_time;
 
 	}
 	

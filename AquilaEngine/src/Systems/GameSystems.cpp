@@ -177,15 +177,17 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 	float dt = world.GetTime().delta_time;
 
 	{
-		ZoneScopedN("Spawner Update", true);
+		ZoneScopedN("Spawner Update");
+		ApplicationInfo& appInfo = *world.registry_decs.get_singleton<ApplicationInfo>();
+
 
 		reg->for_each([&](SpaceshipSpawnerComponent& spawner, TransformComponent& tr) {
 
-			spawner.Elapsed -= dt;
+			spawner.Elapsed -= dt * appInfo._SpawnRate;
 			
 			if (spawner.Elapsed < 0)
 			{
-				spawner.Elapsed += spawner.SpawnRate;
+				spawner.Elapsed += spawner.SpawnRate ;
 
 				float roll_x = rng::RandomFloat();
 				float roll_y = rng::RandomFloat();
@@ -214,7 +216,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 
 	}
 	{		
-		ZoneScopedNC("Spawner Spawn", tracy::Color::Red, true);
+		ZoneScopedNC("Spawner Spawn", tracy::Color::Red);
 		SpawnUnit unit;
 		while (SpawnQueue.try_dequeue(unit)) {
 

@@ -22,14 +22,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <paged_vector.h>
+#include <vector>
 #include <algorithm>
 #include <typeinfo>
 #include <assert.h>
 #include <robin_hood.h>
 #include <tuple>
 #include <iostream>
-#include "intrin.h"
 
 #pragma warning( disable : 4267 )
 
@@ -52,7 +51,6 @@ namespace decs {
 	struct Query;
 	struct ECSWorld;
 }
-
 
 
 namespace decs {
@@ -84,11 +82,11 @@ namespace decs {
 		return hash;
 	}
 
-	template<typename T,int BucketSize>
+	template<typename T, int BucketSize>
 	struct HashCache {
 
 		struct Bucket {
-			std::array<T,BucketSize> items;
+			std::array<T, BucketSize> items;
 			std::array<size_t, BucketSize> item_hashes;
 		};
 
@@ -120,7 +118,7 @@ namespace decs {
 		//	for (int i = 0; i < BucketSize; ++i) {
 		//
 		//		std::swap(buckets[idx].item_hashes[i], swap_hash);
-		//		std::swap(buckets[idx].items[i],swap);
+		//		std::swap(buckets[idx].items[i], swap);
 		//	}
 		//};
 	};
@@ -140,8 +138,8 @@ namespace decs {
 		template<typename T>
 		static constexpr size_t hash() {
 
-			//static_assert(!std::is_reference_v<T>, "dont send references to hash");
-			//static_assert(!std::is_const_v<T>, "dont send const to hash");
+			static_assert(!std::is_reference_v<T>, "dont send references to hash");
+			static_assert(!std::is_const_v<T>, "dont send const to hash");
 			return hash_fnv1a(name_detail<T>());
 		}
 	};
@@ -196,7 +194,6 @@ namespace decs {
 
 			return meta;
 		};
-
 	};
 
 	//has stable pointers, use name_hash for it
@@ -283,7 +280,7 @@ namespace decs {
 			return chunk == other.chunk && generation == other.generation && chunkIndex == other.chunkIndex;
 		}
 
-		bool operator!=(const EntityStorage& other) const{
+		bool operator!=(const EntityStorage& other) const {
 			return !(other == *this);
 		}
 	};
@@ -305,7 +302,7 @@ namespace decs {
 
 			return *this;
 		}
-		
+
 		template<typename... C>
 		Query& exclude() {
 			exclude_comps.insert(exclude_comps.end(), { Metatype::build_hash<C>()... });
@@ -345,16 +342,18 @@ namespace decs {
 	};
 
 	struct ECSWorld {
-		paged_vector<EntityStorage> entities;
-		paged_vector<uint32_t> deletedEntities;
+		std::vector<EntityStorage> entities;
+		std::vector<uint32_t> deletedEntities;
 
 		robin_hood::unordered_flat_map<uint64_t, std::vector<Archetype*>> archetype_signature_map{};
 		robin_hood::unordered_flat_map<uint64_t, Archetype*> archetype_map{};
-		paged_vector<Archetype*> archetypes;
+		std::vector<Archetype*> archetypes;
 		//unique archetype hashes
-		paged_vector<size_t> archetypeHashes;
+		std::vector<size_t> archetypeHashes;
 		//bytemask hash for checking
-		paged_vector<size_t> archetypeSignatures;
+		std::vector<size_t> archetypeSignatures;
+
+		robin_hood::unordered_flat_map<uint64_t, void*> singleton_map{};
 
 		int live_entities{ 0 };
 		int dead_entities{ 0 };
@@ -394,6 +393,14 @@ namespace decs {
 		template<typename C>
 		C& get_component(EntityID id);
 
+		template<typename C>
+		C* set_singleton();
+		template<typename C>
+		C* set_singleton(C&& singleton);
+
+		template<typename C>
+		C* get_singleton();
+
 		template<typename ... Comps>
 		inline EntityID new_entity();
 
@@ -411,16 +418,16 @@ namespace decs {
 		EntityStorage storage;
 	};
 
-	
+
 
 	template<typename C>
 	C* CachedRef<C>::get_from(ECSWorld* world, EntityID target)
-	{	
-		if (world->entities[target.index] != storage) {		
+	{
+		if (world->entities[target.index] != storage) {
 			pointer = &world->get_component<C>(target);
 			storage = world->entities[target.index];
 		}
-		return pointer;		
+		return pointer;
 	}
 
 	template<typename T>
@@ -434,29 +441,17 @@ namespace decs {
 			return ComponentArray<EntityID>(ptr, chunk);
 		}
 		else {
-			constexpr MetatypeHash hash = Metatype::build_hash<T>();
+			constexpr MetatypeHash hash = Metatype::build_hash<ActualT>();
 
-			//struct MCached {				
-			//	Archetype* arch{nullptr};
-			//	uint32_t chnkoffset;
-			//};
-
-			//static thread_local MCached memoized{};
-			//if (memoized.arch == chunk->header.ownerArchetype) {
-			//	void*ptr= (void*)((byte*)chunk + memoized.chnkoffset);
-			//	return ComponentArray<ActualT>(ptr, chunk);
-			//} 
-			//else {
 			for (auto cmp : chunk->header.componentList->components) {
 				if (cmp.hash == hash)
 				{
 					void* ptr = (void*)((byte*)chunk + cmp.chunkOffset);
-					//memoized.arch = chunk->header.ownerArchetype;
-					//memoized.chnkoffset = cmp.chunkOffset;
+
 					return ComponentArray<ActualT>(ptr, chunk);
 				}
 			}
-			//}
+
 
 			return ComponentArray<ActualT>();
 		}
@@ -590,6 +585,21 @@ namespace decs {
 			chunk->header.ownerArchetype = arch;
 			arch->chunks.push_back(chunk);
 			return chunk;
+		}
+		inline void delete_chunk_from_archetype(DataChunk* chunk) {
+			Archetype* owner = chunk->header.ownerArchetype;
+			DataChunk* backChunk = owner->chunks.back();
+
+			if (backChunk != chunk) {
+				for (int i = 0; i < owner->chunks.size(); i++) {
+					if (owner->chunks[i] == chunk) {
+						owner->chunks[i] = backChunk;
+					}
+				}
+			}
+			owner->chunks.pop_back();
+			delete chunk;
+
 		}
 		inline bool compare_metatypes(const Metatype* A, const Metatype* B) {
 			//return A->name_hash < B->name_hash;
@@ -733,7 +743,7 @@ namespace decs {
 
 		inline bool is_entity_valid(ECSWorld* world, EntityID id) {
 			//index check
-			if (world->entities.size() > id.index&& id.index >= 0) {
+			if (world->entities.size() > id.index && id.index >= 0) {
 
 				//generation check
 				if (id.generation != 0 && world->entities[id.index].generation == id.generation)
@@ -946,9 +956,9 @@ namespace decs {
 		}
 
 
-#pragma optimize( "", off )
+
 		template<typename C>
-		  C& get_entity_component(ECSWorld* world, EntityID id)
+		C& get_entity_component(ECSWorld* world, EntityID id)
 		{
 
 			EntityStorage& storage = world->entities[id.index];
@@ -957,7 +967,7 @@ namespace decs {
 			assert(acrray.chunkOwner != nullptr);
 			return acrray[storage.chunkIndex];
 		}
-#pragma optimize( "", on )
+
 
 		template<typename C>
 		bool has_component(ECSWorld* world, EntityID id)
@@ -1141,44 +1151,48 @@ namespace decs {
 
 			bool bWasFull = chunk->header.last == cmpList->chunkCapacity;
 			assert(chunk->header.last > index);
-			if (chunk->header.last > index) {
 
-				bool bPop = chunk->header.last > 1 && index != (chunk->header.last - 1);
-				int popIndex = chunk->header.last - 1;
+			bool bPop = chunk->header.last > 1 && index != (chunk->header.last - 1);
+			int popIndex = chunk->header.last - 1;
 
-				chunk->header.last--;
+			chunk->header.last--;
 
-				//clear and pop last
-				for (auto& cmp : cmpList->components) {
-					const Metatype* mtype = cmp.type;
+			//clear and pop last
+			for (auto& cmp : cmpList->components) {
+				const Metatype* mtype = cmp.type;
 
-					if (!mtype->is_empty()) {
-						void* ptr = (void*)((byte*)chunk + cmp.chunkOffset + (mtype->size * index));
+				if (!mtype->is_empty()) {
+					void* ptr = (void*)((byte*)chunk + cmp.chunkOffset + (mtype->size * index));
 
-						mtype->destructor(ptr);
+					mtype->destructor(ptr);
 
-						if (bPop) {
-							void* ptrPop = (void*)((byte*)chunk + cmp.chunkOffset + (mtype->size * popIndex));
-							memcpy(ptr, ptrPop, mtype->size);
-						}
+					if (bPop) {
+						void* ptrPop = (void*)((byte*)chunk + cmp.chunkOffset + (mtype->size * popIndex));
+						memcpy(ptr, ptrPop, mtype->size);
 					}
 				}
-
-				EntityID* eidptr = ((EntityID*)chunk);
-				eidptr[index] = EntityID{};
-
-				if (bWasFull) {
-					set_chunk_partial(chunk);
-				}
-
-				if (bPop) {
-
-					chunk->header.ownerArchetype->ownerWorld->entities[eidptr[popIndex].index].chunkIndex = index;
-					eidptr[index] = eidptr[popIndex];
-					return eidptr[index];
-				}
 			}
-			return EntityID{};
+
+			EntityID* eidptr = ((EntityID*)chunk);
+			eidptr[index] = EntityID{};
+
+
+			if (chunk->header.last == 0) {
+				delete_chunk_from_archetype(chunk);
+			}
+			else if (bWasFull) {
+				set_chunk_partial(chunk);
+			}
+
+			if (bPop) {
+				chunk->header.ownerArchetype->ownerWorld->entities[eidptr[popIndex].index].chunkIndex = index;
+				eidptr[index] = eidptr[popIndex];
+
+				return eidptr[index];
+			}
+			else {
+				return EntityID{};
+			}
 		}
 
 		inline DataChunk* build_chunk(ChunkComponentList* cmpList) {
@@ -1282,6 +1296,45 @@ namespace decs {
 	C& ECSWorld::get_component(EntityID id)
 	{
 		return adv::get_entity_component<C>(this, id);
+	}
+
+	template<typename C>
+	inline C* ECSWorld::set_singleton()
+	{
+		return set_singleton<C>(C{});
+	}
+
+	template<typename C>
+	inline C* ECSWorld::set_singleton(C&& singleton)
+	{
+		constexpr MetatypeHash type = Metatype::build_hash<C>();
+
+		C* old_singleton = get_singleton<C>();
+		if (old_singleton) {
+			*old_singleton = singleton;
+			return old_singleton;
+		}
+		else {
+
+			C* new_singleton = new C(singleton);
+			singleton_map[type.name_hash] = (void*)new_singleton;
+			return new_singleton;
+		}
+
+	}
+
+	template<typename C>
+	inline C* ECSWorld::get_singleton()
+	{
+		constexpr MetatypeHash type = Metatype::build_hash<C>();
+
+		auto lookup = singleton_map.find(type.name_hash);
+		if (lookup != singleton_map.end()) {
+			return (C*)singleton_map[type.name_hash];
+		}
+		else {
+			return nullptr;
+		}
 	}
 
 	template<typename ...Comps>

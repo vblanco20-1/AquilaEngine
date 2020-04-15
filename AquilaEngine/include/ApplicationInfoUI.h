@@ -10,6 +10,11 @@ struct ApplicationInfo {
 	float RenderTime;
 	int TotalEntities;
 	int BoidEntities;
+
+	float _SpawnRate = 1;
+	bool bEnableCulling = true;
+	bool bEnableBoids = true;
+	bool bEnableSimulation = true;
 };
 
 void AppInfoUI(ApplicationInfo & info);

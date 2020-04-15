@@ -159,38 +159,41 @@ struct DestructionSystem : public System {
 		query.with<LifetimeComponent>();
 		query.build();
 		
-		
-		reg->gather_chunks(query, chunk_cache);
-		
-		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-			auto lfarray = get_chunk_array<LifetimeComponent>(chnk);
-			auto idarray = get_chunk_array<EntityID>(chnk);
-			for (int i = chnk->header.last - 1; i >= 0; i--)
-			{
-				lfarray[i].TimeLeft -= dt;
-				if (lfarray[i].TimeLeft < 0)
-				{
-					EntitiesToDelete_decs.enqueue(idarray[i]);
-				}
-			}
-		});
-
-		
-
-		EntityID ex[64];
-		while (true)
 		{
-			int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
-			if (dequeued > 0)
-			{
-				for (int i = 0; i < dequeued; i++)
+			reg->gather_chunks(query, chunk_cache);
+		
+			ZoneScopedN("Collect deleteables");
+			parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+				auto lfarray = get_chunk_array<LifetimeComponent>(chnk);
+				auto idarray = get_chunk_array<EntityID>(chnk);
+				for (int i = chnk->header.last - 1; i >= 0; i--)
 				{
-					reg->destroy(ex[i]);
+					lfarray[i].TimeLeft -= dt;
+					if (lfarray[i].TimeLeft < 0)
+					{
+						EntitiesToDelete_decs.enqueue(idarray[i]);
+					}
 				}
-			}
-			else
+			});
+		}
+		
+		{
+			ZoneScopedN("Apply deletions");
+			EntityID ex[64];
+			while (true)
 			{
-				break;
+				int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
+				if (dequeued > 0)
+				{
+					for (int i = 0; i < dequeued; i++)
+					{
+						reg->destroy(ex[i]);
+					}
+				}
+				else
+				{
+					break;
+				}
 			}
 		}
 
@@ -199,36 +202,40 @@ struct DestructionSystem : public System {
 		query2.build();
 
 		chunk_cache.clear();
-		reg->gather_chunks(query2, chunk_cache);
-
-		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-			auto lfarray = get_chunk_array<TransformParentComponent>(chnk);
-			auto idarray = get_chunk_array<EntityID>(chnk);
-			for (int i = chnk->header.last - 1; i >= 0; i--)
-			{
-				if (!decs::adv::is_entity_valid(reg, lfarray[i].Parent))
-				{
-					EntitiesToDelete_decs.enqueue(idarray[i]);
-				}
-			}
-		});
-
-		//EntityID ex[64];
-		while (true)
 		{
-			int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
-			if (dequeued > 0)
-			{
-				for (int i = 0; i < dequeued; i++)
+			ZoneScopedN("Collect deleteables");
+			reg->gather_chunks(query2, chunk_cache);
+			parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+				auto lfarray = get_chunk_array<TransformParentComponent>(chnk);
+				auto idarray = get_chunk_array<EntityID>(chnk);
+				for (int i = chnk->header.last - 1; i >= 0; i--)
 				{
-					reg->destroy(ex[i]);
+					if (!decs::adv::is_entity_valid(reg, lfarray[i].Parent))
+					{
+						EntitiesToDelete_decs.enqueue(idarray[i]);
+					}
+				}
+			});
+		}
+		{
+			ZoneScopedN("Apply deletions");
+			EntityID ex[64];
+			while (true)
+			{
+				int dequeued = EntitiesToDelete_decs.try_dequeue_bulk(ex, 64);
+				if (dequeued > 0)
+				{
+					for (int i = 0; i < dequeued; i++)
+					{
+						reg->destroy(ex[i]);
+					}
+				}
+				else
+				{
+					break;
 				}
 			}
-			else
-			{
-				break;
-			}
-		}		
+		}
 	}
 };
 

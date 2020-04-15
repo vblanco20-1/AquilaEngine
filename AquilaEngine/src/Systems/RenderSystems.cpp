@@ -128,7 +128,7 @@ void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 
 void ecs::system::FrustrumCuller::chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir)
 {
-	return;
+	ZoneScopedN("Cull Chunk");
 	auto entities = get_chunk_array<EntityID>(chnk);
 	auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
 	auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
@@ -260,7 +260,7 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 		bufferidx++;
 		if (bufferidx >= 512)
 		{
-			//ZoneScopedNC("Render Cube Batch", tracy::Color::Magenta, true);
+			ZoneScopedN("Render Cube Batch");
 			bufferidx = 0;
 			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
@@ -271,12 +271,11 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 
 	if (bufferidx > 0)
 	{
-		//ZoneScopedNC("Render Cube Batch", tracy::Color::Magenta, true);
+		ZoneScopedN("Render Cube Batch");
+		
 		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
-		Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
-		//rmt_EndD3D11Sample();
-		//rmt_BeginD3D11Sample(RenderCubeBatch);
+		Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);		
 	}
 }
 
@@ -300,6 +299,7 @@ void ecs::system::RenderCore::render_start()
 
 void ecs::system::RenderCore::Present(bool vSync)
 {
+	
 	FrameMark;
 	if (vSync)
 	{
@@ -313,6 +313,7 @@ void ecs::system::RenderCore::Present(bool vSync)
 
 void ecs::system::RenderCore::render_end()
 {
+	ZoneScopedN("Present");
 	{
 		//rmt_ScopedD3D11Sample(ImGuiRender);
 
@@ -325,6 +326,8 @@ void ecs::system::RenderCore::render_end()
 	}
 
 	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
 
 	drawcalls = nDrawcalls;
 

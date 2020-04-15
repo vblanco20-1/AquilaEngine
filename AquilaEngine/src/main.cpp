@@ -426,8 +426,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-	ImGui_ImplDX11_Init(Globals->g_WindowHandle, Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
+	ImGui_ImplWin32_Init(Globals->g_WindowHandle);
+	ImGui_ImplDX11_Init(Globals->g_d3dDevice, Globals->g_d3dDeviceContext);
 	g_bIMGuiInitialized = true;
 	// Setup style
 	ImGui::StyleColorsDark();
@@ -439,6 +441,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 
 	return returnCode;
 }
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {

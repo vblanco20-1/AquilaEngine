@@ -41,14 +41,10 @@
 #define IMGUI_API
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_dx11.h"
+#include "imgui/imgui_impl_win32.h"
 
 #undef min
 #undef max
-
-
-
-//#include "Remotery.h"
-#define TRACY_ENABLE
 #include <Tracy.hpp>
 
 // DirectX includes

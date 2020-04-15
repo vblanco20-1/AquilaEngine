@@ -119,7 +119,7 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 
 	BoidReferenceTag & boidref = world.registry_entt.get<BoidReferenceTag>();
 
-	ApplicationInfo& appInfo = world.registry_entt.get<ApplicationInfo>();
+	ApplicationInfo& appInfo = *world.registry_decs.get_singleton<ApplicationInfo>();
 	appInfo.BoidEntities = 0;
 	//world.registry_decs.for_each([&](SpaceshipMovementComponent& spaceship, TransformComponent& transform) {
 	//	UpdateSpaceship(spaceship, transform, boidref, 1.0 / 30.f);
@@ -134,7 +134,7 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	chunk_cache.clear();
 	
 	{
-		ZoneScopedNC("Spaceship Gather Archetypes", tracy::Color::Green, true);
+		ZoneScopedNC("Spaceship Gather Archetypes", tracy::Color::Green);
 
 		world.registry_decs.gather_chunks(spaceshipQuery, chunk_cache);
 		
@@ -151,7 +151,7 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 void update_ship_chunk(DataChunk* chnk, BoidReferenceTag& boidref, std::atomic<int>& count)
 {
 
-	ZoneScopedNC("Spaceship Execute Chunks", tracy::Color::Magenta, true);
+	ZoneScopedNC("Spaceship Execute Chunks", tracy::Color::Magenta);
 
 	auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
 	auto transfarray = get_chunk_array<TransformComponent>(chnk);
