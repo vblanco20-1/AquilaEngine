@@ -171,6 +171,7 @@
     <ClCompile Include="src\SimpleProfiler.cpp" />
     <ClCompile Include="src\SpaceshipSystems.cpp" />
     <ClCompile Include="src\Systems\GameSystems.cpp" />
+    <ClCompile Include="src\Systems\LifetimeSystems.cpp" />
     <ClCompile Include="src\Systems\RenderSystems.cpp" />
     <ClCompile Include="src\Timer.cpp" />
     <ClCompile Include="third_party\imgui\imgui.cpp" />

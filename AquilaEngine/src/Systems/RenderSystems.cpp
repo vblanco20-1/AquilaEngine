@@ -31,9 +31,24 @@ void ecs::system::CameraUpdate::update(ECS_GameWorld &world)
 bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRendererComponent & cube,const XMVECTOR &CamPos,const XMVECTOR& CamDir ) {
 	XMVECTOR pos = XMVector3Transform(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), matrix.Matrix);
 	XMVECTOR ToCube = CamPos - pos;
-	XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube, CamDir);
-	static const float rads = XMConvertToRadians(40);
-	if (XMVectorGetX(angle) < rads)
+
+	XMVECTOR V1 = ToCube;
+	XMVECTOR V2 = CamDir;
+
+	XMVECTOR L1 = XMVector3ReciprocalLength(V1);
+	XMVECTOR L2 = XMVector3ReciprocalLength(V2);
+
+	XMVECTOR Dot = XMVector3Dot(V1, V2);
+
+	L1 = XMVectorMultiply(L1, L2);
+
+	XMVECTOR CosAngle = XMVectorMultiply(Dot, L1);
+	CosAngle = XMVectorClamp(CosAngle, g_XMNegativeOne.v, g_XMOne.v);
+
+	//XMVECTOR angle = XMVector3AngleBetweenVectors(ToCube, CamDir);
+	//static const float rads = XMConvertToRadians(40);
+	//if (XMVectorGetX(angle) < rads)
+	if (XMVectorGetX(CosAngle) > 0.7)
 	{
 		return true;
 	}
@@ -48,6 +63,33 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 	build_view_queues(world);
 	apply_queues(world);
 }
+
+
+
+bool get_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint16_t index)
+{
+	const uint16_t idx = (index >> 6);
+	const uint16_t shift = (index & 0x3F);
+	const uint64_t mask = (uint64_t(0x1) << shift);
+	const uint64_t andmask = node->mask[idx] & mask;
+	return andmask;
+}
+void set_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint16_t index)
+{
+	const uint16_t idx = (index >> 6);
+	const uint16_t shift = (index & 0x3F);
+	const uint64_t mask = (uint64_t(0x1) << shift);
+	node->mask[idx] |= mask;
+}
+void clear_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint16_t index)
+{
+	const uint16_t idx = (index >> 6);
+	const uint16_t shift = (index & 0x3F);
+	const uint64_t mask = (uint64_t(0x1) << shift);
+	const uint64_t invmask = uint64_t(-1) ^ mask;
+	node->mask[idx] &= invmask;
+}
+
 
 void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 {
@@ -65,6 +107,13 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 		CamDir = XMVector3Normalize(CamDir);
 
+
+		VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<VisibleRenderChunks>();
+
+		if (!chunkBuffer) {
+			chunkBuffer = world.registry_decs.set_singleton<VisibleRenderChunks>();
+		}		
+		
 		static std::vector<DataChunk*> chunk_cache;
 		chunk_cache.clear();
 
@@ -76,17 +125,66 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 			world.registry_decs.gather_chunks(query, chunk_cache);
 		}
-		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
-			chull_chunk(chnk, CamPos, CamDir);
 
+		
+		std::atomic_uint32_t push_idx{ 0 };
+
+		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+		
+
+			ZoneScopedN("Cull Chunk");
+
+			CulledChunk cullUnit{};
+			cullUnit.chunk = chnk;
+			
+
+			auto entities = get_chunk_array<EntityID>(chnk);
+			auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
+			auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);	
+
+			//bool any_visible = false;
+			int viscount = 0;
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				const CubeRendererComponent& cube = cubearray[i];
+				const RenderMatrixComponent& matrix = transfarray[i];
+				bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
+				
+				if (bVisible) {
+					set_node_mask_at(&cullUnit.mask, i);
+					viscount++;
+				}
+				else {
+					clear_node_mask_at(&cullUnit.mask, i);
+				}
+			}
+
+			if (viscount > 0) {
+				cullUnit.mask.count = viscount;
+				ChunkQueue.enqueue(cullUnit);
+				//int idx = push_idx.fetch_add(1);
+				//
+				//chunkBuffer->masks[idx] = mask;
+				//chunkBuffer->visibleChunks[idx] = chnk;
+			}
 		});
 
-	
+		{
+			ZoneScopedN("Cull Ready");
+
+			chunkBuffer->visibleChunks.clear();
+			//chunkBuffer->masks.clear();
+
+			bulk_dequeue(ChunkQueue, [&](CulledChunk& c) {
+				chunkBuffer->visibleChunks.push_back(c);
+				//chunkBuffer->masks.push_back(c.mask);
+			});
+		}
 }
 
 void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 {
-	
+	return;
 	ZoneScopedN("Cull Apply", true);
 
 	while (true)
@@ -138,7 +236,32 @@ void ecs::system::FrustrumCuller::chull_chunk(DataChunk* chnk, XMVECTOR CamPos, 
 
 void ecs::system::CubeRenderer::pre_render()
 {
-	nDrawcalls = 0;
+	
+}
+
+struct RendererBuffers {
+
+	std::vector<XMMATRIX> InstancedTransforms;
+	std::vector<XMFLOAT4> InstancedColors;
+	std::atomic_uint32_t lenght;
+};
+
+struct RendererHandles {
+	std::unique_ptr<RendererBuffers> CubeBuffers;
+};
+
+void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
+{
+	ZoneNamed(CubeRenderer, true);
+
+	SCOPE_PROFILE("Cube Render System");
+
+	build_cube_batches(world);	
+}
+
+void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT4* FirstColor, uint32_t total_drawcalls)
+{
+	
 	const UINT vertexStride = sizeof(VertexPosColor);
 	const UINT offset = 0;
 	Globals->g_d3dDeviceContext->OMSetRenderTargets(1, &Globals->g_d3dRenderTargetView, Globals->g_d3dDepthStencilView);
@@ -157,58 +280,105 @@ void ecs::system::CubeRenderer::pre_render()
 	Globals->g_d3dDeviceContext->RSSetViewports(1, &Globals->g_Viewport);
 
 	Globals->g_d3dDeviceContext->PSSetShader(Globals->g_d3dPixelShader, nullptr, 0);
-}
 
-void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
-{
-	ZoneNamed(CubeRenderer, true);
-	//rmt_ScopedD3D11Sample(CubeRendererSystemDX);
-
-	SCOPE_PROFILE("Cube Render System");
-	//auto p = ScopeProfiler("Cube Render System", *g_SimpleProfiler);
-
-
-	pre_render();
-
+	ZoneScopedN("Render Cube Batches");
 	int bufferidx = 0;
-	//rmt_ScopedD3D11Sample(IterateCubes);
-	
-	auto* reg = &world.registry_decs;
-	float dt = world.GetTime().delta_time;
+	int nDrawcalls = 0;
+	while (true) {
 
-	Query query;
-	query.with<CubeRendererComponent, RenderMatrixComponent>();
-	query.exclude<Culled>();
-	query.build();	
+		uniformBuffer.worldMatrix[bufferidx] = FirstMatrix[nDrawcalls];
+		uniformBuffer.color[bufferidx] = FirstColor[nDrawcalls];
 
-	reg->for_each(query,[&](RenderMatrixComponent& matrix, CubeRendererComponent& cube) {
-		
-		nDrawcalls++;
-
-		uniformBuffer.worldMatrix[bufferidx] = matrix.Matrix;
-		uniformBuffer.color[bufferidx] = XMFLOAT4(cube.color.x, cube.color.y, cube.color.z, 1.0f);
 		bufferidx++;
-		if (bufferidx >= 512)
+		nDrawcalls++;
+		if (bufferidx >= 512 || nDrawcalls >= total_drawcalls)
 		{
-			ZoneScopedN("Render Cube Batch");
-			bufferidx = 0;
+			ZoneScopedN("Render Upload Batch");
+
 			Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
 
-			Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), 512, 0, 0, 0);
+			Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);
+			bufferidx = 0;
+			if (nDrawcalls >= total_drawcalls) {
+				break;
+			}
 		}
-	});
-
-
-	if (bufferidx > 0)
-	{
-		ZoneScopedN("Render Cube Batch");
-		
-		Globals->g_d3dDeviceContext->UpdateSubresource(Globals->g_d3dConstantBuffers[CB_Object], 0, nullptr, &uniformBuffer, 0, 0);
-
-		Globals->g_d3dDeviceContext->DrawIndexedInstanced(_countof(Globals->g_CubeIndicies), bufferidx, 0, 0, 0);		
 	}
 }
 
+void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
+{
+	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
+
+	if (!rhandles) {
+		rhandles = world.registry_decs.set_singleton<RendererHandles>();
+		rhandles->CubeBuffers = std::make_unique<RendererBuffers>();
+		//buffers->InstancedCubes.resize(500000);
+	}
+
+	RendererBuffers* buffers = rhandles->CubeBuffers.get();
+	buffers->lenght.store(0);
+
+	ecs::system::FrustrumCuller::VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<ecs::system::FrustrumCuller::VisibleRenderChunks>();
+	if (!chunkBuffer) return;
+
+	static std::vector<DataChunk*> chunk_cache;
+	chunk_cache.clear();
+
+	Query query;
+	query.with<CubeRendererComponent, RenderMatrixComponent>();
+	//query.exclude<Culled>();
+	query.build();
+
+	
+	std::atomic_uint32_t total_drawcalls = 0;
+	{
+		ZoneScopedNC("Render Gather Archetypes", tracy::Color::Green);
+
+		world.registry_decs.gather_chunks(query, chunk_cache);
+		//decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
+
+		//	for (auto chnk : arch->chunks) {
+		//		total_drawcalls += chnk->header.last;
+		//	}
+		//});
+		
+		//this is bigger than it should, but it doesnt matter to use the extra memory
+		for (auto chnk : chunkBuffer->visibleChunks) {
+			total_drawcalls += chnk.mask.count;//chnk->header.last;
+		}
+	}
+
+
+	//buffers->lenght.store(total_drawcalls);
+
+	buffers->InstancedColors.resize(total_drawcalls);
+	buffers->InstancedTransforms.resize(total_drawcalls);
+
+
+	XMMATRIX* FirstMatrix = &buffers->InstancedTransforms[0];
+	XMFLOAT4* FirstColor = &buffers->InstancedColors[0];
+	std::for_each(std::execution::par, chunkBuffer->visibleChunks.begin(), chunkBuffer->visibleChunks.end(),
+		[&](ecs::system::FrustrumCuller::CulledChunk& chnk) {
+
+		ZoneScopedNC("render Execute Chunks", tracy::Color::Red);
+
+		auto matrices = get_chunk_array<RenderMatrixComponent>(chnk.chunk);
+		auto cubes = get_chunk_array<CubeRendererComponent>(chnk.chunk);
+
+		//add atomic to reserve space
+		int first_idx = buffers->lenght.fetch_add(chnk.mask.count);
+		int n = 0;
+		for (int i = 0; i < chnk.chunk->header.last; i++)
+		{
+			if (get_node_mask_at(&chnk.mask, i)) {
+				FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
+				FirstMatrix[n + first_idx] = matrices[i].Matrix;
+				n++;
+			}			
+		}
+	});
+}
 
 void ecs::system::RenderCore::render_start()
 {
@@ -230,7 +400,7 @@ void ecs::system::RenderCore::render_start()
 void ecs::system::RenderCore::Present(bool vSync)
 {
 	
-	FrameMark;
+	
 	if (vSync)
 	{
 		Globals->g_d3dSwapChain->Present(1, 0);
@@ -252,7 +422,7 @@ void ecs::system::RenderCore::render_end()
 	{
 		//rmt_ScopedD3D11Sample(DirectXPresent);
 		//Present(Globals->g_EnableVSync);
-		Present(true);
+		Present(false);
 	}
 
 	ImGui_ImplDX11_NewFrame();
@@ -282,5 +452,17 @@ ecs::system::RenderCore::RenderCore()
 	cam_updater = new CameraUpdate();
 	culler =  new FrustrumCuller();
 	cube_renderer = new CubeRenderer();
+}
+
+void ecs::system::RenderCore::render_batches(ECS_GameWorld& world)
+{
+	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
+	if (rhandles) {
+		XMMATRIX* FirstMatrix = &rhandles->CubeBuffers->InstancedTransforms[0];
+		XMFLOAT4* FirstColor = &rhandles->CubeBuffers->InstancedColors[0];
+
+		cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->lenght);
+
+	}
 }
 

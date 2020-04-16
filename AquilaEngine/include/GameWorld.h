@@ -42,6 +42,7 @@ public:
 	
 	struct RotatorSystem* Rotator_system;
 	struct UpdateTransform* UpdateTransform_system;
+	struct ExplosionFXSystem* Explosion_system;
 };
 
 static ECS_GameWorld *GameWorld{ nullptr };

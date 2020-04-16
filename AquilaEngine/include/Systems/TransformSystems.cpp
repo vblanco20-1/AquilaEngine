@@ -11,44 +11,50 @@ void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
 
 	SCOPE_PROFILE("TransformUpdate System-decs");
 
+	update_root(world);
+	update_hierarchy(world);
+}
+
+void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
+{
+	ZoneScopedN("Update Root Transforms");
 	Query FullTransform;
 	FullTransform.with<RenderMatrixComponent, TransformComponent>();
 	FullTransform.exclude<StaticTransform>();
-	FullTransform.build();
+	FullTransform.build(); 
+	
+	static std::vector<DataChunk*> full_chunk_cache;
+	full_chunk_cache.clear();
+
+	world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
+	parallel_for_chunk(full_chunk_cache, [&](DataChunk* chnk) {
+
+		update_root_transform(chnk);
+	});
+}
+
+void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
+{
+	ZoneScopedN("Update Hierarchy Transforms");
 
 	Query ChildTransform;
 	ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
 	ChildTransform.exclude<StaticTransform>();
 	ChildTransform.build();
 
-	static std::vector<DataChunk*> full_chunk_cache;
-	full_chunk_cache.clear();
+
 
 	static std::vector<DataChunk*> child_chunk_cache;
 	child_chunk_cache.clear();
 
+	world.registry_decs.gather_chunks(ChildTransform, child_chunk_cache);	
 
-
-	{
-		ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
-
-		world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
-		world.registry_decs.gather_chunks(ChildTransform, child_chunk_cache);
-	}
-
-	parallel_for_chunk(full_chunk_cache, [&](DataChunk* chnk) {
-
-		update_root_transform(chnk);
-	});
-
-	
 	parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
-	
+
 		update_children_transform(chnk, world);
 	});
-
-
 }
+
 void update_root_transform_arrays(DataChunk* chnk,
 	RenderMatrixComponent* __restrict matarray,
 	TransformComponent* __restrict transfarray,

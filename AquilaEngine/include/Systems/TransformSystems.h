@@ -30,7 +30,11 @@ namespace ecs::system {
 
 
 			virtual void update(ECS_GameWorld & world);
-		
+
+			void update_root(ECS_GameWorld& world);
+			void update_hierarchy(ECS_GameWorld& world);
+
+
 
 		
 

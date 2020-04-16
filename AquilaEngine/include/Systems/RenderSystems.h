@@ -4,8 +4,6 @@
 #include "ECSCore.h"
 #include "SimpleProfiler.h"
 
-
-
 static int nDrawcalls;
 
 namespace ecs::system {
@@ -20,6 +18,21 @@ namespace ecs::system {
 		{
 			static const size_t BLOCK_SIZE = 256;		// Use bigger blocks
 		};
+
+		struct CullMask {
+			//popcount
+			uint16_t count = 0;
+			//128 bytes,  1024 bits 
+			uint64_t mask[16];			
+		};
+		struct CulledChunk {
+			DataChunk* chunk;
+			CullMask mask;
+		};
+		struct VisibleRenderChunks {
+
+			std::vector<CulledChunk> visibleChunks;
+		};
 			
 		virtual void update(ECS_GameWorld &world)override;
 
@@ -29,7 +42,10 @@ namespace ecs::system {
 
 		void apply_queues(ECS_GameWorld& world);		
 
+
 	private:
+		moodycamel::ConcurrentQueue<CulledChunk> ChunkQueue;
+		
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> SetCulledQueue;
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> RemoveCulledQueue;
 	};
@@ -41,6 +57,10 @@ namespace ecs::system {
 		void pre_render();
 		
 		virtual void update(ECS_GameWorld &world)override;
+
+		void build_cube_batches(ECS_GameWorld& world);
+		
+		void render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT4* FirstColor, uint32_t total_drawcalls);
 	};
 
 	struct RenderCore : public System {
@@ -50,15 +70,14 @@ namespace ecs::system {
 		virtual void update(ECS_GameWorld &world)override;
 		void render_start();
 		void render_end();
+		void render_batches(ECS_GameWorld& world);
 		void Present(bool vSync);
 
-		//std::vector<System*> Renderers;
 		CubeRenderer* cube_renderer;
 		CameraUpdate* cam_updater;
 		FrustrumCuller* culler;
 
-		int drawcalls;
-		
+		int drawcalls;		
 	};
 }
 

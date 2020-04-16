@@ -22,7 +22,7 @@ struct EngineTimeComponent {
 
 struct ExplosionFXComponent {
 	
-	float elapsed;
+	float elapsed = 0;
 };
 struct TransformComponent {
 	XMVECTOR position;
@@ -71,13 +71,10 @@ struct RenderMatrixComponent {
 	XMMATRIX Matrix;
 };
 struct CubeRendererComponent{
-	float randomval;
-	bool bVisible;
+	float randomval = 1.f;
+	bool bVisible = true;
 	XMFLOAT3 color;
-	CubeRendererComponent() {
-	
-	}
-	//XMMATRIX Matrix;
+
 };
 struct SpaceshipMovementComponent {
 	XMVECTOR Velocity;
@@ -111,42 +108,22 @@ void parallel_for_chunk(std::vector<DataChunk*>& chunks, F&& functor) {
 	std::for_each(std::execution::par, chunks.begin(), chunks.end(), functor);
 }
 
-template <typename C, typename V>
-auto parallel_for_ecs(ecs::SubflowBuilder &builder, V& view, /*std::function<void(EntityID, V&)>*/C&& c, size_t g, const char*profile_name = "par_for") {
-
-	auto beg = view.begin();
-	auto end = view.end();
-
-	auto source = builder.placeholder();
-	auto target = builder.placeholder();
-
-	V *mview = new V(std::move(view));
-
-	while (beg != end) {
-
-		auto e = beg;
-		
-		size_t r = std::distance(beg, end);
-		std::advance(e, std::min(r, g));
-		int namelen = strlen(profile_name);
-		// Create a task
-		auto task = builder.silent_emplace([mview,profile_name, beg, e, c, namelen]() mutable {
-			//rmt_BeginCPUSampleDynamic(profile_name, 0);
-			ZoneScoped;
-			ZoneText(profile_name, namelen);
-
-			for (auto it = beg; it != e; it++)
+template<typename T, typename Traits, typename F>
+void bulk_dequeue(moodycamel::ConcurrentQueue<T, Traits>& queue, F&& fun) {
+	T block[Traits::BLOCK_SIZE];
+	while (true)
+	{
+		int dequeued = queue.try_dequeue_bulk(block, Traits::BLOCK_SIZE);
+		if (dequeued > 0)
+		{
+			for (int i = 0; i < dequeued; i++)
 			{
-				c(*it,*mview);
+				fun(block[i]);
 			}
-			//std::for_each(beg, e, c);
-			//rmt_EndCPUSample();
-		});
-		source.precede(task);
-		task.precede(target);
-		
-		beg = e;
+		}
+		else
+		{
+			return;
+		}
 	}
-
-	return std::make_pair(source, target);
-}
+};

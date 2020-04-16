@@ -102,6 +102,9 @@
     <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
+    <ClCompile Include="src\Systems\LifetimeSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\PrecompiledHeader.h">

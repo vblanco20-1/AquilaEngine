@@ -29,7 +29,7 @@ void PlayerCameraSystem::update(ECS_GameWorld& world)
 		CamOffset.y = -1 * (input.Input.MouseY - 500) / 15.f;
 
 		XMVECTOR Offset = XMVectorSet(0.0f, 0.0f, CamOffset.z, 0.0f);
-		//registry.view<PositionComponent, CameraComponent>(entt::persistent_t{}).each([&, dt](auto entity, PositionComponent& campos, CameraComponent& cam) {
+
 		world.registry_decs.for_each([&](EntityID entity, PositionComponent & campos, CameraComponent & cam) {
 			XMVECTOR CamForward = XMVector3Normalize(cam.focusPoint - XMLoadFloat3(&campos.Position));
 			XMVECTOR CamUp = XMVector3Normalize(cam.upDirection);
@@ -147,7 +147,6 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				reg->get_component<TransformParentComponent>(child).Parent = et;
 				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
 			}
-			//reg->get_component<TransformComponent>(et).rotationQuat = XMVectorSet(0.f, 0.f, 0.f, 1);
 		}
 	}
 }
@@ -204,5 +203,5 @@ void PlayerInputSystem::update(ECS_GameWorld& world)
 
 	registry.get_singleton<PlayerInputTag>()->Input = g_InputMap;
 
-	InputInfo(g_InputMap);
+	//InputInfo(g_InputMap);
 }

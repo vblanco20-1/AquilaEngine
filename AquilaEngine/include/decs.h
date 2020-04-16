@@ -1301,7 +1301,17 @@ namespace decs {
 	template<typename C>
 	inline C* ECSWorld::set_singleton()
 	{
-		return set_singleton<C>(C{});
+		constexpr MetatypeHash type = Metatype::build_hash<C>();
+
+		C* old_singleton = get_singleton<C>();
+		if (old_singleton) {			
+			delete old_singleton;
+		}
+		{
+			C* new_singleton = new C;
+			singleton_map[type.name_hash] = (void*)new_singleton;
+			return new_singleton;
+		}
 	}
 
 	template<typename C>

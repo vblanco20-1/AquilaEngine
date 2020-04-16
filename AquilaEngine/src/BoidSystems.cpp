@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "GameWorld.h"
+#include "ApplicationInfoUI.h"
 //#include "ApplicationInfoUI.h"
 
 
@@ -183,7 +184,7 @@ bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start
 
 void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body)
 {
-	if (MortonArray.size() == 0) return;
+	//if (MortonArray.size() == 0) return;
 
 	const float radSquared = radius * radius;	
 
@@ -310,7 +311,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 	size_t count = 200000;
 
 	{
-		ZoneNamedNC(DataStructureInitialization, "Accel Initialization", tracy::Color::Blue, true);
+		ZoneScopedNC("Accel Initialization", tracy::Color::Blue);
 		boidref.map->Mortons.clear();
 
 		boidref.map->Mortons.reserve(count);
@@ -328,7 +329,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 
 	}
 	{
-		ZoneNamedNC(InitialFill, "Initial Fill", tracy::Color::Red, true);
+		ZoneScopedNC("Initial Fill", tracy::Color::Red);
 		SCOPE_PROFILE("Boid Initial Fill");
 
 
@@ -344,23 +345,23 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 
 
 		{
-			ZoneScopedNC("Boids Gather Archetypes", tracy::Color::Green, true);
+			ZoneScopedNC("Boids Gather Archetypes", tracy::Color::Green);
 
 			world.registry_decs.gather_chunks(query, chunk_cache);
 			decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
 
 				for (auto chnk : arch->chunks) {
 					total_boids += chnk->header.last;
-					chunk_cache.push_back(chnk);
+					//chunk_cache.push_back(chnk);
 				}
 			});
 		}
-
-		boidref.map->Mortons.resize(total_boids*2);
+		world.registry_decs.get_singleton<ApplicationInfo>()->BoidEntities = total_boids;
+		boidref.map->Mortons.resize(total_boids);
 
 		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
 
-			ZoneScopedNC("Boids Execute Chunks", tracy::Color::Red, true);
+			ZoneScopedNC("Boids Execute Chunks", tracy::Color::Red);
 
 			auto boids = get_chunk_array<BoidComponent>(chnk);
 			auto transforms = get_chunk_array<TransformComponent>(chnk);
@@ -388,7 +389,7 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 	if (boidref.map->Mortons.size() > 0)
 	{
 		{
-			ZoneNamedNC(MortonSort, "Sort", tracy::Color::Blue, true);
+			ZoneScopedN("Morton Sort");
 			//ZoneNamed(MortonSort, true);
 			SCOPE_PROFILE("Boid Hash Morton sort");
 
@@ -410,8 +411,8 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 				});
 		}
 		{
-
-			ZoneNamedNC(MortonHash, "Hash", tracy::Color::Blue, true);
+			ZoneScopedN("Morton Hash");
+			//ZoneNamedNC(MortonHash, "Hash", tracy::Color::Blue);
 			SCOPE_PROFILE("Boid Hash Morton hash");
 
 			//compact the entities array into the grid array, to speed up binary search

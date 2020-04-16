@@ -3,6 +3,7 @@
 #include "ECSCore.h"
 #define SPP_USE_SPP_ALLOC 1
 #include <sparsepp/spp.h>
+#include <robin_hood.h>
 #include <atomic>
 struct BoidComponent {
 	char Type;
@@ -37,7 +38,7 @@ struct GridHash {
 
 	std::size_t operator()(GridVec const& s) const noexcept;
 };
-const float GRID_DIMENSIONS = 15;
+const float GRID_DIMENSIONS = 30;
 using GridItem = std::pair<BoidComponent, PositionComponent>;
 
 struct GridHashmark {
@@ -58,7 +59,8 @@ struct BoidMap {
 	//std::vector<uint64_t> Mortons;
 	//spp::sparse_hash_map<GridVec, GridBucket, GridHash> Grid;
 
-	spp::sparse_hash_map<uint64_t, GridHashmark, Hash64> MortonGrid;
+	//spp::sparse_hash_map<uint64_t, GridHashmark, Hash64> MortonGrid;
+	robin_hood::unordered_flat_map<uint64_t, GridHashmark, Hash64> MortonGrid;
 	std::vector<GridHashmark> MortonArray;
 	
 	BoidMap() {};
