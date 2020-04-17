@@ -89,8 +89,8 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 
 				auto pos = tr.position + XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
 
-				DirectX::XMStoreFloat4(&newSpaceship.Position, pos);
-				DirectX::XMStoreFloat4(&newSpaceship.MoveTarget, spawner.ShipMoveTarget);
+				DirectX::XMStoreFloat3(&newSpaceship.Position, pos);
+				DirectX::XMStoreFloat3(&newSpaceship.MoveTarget, spawner.ShipMoveTarget);
 
 				SpawnQueue.enqueue(newSpaceship);
 			}
@@ -107,16 +107,22 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				SpaceshipMovementComponent,
 				CubeRendererComponent,
 				BoidComponent,
-				RenderMatrixComponent
+				RenderMatrixComponent,
+				CullSphere
 			>();
 
-			reg->get_component<TransformComponent>(et).position = DirectX::XMLoadFloat4(&unit.Position);
+			reg->get_component<TransformComponent>(et).position = DirectX::XMLoadFloat3(&unit.Position);
 
 			reg->get_component<LifetimeComponent>(et).TimeLeft = 5;
 
 			SpaceshipMovementComponent& mv = reg->get_component<SpaceshipMovementComponent>(et);
-			mv.Velocity = XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 2;
-			mv.Target = DirectX::XMLoadFloat4(&unit.MoveTarget) + XMVectorSet(rng::RandomFloat(), rng::RandomFloat(), rng::RandomFloat(), 0) * 20;
+			mv.Velocity = XMFLOAT3(rng::RandomFloat() * 2, rng::RandomFloat() * 2, rng::RandomFloat() * 2) ;
+					
+			
+			
+			XMVECTOR TVector= XMLoadFloat3(&unit.MoveTarget) + XMVectorSet(rng::RandomFloat() * 20, rng::RandomFloat() * 20, rng::RandomFloat() * 20,0.f);
+			
+			XMStoreFloat3(&mv.Target, TVector);
 			mv.speed = 6;
 
 			reg->get_component<CubeRendererComponent>(et).color = unit.Color;
@@ -125,7 +131,8 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				auto child = reg->new_entity<TransformComponent,
 					TransformParentComponent,
 					CubeRendererComponent,
-					RenderMatrixComponent
+					RenderMatrixComponent,
+					CullSphere
 				>();
 
 				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, offsets, 0.f, 1.f);
@@ -138,7 +145,8 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				auto child = reg->new_entity<TransformComponent,
 					TransformParentComponent,
 					CubeRendererComponent,
-					RenderMatrixComponent
+					RenderMatrixComponent,
+					CullSphere
 				>();
 
 				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, -offsets, 0.f, 1.f);

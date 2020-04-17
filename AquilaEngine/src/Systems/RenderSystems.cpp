@@ -1,5 +1,7 @@
 #include "Systems/RenderSystems.h"
 #include "GameWorld.h"
+#include "ApplicationInfoUI.h"
+
 
 
 // Clear the color and depth buffers.
@@ -28,8 +30,8 @@ void ecs::system::CameraUpdate::update(ECS_GameWorld &world)
 	});
 }
 
-bool IsVisibleFrustrumCull(const RenderMatrixComponent & matrix, const CubeRendererComponent & cube,const XMVECTOR &CamPos,const XMVECTOR& CamDir ) {
-	XMVECTOR pos = XMVector3Transform(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), matrix.Matrix);
+bool IsVisibleFrustrumCull(const XMVECTOR& pos,const XMVECTOR &CamPos,const XMVECTOR& CamDir ) {
+//	XMVECTOR pos = XMVector3Transform(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), matrix.Matrix);
 	XMVECTOR ToCube = CamPos - pos;
 
 	XMVECTOR V1 = ToCube;
@@ -96,16 +98,23 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 	
 		ZoneNamed(FrustrumCuller, true);
 		SCOPE_PROFILE("Culling System ")
-			XMVECTOR CamPos;
-		XMVECTOR CamDir;
-		world.registry_decs.for_each([&](EntityID entity, PositionComponent& campos, CameraComponent& cam) {
-			
-			CamPos = XMLoadFloat3(&campos.Position);
-			
-			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
-		});
 
-		CamDir = XMVector3Normalize(CamDir);
+
+		BoundingFrustum tmp(Globals->g_ProjectionMatrix);
+		XMVECTOR det;
+		BoundingFrustum CameraFrustum;
+		tmp.Transform(CameraFrustum,XMMatrixInverse(&det,Globals->g_ViewMatrix));
+		
+		XMVECTOR FrustrumPlanes[6];
+
+		CameraFrustum.GetPlanes(
+			&FrustrumPlanes[0],
+			&FrustrumPlanes[1],
+			&FrustrumPlanes[2],
+			&FrustrumPlanes[3],
+			&FrustrumPlanes[4],
+			&FrustrumPlanes[5]
+		);
 
 
 		VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<VisibleRenderChunks>();
@@ -118,7 +127,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		chunk_cache.clear();
 
 		Query query;
-		query.with<CubeRendererComponent, RenderMatrixComponent>();
+		query.with<CullSphere>();
 		query.build();
 		{
 			ZoneScopedNC("Cull Gather Archetypes", tracy::Color::Green);
@@ -129,26 +138,30 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		
 		std::atomic_uint32_t push_idx{ 0 };
 
-		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
-		
+		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {	
 
 			ZoneScopedN("Cull Chunk");
 
 			CulledChunk cullUnit{};
-			cullUnit.chunk = chnk;
-			
+			cullUnit.chunk = chnk;			
 
 			auto entities = get_chunk_array<EntityID>(chnk);
-			auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
-			auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);	
+			auto sphereArray = get_chunk_array<CullSphere>(chnk);
 
-			//bool any_visible = false;
 			int viscount = 0;
 			for (int i = chnk->header.last - 1; i >= 0; i--)
 			{
-				const CubeRendererComponent& cube = cubearray[i];
-				const RenderMatrixComponent& matrix = transfarray[i];
-				bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
+				
+				const CullSphere& sphere = sphereArray[i];
+
+				bool bVisible = sphere.sphere.ContainedBy(
+					FrustrumPlanes[0],
+					FrustrumPlanes[1],
+					FrustrumPlanes[2],
+					FrustrumPlanes[3],
+					FrustrumPlanes[4],
+					FrustrumPlanes[5]				
+				);
 				
 				if (bVisible) {
 					set_node_mask_at(&cullUnit.mask, i);
@@ -161,11 +174,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 			if (viscount > 0) {
 				cullUnit.mask.count = viscount;
-				ChunkQueue.enqueue(cullUnit);
-				//int idx = push_idx.fetch_add(1);
-				//
-				//chunkBuffer->masks[idx] = mask;
-				//chunkBuffer->visibleChunks[idx] = chnk;
+				ChunkQueue.enqueue(cullUnit);				
 			}
 		});
 
@@ -173,11 +182,9 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 			ZoneScopedN("Cull Ready");
 
 			chunkBuffer->visibleChunks.clear();
-			//chunkBuffer->masks.clear();
 
 			bulk_dequeue(ChunkQueue, [&](CulledChunk& c) {
 				chunkBuffer->visibleChunks.push_back(c);
-				//chunkBuffer->masks.push_back(c.mask);
 			});
 		}
 }
@@ -185,7 +192,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 {
 	return;
-	ZoneScopedN("Cull Apply", true);
+	ZoneScopedN("Cull Apply");
 
 	while (true)
 	{
@@ -207,32 +214,28 @@ void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 	}	
 }
 
-void ecs::system::FrustrumCuller::chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir)
+
+void ecs::system::FrustrumCuller::update_cull_sphere(CullSphere* sphere, TransformComponent* transform, float scale)
 {
-	ZoneScopedN("Cull Chunk");
-	auto entities = get_chunk_array<EntityID>(chnk);
-	auto cubearray = get_chunk_array<CubeRendererComponent>(chnk);
-	auto transfarray = get_chunk_array<RenderMatrixComponent>(chnk);
-	auto cullarray = get_chunk_array<Culled>(chnk);
+	float radius = XMVectorGetX(XMVector3Length(transform->scale)) *scale;
 
-	const bool bHasCull = cullarray.valid();
+	memcpy(&sphere->sphere, &transform->position, sizeof(XMVECTOR));
 
-	for (int i = chnk->header.last - 1; i >= 0; i--)
-	{
-		const CubeRendererComponent& cube = cubearray[i];
-		const RenderMatrixComponent& matrix = transfarray[i];
-		bool bVisible = IsVisibleFrustrumCull(matrix, cube, CamPos, CamDir);
-
-		if (bHasCull && bVisible)
-		{
-			RemoveCulledQueue.enqueue(entities[i]);
-		}
-		else if (!bHasCull && !bVisible)
-		{
-			SetCulledQueue.enqueue(entities[i]);
-		}
-	}
+	//sphere->sphere.Center = //XMMVector3(// XMVector3  transform->position;
+	
+	sphere->sphere.Radius = (radius);
 }
+
+void ecs::system::FrustrumCuller::update_cull_sphere(CullSphere* sphere, XMVECTOR position, float scale)
+{
+
+	memcpy(&sphere->sphere, &position, sizeof(XMVECTOR));
+
+	//sphere->sphere.Center = //XMMVector3(// XMVector3  transform->position;
+
+	sphere->sphere.Radius = (scale);
+}
+
 
 void ecs::system::CubeRenderer::pre_render()
 {
@@ -355,6 +358,8 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 	buffers->InstancedColors.resize(total_drawcalls);
 	buffers->InstancedTransforms.resize(total_drawcalls);
 
+	ApplicationInfo* appInfo =world.registry_decs.get_singleton<ApplicationInfo>();
+	appInfo->Drawcalls = total_drawcalls.load();
 
 	XMMATRIX* FirstMatrix = &buffers->InstancedTransforms[0];
 	XMFLOAT4* FirstColor = &buffers->InstancedColors[0];

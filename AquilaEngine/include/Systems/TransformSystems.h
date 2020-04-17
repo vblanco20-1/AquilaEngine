@@ -34,10 +34,6 @@ namespace ecs::system {
 			void update_root(ECS_GameWorld& world);
 			void update_hierarchy(ECS_GameWorld& world);
 
-
-
-		
-
 	};
 }
 

@@ -16,23 +16,9 @@ struct RotatorSystem : public System {
 
 		reg->for_each([&](RotatorComponent& rotator, TransformComponent& t) {
 
-			t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
+			
+
+			t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
 		});
 	}
 };
-
-void update_rotators(float dt,DataChunk* chnk)
-{
-	ZoneScopedNC("Rotator chunk execute", tracy::Color::Orange);
-
-	auto rotarray = get_chunk_array<RotatorComponent>(chnk);
-	auto transfarray = get_chunk_array<TransformComponent>(chnk);	
-
-	for (int i = chnk->header.last - 1; i >= 0; i--)
-	{
-		RotatorComponent& rotator = rotarray[i];
-		TransformComponent& t = transfarray[i];
-
-		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(rotator.Axis, dt * rotator.rate));
-	}
-}

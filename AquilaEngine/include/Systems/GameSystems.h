@@ -16,8 +16,8 @@ struct SpaceshipSpawnSystem : public System {
 	
 
 	struct SpawnUnit {
-		XMFLOAT4 Position;
-		XMFLOAT4 MoveTarget;
+		XMFLOAT3 Position;
+		XMFLOAT3 MoveTarget;
 		XMFLOAT3 Color;
 	};
 

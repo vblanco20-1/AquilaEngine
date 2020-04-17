@@ -36,13 +36,13 @@ namespace ecs::system {
 			
 		virtual void update(ECS_GameWorld &world)override;
 
-		void build_view_queues(ECS_GameWorld& world);
-
-		void chull_chunk(DataChunk* chnk, XMVECTOR CamPos, XMVECTOR CamDir);
+		void build_view_queues(ECS_GameWorld& world);		
 
 		void apply_queues(ECS_GameWorld& world);		
 
+		static void update_cull_sphere(CullSphere* sphere,TransformComponent* transform,float scale);
 
+		static void update_cull_sphere(CullSphere* sphere, XMVECTOR position, float scale);
 	private:
 		moodycamel::ConcurrentQueue<CulledChunk> ChunkQueue;
 		

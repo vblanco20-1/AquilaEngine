@@ -50,10 +50,12 @@ struct  System {
 };
 
 struct RotatorComponent {
-	XMVECTOR Axis;
+	XMFLOAT3 Axis;
 	float rate;
 };
-
+struct CullSphere {
+	BoundingSphere sphere; //x,y,z lenght
+};
 struct Culled {
 	//float c;
 };
@@ -77,9 +79,9 @@ struct CubeRendererComponent{
 
 };
 struct SpaceshipMovementComponent {
-	XMVECTOR Velocity;
-	XMVECTOR Heading;
-	XMVECTOR Target;
+	XMFLOAT3 Velocity;
+	XMFLOAT3 Heading;
+	XMFLOAT3 Target;
 	float speed;
 };
 

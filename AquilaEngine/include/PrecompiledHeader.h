@@ -51,6 +51,7 @@
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
+#include <DirectXCollision.h>
 #include <dinput.h>
 
 #include "ECSCore.h"

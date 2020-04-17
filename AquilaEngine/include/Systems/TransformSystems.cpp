@@ -1,5 +1,6 @@
 #include "TransformSystems.h"
 #include "GameWorld.h"
+#include "RenderSystems.h"
 
 
 
@@ -25,11 +26,22 @@ void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
 	
 	static std::vector<DataChunk*> full_chunk_cache;
 	full_chunk_cache.clear();
+	
+
 
 	world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
 	parallel_for_chunk(full_chunk_cache, [&](DataChunk* chnk) {
-
+		auto cullarray = get_chunk_array<CullSphere>(chnk);
+		auto tfarray = get_chunk_array<TransformComponent>(chnk);
+		auto parentarray = get_chunk_array<TransformParentComponent>(chnk);
 		update_root_transform(chnk);
+
+		if (cullarray.valid() && !parentarray.valid()) {
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				ecs::system::FrustrumCuller::update_cull_sphere(&cullarray[i], &tfarray[i], 1.f);
+			}
+		}
 	});
 }
 
@@ -49,9 +61,26 @@ void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
 
 	world.registry_decs.gather_chunks(ChildTransform, child_chunk_cache);	
 
+	float zero = 0;
+	XMVECTOR zerovec = XMLoadFloat(&zero);
+
+	
+	
 	parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
 
 		update_children_transform(chnk, world);
+
+		auto cullarray = get_chunk_array<CullSphere>(chnk);
+		auto tfarray = get_chunk_array<RenderMatrixComponent>(chnk);
+
+		if (cullarray.valid()) {
+			for (int i = chnk->header.last - 1; i >= 0; i--)
+			{
+				XMVECTOR loc = XMVector3Transform(zerovec,tfarray[i].Matrix);
+				
+				ecs::system::FrustrumCuller::update_cull_sphere(&cullarray[i], loc, 10.f);
+			}
+		}
 	});
 }
 

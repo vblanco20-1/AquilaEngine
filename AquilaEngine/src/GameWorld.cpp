@@ -21,7 +21,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	auto* reg = &world.registry_decs;	
 
 	auto spawner1 = reg->new_entity<SpaceshipSpawnerComponent,RenderMatrixComponent
-		,TransformComponent, CubeRendererComponent,RotatorComponent>();
+		,TransformComponent, CubeRendererComponent,RotatorComponent,CullSphere>();
 
 	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 200;
 	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 200 + 200;
@@ -35,7 +35,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	
 	reg->get_component<SpaceshipSpawnerComponent>(spawner1) = spcomp;
 	
-	reg->get_component<RotatorComponent>(spawner1).Axis = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
+	reg->get_component<RotatorComponent>(spawner1).Axis = XMFLOAT3(0.0f, 1.0f, 0.0f);
 	reg->get_component<RotatorComponent>(spawner1).rate = 1;
 	float  randomtint = rng::RandomFloat();
 	if (XMVectorGetX(Location) > 0)
@@ -51,6 +51,11 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	reg->get_component<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
 	reg->get_component<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
 	reg->get_component<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
+
+
+	CullSphere& sphere = reg->get_component<CullSphere>(spawner1);
+
+	ecs::system::FrustrumCuller::update_cull_sphere(&sphere, &reg->get_component<TransformComponent>(spawner1), 1.f);
 
 	ecs::system::UpdateTransform::build_matrix(reg->get_component<TransformComponent>(spawner1), reg->get_component<RenderMatrixComponent>(spawner1));
 }
@@ -96,7 +101,7 @@ void ECS_GameWorld::initialize()
 
 	Renderer = new ecs::system::RenderCore();
 
-	//auto spawner1 = registry.create();
+	
 	ApplicationInfo & appInfo = *registry_decs.get_singleton<ApplicationInfo>();
 	appInfo.averagedDeltaTime = 0.03f;
 	appInfo.deltaTime = 0.012343f;
@@ -125,8 +130,11 @@ void ECS_GameWorld::initialize()
 			transf.rotationQuat = XMQuaternionIdentity();
 			transf.scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
 	
-			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform>();//    create_entity_with_archetype(blockArchetype);//registry_decs.CreateEntity(BackgroundBuilding);
-	
+			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform,CullSphere>();
+			CullSphere& sphere = reg->get_component<CullSphere>(e);
+
+			ecs::system::FrustrumCuller::update_cull_sphere(&sphere, &transf, 1.f);
+			
 			RenderMatrixComponent & rend = reg->get_component<RenderMatrixComponent>(e);
 			ecs::system::UpdateTransform::build_matrix(transf, rend);
 			float rngcolor = rng::RandomFloat() * 0.1 + 0.3;
@@ -142,163 +150,18 @@ void ECS_GameWorld::update_all(float dt)
 	FrameMark;
 	
 	ApplicationInfo & appInfo = *registry_decs.get_singleton<ApplicationInfo>();
-	//appInfo.TotalEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
-	//appInfo.BoidEntities = registry_decs.Entities.size() - registry_decs.deletedEntities.size();
+
 	Bench_End(AllBench);
 	appInfo.deltaTime = Bench_GetMiliseconds(AllBench);
 	Bench_Start(AllBench);
 	BenchmarkInfo bench;
 	Bench_Start(bench);
 
-	//auto et = registry_decs.get_singleton<EngineTimeComponent>();
-	
-	auto& timec = *registry_decs.get_singleton<EngineTimeComponent>();//registry_entt.get<EngineTimeComponent>();
-	timec.delta_time = dt;
-
-
-	//ecs::Task root_task = task_engine.placeholder();
-	//ecs::Task end_task = task_engine.placeholder();
-	{
-		ZoneNamed(ScheduleUpdate, true);
-
-	}
-	   
-	{
-		ZoneNamed(TaskWait, true);
-		//task_engine.wait_for_all();
-
-
-	}
-
-		
-#if 0
-		Query spaceshipQuery;
-		spaceshipQuery.with<SpaceshipMovementComponent, TransformComponent>();
-		spaceshipQuery.build();
-		Query FullTransform;
-		FullTransform.with<RenderMatrixComponent, TransformComponent>();
-		FullTransform.exclude<StaticTransform>();
-		FullTransform.build();
-
-		Query SpaceAndTransform;
-		SpaceAndTransform.with<TransformComponent>();
-		SpaceAndTransform.exclude<StaticTransform, TransformParentComponent>();
-		SpaceAndTransform.build();
-
-		Query ChildTransform;
-		ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
-		ChildTransform.exclude<StaticTransform>();
-		ChildTransform.build();
-		
-		Query StaticObjects;
-		StaticObjects.with<CubeRendererComponent,StaticTransform>();
-		//ChildTransform.exclude<StaticTransform>();
-		StaticObjects.build();
-
-		static std::vector<DataChunk*> spaceship_chunk_cache;
-		spaceship_chunk_cache.clear();		
-
-		static std::vector<DataChunk*> child_chunk_cache;
-		child_chunk_cache.clear();
-
-		static std::vector<DataChunk*> static_chunk_cache;
-		static_chunk_cache.clear();
-
-
-		{
-			ZoneScopedNC("Gather Archetypes", tracy::Color::Green);
-			//ZoneScopedNC("Transform Gather Archetypes: ", tracy::Color::Green);
-
-			//world.registry_decs.gather_chunks(FullTransform, full_chunk_cache);
-			registry_decs.gather_chunks(ChildTransform, child_chunk_cache);
-		
-			registry_decs.gather_chunks(StaticObjects, static_chunk_cache);
-
-			registry_decs.gather_chunks(SpaceAndTransform, spaceship_chunk_cache);
-
-		}
-		BoidReferenceTag& boidref = *registry_decs.get_singleton<BoidReferenceTag>();
-
-
-		//for culling
-		XMVECTOR CamPos;
-		XMVECTOR CamDir;
-		registry_decs.for_each([&](EntityID entity, PositionComponent& campos, CameraComponent& cam) {
-			CamPos = XMLoadFloat3(&campos.Position);
-			CamDir = XMLoadFloat3(&campos.Position) - cam.focusPoint;
-			});
 
 	
-		
-		
-		parallel_for_chunk(spaceship_chunk_cache, [&](DataChunk* chnk) {
-			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
-			auto transfarray = get_chunk_array<TransformComponent>(chnk);			
-			auto spacearray = get_chunk_array<SpaceshipMovementComponent>(chnk);
-			auto rotarray = get_chunk_array<RotatorComponent>(chnk);
-			auto cubarray = get_chunk_array<CubeRendererComponent>(chnk);
-			auto parentarray = get_chunk_array < TransformParentComponent>(chnk);
-			
-			if (appInfo.bEnableSimulation) {
-			
-				//rotating update
-				if (rotarray.valid() && transfarray.valid()) {
-					update_rotators(dt, chnk);
-				}
-
-				//spaceship update----
-				if (spacearray.valid() && transfarray.valid()) {
-					update_ship_chunk(chnk, boidref, boidcount);
-				}
-			}
-			//transform update
-			if (matarray.valid()) {
-				update_root_transform(chnk);
-			}	
-			
-			if (appInfo.bEnableCulling) {
-				//cull, but only for root objects
-				if (cubarray.valid() && !parentarray.valid()) {
-					Renderer->culler->chull_chunk(chnk, CamPos, CamDir);
-				}
-			}			
-		});
-		if (appInfo.bEnableCulling) {
-			parallel_for_chunk(static_chunk_cache, [&](DataChunk* chnk) {
-					
-					Renderer->culler->chull_chunk(chnk, CamPos, CamDir);				
-							
-			});
-		}
-		parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
-			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
-			auto transfarray = get_chunk_array<TransformComponent>(chnk);
-			auto posarray = get_chunk_array<PositionComponent>(chnk);
-			auto parentarray = get_chunk_array<TransformParentComponent>(chnk);
-
-			const bool bHasPosition = posarray.chunkOwner == chnk;
-
-			{
-				ZoneScopedNC("Transform chunk execute: ", tracy::Color::Red);
-				update_root_transform_arrays(chnk, matarray.data, transfarray.data,
-					bHasPosition ? posarray.data : nullptr);
-			}
-			
-
-			{
-				ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
-
-				update_children_transform_arrays(&registry_decs, chnk, matarray.data, transfarray.data, parentarray.data);
-			}
-
-			//update_root_transform(chnk);
-			//update_children_transform(chnk, *this);
-			if (appInfo.bEnableCulling) {
-				Renderer->culler->chull_chunk(chnk, CamPos, CamDir);
-			}
-		});
-#endif
-		
+	registry_decs.get_singleton<EngineTimeComponent>()->delta_time = dt;
+	{
+		ZoneScopedN("Schedule");
 		ecs::Task main_simulation = task_engine.silent_emplace([&]() {
 			ZoneScopedN("Main Simulation");
 			//std::atomic<int> boidcount{ 0 };
@@ -320,16 +183,15 @@ void ECS_GameWorld::update_all(float dt)
 				
 				UpdateTransform_system->update_hierarchy(*this);
 			}
-			if (appInfo.bEnableCulling) {
+			if (appInfo.bEnableCulling || appInfo.bEnableSimulation) {
 				Renderer->culler->build_view_queues(*this);
 			}
 		}).name("secondary_simulation");
 
 		secondary_simulation.gather(main_simulation);
 		
-	{
-		ZoneNamed(RenderUpdate, true);
-		Bench_Start(bench);
+	
+		
 
 		ecs::Task render_start = task_engine.silent_emplace([&]() {
 
@@ -394,48 +256,34 @@ void ECS_GameWorld::update_all(float dt)
 		task_engine.linearize({ render_start,cube_task,lifetime_updates,render_end });
 
 		task_engine.linearize({ render_start,boid_fill_task,lifetime_updates,render_end });
-		
-		//static bool bOnce = false;
-		//if (!bOnce) {
-		//
-		//
-		//	std::string graph = task_engine.dump();
-		//
-		//	std::ofstream out("output.txt");
-		//	out << graph;
-		//	out.close();
-		//
-		//	bOnce = true;
-		//}
-
-		task_engine.wait_for_all();
-
-		appInfo.TotalEntities = registry_decs.live_entities;
-		debug_elapsed += dt;
-		if (debug_elapsed > 1)
-		{
-			debug_elapsed = 0;
-			debugiterations = 0;
-			g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
-			g_SimpleProfiler->units.clear();
 		}
+		{
+			ZoneNamed(RenderUpdate, true);
+			Bench_Start(bench);
 
-		Bench_End(bench);
-		appInfo.RenderTime = Bench_GetMiliseconds(bench);
-		appInfo.Drawcalls = Renderer->drawcalls;
+			task_engine.wait_for_all();
 
-		
 
-	}
+
+			appInfo.TotalEntities = registry_decs.live_entities;
+			debug_elapsed += dt;
+			if (debug_elapsed > 1)
+			{
+				debug_elapsed = 0;
+				debugiterations = 0;
+				g_SimpleProfiler->displayunits = g_SimpleProfiler->units;
+				g_SimpleProfiler->units.clear();
+			}
+
+			Bench_End(bench);
+			appInfo.RenderTime = Bench_GetMiliseconds(bench);
+		}
+	
 	AppInfoUI(appInfo);
-	DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);
-	for (auto s : Systems)
-	{
-		//s->cleanup(registry_entt);
-	}
+	DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);	
 }
 
 EngineTimeComponent ECS_GameWorld::GetTime()
 {
-	return *registry_decs.get_singleton<EngineTimeComponent>();//registry_entt.get<EngineTimeComponent>();
+	return *registry_decs.get_singleton<EngineTimeComponent>();
 }

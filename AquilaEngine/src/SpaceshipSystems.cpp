@@ -14,12 +14,12 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 	auto & t = Transform; // posview.get<TransformComponent>(entity);
 		const float dt = DeltaTime;
 
-	XMVECTOR Mov = ship.Target - t.position;
+	XMVECTOR Mov = XMLoadFloat3(&ship.Target) - t.position;
 	Mov = XMVector3Normalize(Mov);
 	Mov = Mov * ship.speed * dt;
 
-	ship.Velocity += Mov;
-
+	XMVECTOR ShipVel = XMLoadFloat3(&ship.Velocity) + Mov;
+	
 
 	XMVECTOR OffsetVelocity{ 0.0f,0.0f,0.0f,0.0f };
 	int num = 10;
@@ -35,13 +35,15 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 	OffsetVelocity *= 10;
 
-	ship.Velocity = XMVector3ClampLength(ship.Velocity + OffsetVelocity, 0.0f, ship.speed);
+	ShipVel = XMVector3ClampLength(ShipVel + OffsetVelocity, 0.0f, ship.speed);
 
-	XMMATRIX rotmat = XMMatrixLookAtLH(t.position, t.position + ship.Velocity * 10, XMVectorSet(0, 1, 0, 0));
+	XMMATRIX rotmat = XMMatrixLookAtLH(t.position, t.position + ShipVel * 10, XMVectorSet(0, 1, 0, 0));
 
 	t.rotationQuat = XMQuaternionRotationMatrix(rotmat);
 
-	t.position = t.position + ship.Velocity;
+	t.position = t.position + ShipVel;
+
+	XMStoreFloat3(&ship.Velocity, ShipVel);
 }
 
 
