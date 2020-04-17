@@ -8,12 +8,10 @@ struct PlayerCameraSystem : public System {
 
 	virtual void update(ECS_GameWorld& world);
 };
-struct Level1Transform {};
-struct Level2Transform {};
+
 struct SpaceshipSpawnSystem : public System {
 
 	SpaceshipSpawnSystem() {}
-	
 
 	struct SpawnUnit {
 		XMFLOAT3 Position;
@@ -32,4 +30,12 @@ struct PlayerInputSystem : public System {
 	PlayerInputSystem() { };
 	
 	virtual void update(ECS_GameWorld& world);
+};
+
+
+struct RotatorSystem : public System {
+
+	RotatorSystem() {};
+
+	virtual  void update(ECS_GameWorld& world);
 };

@@ -210,6 +210,20 @@ void PlayerInputSystem::update(ECS_GameWorld& world)
 
 
 	registry.get_singleton<PlayerInputTag>()->Input = g_InputMap;
+}
 
-	//InputInfo(g_InputMap);
+void RotatorSystem::update(ECS_GameWorld& world)
+{
+	SCOPE_PROFILE("Rotation System-decs");
+
+	auto* reg = &world.registry_decs;
+
+	float dt = world.GetTime().delta_time;
+
+	reg->for_each([&](RotatorComponent& rotator, TransformComponent& t) {
+
+
+
+		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
+		});
 }

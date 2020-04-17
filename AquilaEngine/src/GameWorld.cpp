@@ -249,13 +249,13 @@ void ECS_GameWorld::update_all(float dt)
 
 		task_engine.linearize({ render_start, draw_task, render_end });
 		
-		task_engine.linearize({ render_start, cullapply_task, cube_task, render_end });
+		task_engine.linearize({ render_start, cullapply_task, cube_task});
 
-		task_engine.linearize({ render_start,boid_fill_task,boid_sort_task, render_end });
+		task_engine.linearize({ render_start,boid_fill_task,boid_sort_task });
 
-		task_engine.linearize({ render_start,cube_task,lifetime_updates,render_end });
+		task_engine.linearize({ render_start,cube_task,lifetime_updates });
 
-		task_engine.linearize({ render_start,boid_fill_task,lifetime_updates,render_end });
+		task_engine.linearize({ render_start,boid_fill_task,lifetime_updates });
 		}
 		{
 			ZoneNamed(RenderUpdate, true);

@@ -159,7 +159,7 @@
   <ItemGroup>
     <ClCompile Include="include\ApplicationInfoUI.cpp" />
     <ClCompile Include="include\ECSCore.cpp" />
-    <ClCompile Include="include\Source.cpp" />
+    <ClCompile Include="include\Systems\CoreSystems.cpp" />
     <ClCompile Include="include\Systems\TransformSystems.cpp" />
     <ClCompile Include="src\BoidSystems.cpp" />
     <ClCompile Include="src\DXShaders.cpp" />
@@ -195,12 +195,10 @@
     <ClInclude Include="include\imgui\stb_textedit.h" />
     <ClInclude Include="include\imgui\stb_truetype.h" />
     <ClInclude Include="include\Input.h" />
-    <ClInclude Include="include\Multivector.h" />
     <ClInclude Include="include\paged_vector.h" />
     <ClInclude Include="include\PrecompiledHeader.h" />
     <ClInclude Include="include\RandomUtils.h" />
     <ClInclude Include="include\SimpleProfiler.h" />
-    <ClInclude Include="include\slotmap.hpp" />
     <ClInclude Include="include\SpaceshipSystems.h" />
     <ClInclude Include="include\Systems\CoreSystems.h" />
     <ClInclude Include="include\Systems\GameSystems.h" />

@@ -90,9 +90,6 @@
     <ClCompile Include="include\Systems\TransformSystems.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="include\Source.cpp">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="third_party\tracy\TracyClient.cpp">
       <Filter>Source Files\ThirdParty</Filter>
     </ClCompile>
@@ -104,6 +101,9 @@
     </ClCompile>
     <ClCompile Include="src\Systems\LifetimeSystems.cpp">
       <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Systems\CoreSystems.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -158,9 +158,6 @@
     <ClInclude Include="src\MeshResource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Multivector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\concurrentqueue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -183,9 +180,6 @@
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
     <ClInclude Include="include\GameWorld.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\slotmap.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Systems\CoreSystems.h">

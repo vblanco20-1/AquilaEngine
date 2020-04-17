@@ -28,12 +28,10 @@ namespace ecs::system {
 			matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
 		}
 
+		virtual void update(ECS_GameWorld& world);
 
-			virtual void update(ECS_GameWorld & world);
-
-			void update_root(ECS_GameWorld& world);
-			void update_hierarchy(ECS_GameWorld& world);
-
+		void update_root(ECS_GameWorld& world);
+		void update_hierarchy(ECS_GameWorld& world);
 	};
 }
 
