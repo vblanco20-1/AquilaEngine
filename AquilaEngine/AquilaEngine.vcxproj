@@ -156,10 +156,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="include\ApplicationInfoUI.cpp" />
-    <ClCompile Include="include\ECSCore.cpp" />
-    <ClCompile Include="include\Systems\TransformSystems.cpp" />
-    <ClCompile Include="src\BoidSystems.cpp" />
+    <ClCompile Include="src\ApplicationInfoUI.cpp" />
+    <ClCompile Include="src\ECSCore.cpp" />
+    <ClCompile Include="src\Systems\TransformSystems.cpp" />
+    <ClCompile Include="src\Systems\BoidSystems.cpp" />
     <ClCompile Include="src\DXShaders.cpp" />
     <ClCompile Include="src\GameWorld.cpp" />
     <ClCompile Include="src\Input.cpp" />
@@ -169,7 +169,7 @@
     </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp" />
     <ClCompile Include="src\SimpleProfiler.cpp" />
-    <ClCompile Include="src\SpaceshipSystems.cpp" />
+    <ClCompile Include="src\Systems\SpaceshipSystems.cpp" />
     <ClCompile Include="src\Systems\GameSystems.cpp" />
     <ClCompile Include="src\Systems\LifetimeSystems.cpp" />
     <ClCompile Include="src\Systems\RenderSystems.cpp" />
