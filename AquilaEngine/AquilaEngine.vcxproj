@@ -164,7 +164,6 @@
     <ClCompile Include="src\GameWorld.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\MeshResource.cpp" />
     <ClCompile Include="src\PrecompiledHeader.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
@@ -221,7 +220,6 @@
     <ClInclude Include="include\taskflow\taskflow.hpp" />
     <ClInclude Include="include\Timer.h" />
     <ClInclude Include="src\EngineGlobals.h" />
-    <ClInclude Include="src\MeshResource.h" />
     <ClInclude Include="third_party\tracy\Tracy.hpp" />
   </ItemGroup>
   <ItemGroup>

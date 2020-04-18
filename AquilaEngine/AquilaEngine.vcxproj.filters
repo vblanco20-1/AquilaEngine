@@ -57,9 +57,6 @@
     <ClCompile Include="include\ApplicationInfoUI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\MeshResource.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\SimpleProfiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -153,9 +150,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\SimpleProfiler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MeshResource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\concurrentqueue.h">

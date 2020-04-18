@@ -3,8 +3,8 @@
 
 float Bench_GetMiliseconds(const BenchmarkInfo & bench)
 {
-	//auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(bench.time);
-	return bench.time;//diff.count();
+	
+	return bench.time;
 }
 
 void Bench_Start(BenchmarkInfo & bench)

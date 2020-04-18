@@ -1,7 +1,6 @@
 #pragma once
 
 
-//#include <PrecompiledHeader.h>
 #include "Timer.h"
 #include <string>
 #include <vector>
@@ -49,8 +48,6 @@ struct ScopeProfiler {
 		{
 			profiler.units.push_back(unit);
 		}
-		
-
 	}
 };
 
