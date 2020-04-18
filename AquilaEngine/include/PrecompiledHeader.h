@@ -8,9 +8,9 @@
 
 #pragma warning(disable: 4838 4267 4244 4530)
 
-#include "taskflow/taskflow.hpp"
+//#include "taskflow/taskflow.hpp"
 
-
+#define WIN32_LEAN_AND_MEAN
 // System includes
 #include <windows.h>
 
@@ -29,12 +29,7 @@
 #include <future>
 #include <concurrentqueue.h>
 #include <fstream>
-
-
-
-
-//#define SPP_USE_SPP_ALLOC 1
-#include <sparsepp/spp.h>
+#include <atomic>
 
 #define IMGUI_API
 #include "imgui/imgui.h"

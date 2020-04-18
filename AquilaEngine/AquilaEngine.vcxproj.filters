@@ -60,15 +60,6 @@
     <ClCompile Include="src\MeshResource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="third_party\imgui\imgui.cpp">
-      <Filter>Source Files\IMGUI</Filter>
-    </ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_draw.cpp">
-      <Filter>Source Files\IMGUI</Filter>
-    </ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp">
-      <Filter>Source Files\IMGUI</Filter>
-    </ClCompile>
     <ClCompile Include="src\SimpleProfiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -93,17 +84,26 @@
     <ClCompile Include="third_party\tracy\TracyClient.cpp">
       <Filter>Source Files\ThirdParty</Filter>
     </ClCompile>
-    <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
+    <ClCompile Include="src\Systems\LifetimeSystems.cpp">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PrecompiledHeader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui.cpp">
+      <Filter>Source Files\IMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_draw.cpp">
+      <Filter>Source Files\IMGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui\imgui_impl_dx11.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui_impl_win32.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
-    <ClCompile Include="src\Systems\LifetimeSystems.cpp">
-      <Filter>Source Files\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="include\Systems\CoreSystems.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

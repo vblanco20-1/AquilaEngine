@@ -1,8 +1,8 @@
 #pragma once
 //#include <PrecompiledHeader.h>
 #include "ECSCore.h"
-#define SPP_USE_SPP_ALLOC 1
-#include <sparsepp/spp.h>
+
+
 #include <robin_hood.h>
 #include <atomic>
 struct BoidComponent {

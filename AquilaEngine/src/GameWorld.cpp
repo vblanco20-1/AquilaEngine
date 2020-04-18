@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "GameWorld.h"
 #include "RandomUtils.h"
 #include "ApplicationInfoUI.h"
@@ -5,16 +7,27 @@
 
 #include "EngineGlobals.h"
 #include "SimpleProfiler.h"
-#include "Multivector.h"
 
+#include "Timer.h"
 
-#include "Systems/CoreSystems.h"
 #include "Systems/BoidSystems.h"
 #include "Systems/SpaceshipSystems.h"
 #include "Systems/LifetimeSystems.h"
 #include "Systems/GameSystems.h"
 #include "Systems/TransformSystems.h"
 #include "Systems/RenderSystems.h"
+
+#include "taskflow/taskflow.hpp"
+
+namespace ecs {
+	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
+	using Task = typename TaskEngine::TaskType;
+	using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
+}
+
+struct TaskStruct {
+	ecs::TaskEngine task_engine{ 3/*std::thread::hardware_concurrency()*/ };
+};
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
 {
@@ -145,6 +158,11 @@ void ECS_GameWorld::initialize()
 
 void ECS_GameWorld::update_all(float dt)
 {
+	if (!tasksystem) {
+		tasksystem = new TaskStruct;
+	}
+	ecs::TaskEngine& task_engine = tasksystem->task_engine;
+
 	ZoneNamed(AllUpdate, true);
 	
 	FrameMark;

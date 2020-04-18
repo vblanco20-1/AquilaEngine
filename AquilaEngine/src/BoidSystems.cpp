@@ -1,7 +1,8 @@
+#include <PrecompiledHeader.h>
 
 #include "SimpleProfiler.h"
 
-
+ 
 #include "Systems/BoidSystems.h"
 #include "libmorton/morton.h"
 #include <execution>

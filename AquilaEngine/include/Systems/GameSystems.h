@@ -2,6 +2,7 @@
 
 #include <PrecompiledHeader.h>
 
+
 struct PlayerCameraSystem : public System {
 
 	PlayerCameraSystem() { };

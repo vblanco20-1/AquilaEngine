@@ -1,7 +1,6 @@
 #pragma once
 #include <PrecompiledHeader.h>
 #include "DXShaders.h"
-#include "ECSCore.h"
 #include "SimpleProfiler.h"
 
 static int nDrawcalls;

@@ -36,11 +36,7 @@ struct TransformComponent {
 struct StaticTransform {
 };
 
-namespace ecs {
-	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
-	using Task = typename TaskEngine::TaskType;
-	using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
-}
+
 
 
 struct  System {

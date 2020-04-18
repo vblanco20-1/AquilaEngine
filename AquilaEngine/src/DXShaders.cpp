@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "DXShaders.h"
 DXGlobals *Globals{nullptr};
 bool LoadContent()

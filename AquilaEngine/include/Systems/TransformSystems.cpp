@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "TransformSystems.h"
 #include "GameWorld.h"
 #include "RenderSystems.h"

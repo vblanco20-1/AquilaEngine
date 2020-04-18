@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "Systems/LifetimeSystems.h"
 #include "GameWorld.h"
 #include "Systems/RenderSystems.h"

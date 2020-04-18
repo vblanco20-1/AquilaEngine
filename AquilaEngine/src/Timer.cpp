@@ -1,3 +1,4 @@
+#include <PrecompiledHeader.h>
 #include "Timer.h"
 
 float Bench_GetMiliseconds(const BenchmarkInfo & bench)

@@ -1,6 +1,6 @@
 #pragma once
 #include <PrecompiledHeader.h>
-#include "GameSystems.h"
+
 namespace ecs::system {
 
 

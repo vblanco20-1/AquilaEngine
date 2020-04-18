@@ -1,5 +1,6 @@
-#include "ApplicationInfoUI.h"
+#include <PrecompiledHeader.h>
 
+#include "ApplicationInfoUI.h"
 
 
 void AppInfoUI(ApplicationInfo & info)

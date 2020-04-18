@@ -1,3 +1,4 @@
+#include <PrecompiledHeader.h>
 #include "Systems/RenderSystems.h"
 #include "GameWorld.h"
 #include "ApplicationInfoUI.h"

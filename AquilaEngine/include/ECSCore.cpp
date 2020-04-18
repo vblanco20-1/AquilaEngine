@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "ECSCore.h"
 #include "GameWorld.h"
 

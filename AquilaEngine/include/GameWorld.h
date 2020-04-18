@@ -1,14 +1,17 @@
 #pragma once
 #include <PrecompiledHeader.h>
 #include "ECSCore.h"
-#include "Timer.h"
+
 #include "Systems/TransformSystems.h"
+
+
 
 namespace ecs::system {
 	struct RenderCore;
 }
 
 
+struct TaskStruct;
 using namespace ecs::system;
 class ECS_GameWorld {
 public:
@@ -18,7 +21,8 @@ public:
 
 	float debug_elapsed;
 	int debugiterations{ 0 };
-	ecs::TaskEngine task_engine{ 3/*std::thread::hardware_concurrency()*/ };
+
+	TaskStruct* tasksystem;
 	void initialize();
 
 	void update_all(float dt);

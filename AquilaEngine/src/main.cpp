@@ -10,6 +10,7 @@
 #include "Input.h"
 #include "ECSCore.h"
 
+#include <timeapi.h>
 
 #include "SimpleProfiler.h"
 #include "GameWorld.h"

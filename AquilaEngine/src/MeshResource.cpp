@@ -1,3 +1,5 @@
+#include <PrecompiledHeader.h>
+
 #include "MeshResource.h"
 
 
