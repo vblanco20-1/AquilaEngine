@@ -94,6 +94,41 @@ void clear_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint1
 }
 
 #endif
+
+void AABBFromSpheres(BoundingBox& outbbox, CullSphere* spheres, int Count) {
+
+	// Find the minimum and maximum x, y, and z
+	XMVECTOR vMin, vMax;
+#if 0
+	vMin = vMax = XMLoadFloat4((XMFLOAT4*)&spheres[0].sphere.Center);
+
+	for (size_t i = 1; i < Count; ++i)
+	{
+		XMVECTOR Point = XMLoadFloat4((XMFLOAT4*)&spheres[i].sphere.Center);
+
+		vMin = XMVectorMin(vMin, Point);
+		vMax = XMVectorMax(vMax, Point);
+	}
+#endif
+	vMin = vMax = XMLoadFloat4((XMFLOAT4*)(void*)&spheres[0].sphere.Center);
+
+	for (size_t i = 1; i < Count; ++i)
+	{
+		XMVECTOR Point = XMLoadFloat4((XMFLOAT4*)(void*)&spheres[i].sphere.Center);
+
+		vMin = XMVectorMin(vMin, Point);
+		vMax = XMVectorMax(vMax, Point);
+	}
+	
+	vMin = XMVectorSetW(XMVectorScale(XMVectorAdd(vMin, vMax), 0.5f), 0.f);
+	vMax = XMVectorSetW(XMVectorScale(XMVectorSubtract(vMax, vMin), 0.5f), 0.f);
+
+	XMStoreFloat3(&outbbox.Center, XMVectorScale(vMin,0.5));
+	XMStoreFloat3(&outbbox.Extents, XMVectorScale(vMax, 0.5));
+	// Store center and extents.
+	//XMStoreFloat3(&outbbox.Center, XMVectorScale(XMVectorAdd(vMin, vMax), 0.5f));
+	//XMStoreFloat3(&outbbox.Extents, XMVectorScale(XMVectorSubtract(vMax, vMin), 0.5f));
+}
 void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 {
 	
@@ -141,23 +176,26 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		float zero = 0;
 		XMVECTOR zerovec = XMLoadFloat(&zero);
 
-		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {	
+		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
 
 			ZoneScopedN("Cull Chunk");
 
 			CulledChunk cullUnit{};
-			cullUnit.chunk = chnk;			
+			cullUnit.chunk = chnk;
 
 			auto entities = get_chunk_array<EntityID>(chnk);
+
+			//const bool culled = get_chunk_array<Culled>(chnk).valid();
+
 			auto sphereArray = get_chunk_array<CullSphere>(chnk);
 			auto maskArray = get_chunk_array<CullBitmask>(chnk);
 			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
-		
+
 			//if cullsphere version doesnt match with render matrix version, it needs update
-			if(matarray.version() != sphereArray.version())
+			if (matarray.version() != sphereArray.version())
 			{
-				ZoneScopedN("update spheres");
-				for (int i = chnk->header.last - 1; i >= 0; i--)
+				ZoneScopedNC("update spheres", tracy::Color::Yellow);
+				for (int i = chnk->count() - 1; i >= 0; i--)
 				{
 					XMVECTOR loc = XMVector3Transform(zerovec, matarray[i].Matrix);
 
@@ -165,22 +203,46 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 				}
 				world.mark_components_changed(sphereArray);
 			}
-
-			int viscount = 0;
-			for (int i = chnk->header.last - 1; i >= 0; i--)
+			BoundingBox bbox;
+			DirectX::ContainmentType aabbcont;
 			{
-				
-				const CullSphere& sphere = sphereArray[i];
-
-				bool bVisible = sphere.sphere.ContainedBy(
-					FrustrumPlanes[0],
+				ZoneScopedNC("AABB Build", tracy::Color::Orange);
+				AABBFromSpheres(bbox, sphereArray.data, chnk->count());
+				aabbcont = bbox.ContainedBy(FrustrumPlanes[0],
 					FrustrumPlanes[1],
 					FrustrumPlanes[2],
 					FrustrumPlanes[3],
 					FrustrumPlanes[4],
-					FrustrumPlanes[5]				
-				);
-				
+					FrustrumPlanes[5]);
+			}
+			{
+				ZoneScopedNC("Real Cull", tracy::Color::Red);
+
+			int viscount = 0;
+			for (int i = chnk->count() - 1; i >= 0; i--)
+			{
+
+				const CullSphere& sphere = sphereArray[i];
+				bool bVisible;
+				switch (aabbcont) {
+				case DirectX::DISJOINT:
+					bVisible = false;
+					break;
+				case DirectX::INTERSECTS:
+					bVisible = sphere.sphere.ContainedBy(
+						FrustrumPlanes[0],
+						FrustrumPlanes[1],
+						FrustrumPlanes[2],
+						FrustrumPlanes[3],
+						FrustrumPlanes[4],
+						FrustrumPlanes[5]
+					);
+					break;
+				case DirectX::CONTAINS:
+					bVisible = true;
+					break;
+				}
+
 				if (bVisible) {
 					maskArray[i].mask = 1;
 					//set_node_mask_at(&cullUnit.mask, i);
@@ -192,25 +254,60 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 				}
 			}
 
-			if (viscount > 0) {
-				cullUnit.mask.count = viscount;
-				ChunkQueue.enqueue(cullUnit);				
+			//uint64_t cllversion = maskArray.version();
+			maskArray.set_version(viscount);
+
+			//if (viscount > 0) {
+			//	cullUnit.mask.count = viscount;
+			//	ChunkQueue.enqueue(cullUnit);
+			//}
+			//if (viscount > 0 && culled)
+			//{
+			//	ChunkChange change;
+			//	change.bVisible = true;
+			//	change.chunk = chnk;
+			//
+			//	ChangeChunkQueue.enqueue(change);
+			//}
+			//else if (viscount == 0 && !culled)
+			//{	ChunkChange change;
+			//	change.bVisible = false;
+			//	change.chunk = chnk;
+			//
+			//	ChangeChunkQueue.enqueue(change);
+			//}
+
 			}
 		});
 
 		{
 			ZoneScopedN("Cull Ready");
 
-			chunkBuffer->visibleChunks.clear();
 
-			bulk_dequeue(ChunkQueue, [&](CulledChunk& c) {
-				chunkBuffer->visibleChunks.push_back(c);
-			});
+			//chunkBuffer->visibleChunks.clear();
+
+			bulk_dequeue(ChangeChunkQueue, [&](ChunkChange& c) {
+				if (c.bVisible) {
+					ZoneScopedN("Visible");
+					decs::adv::remove_component_from_chunk<Culled>(&world.registry_decs, c.chunk);
+				}
+				else {
+					ZoneScopedN("Culled");
+					decs::adv::add_component_to_chunk<Culled>(&world.registry_decs, c.chunk);
+				}
+				});
+
+			//bulk_dequeue(ChunkQueue, [&](CulledChunk& c) {
+			//	decs::adv::add_component_to_chunk<Culled>(&world.registry_decs, c.chunk);
+			//	chunkBuffer->visibleChunks.push_back(c);
+			//});
 		}
 }
 
 void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 {
+
+	
 	return;
 	ZoneScopedN("Cull Apply");
 
@@ -342,8 +439,8 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 	RendererBuffers* buffers = rhandles->CubeBuffers.get();
 	buffers->lenght.store(0);
 
-	ecs::system::FrustrumCuller::VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<ecs::system::FrustrumCuller::VisibleRenderChunks>();
-	if (!chunkBuffer) return;
+	//ecs::system::FrustrumCuller::VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<ecs::system::FrustrumCuller::VisibleRenderChunks>();
+	//if (!chunkBuffer) return;
 
 	static std::vector<DataChunk*> chunk_cache;
 	chunk_cache.clear();
@@ -358,20 +455,28 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 	{
 		ZoneScopedNC("Render Gather Archetypes", tracy::Color::Green);
 
-		world.registry_decs.gather_chunks(query, chunk_cache);
-		//decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
+		//world.registry_decs.gather_chunks(query, chunk_cache);
+		decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
 
-		//	for (auto chnk : arch->chunks) {
-		//		total_drawcalls += chnk->header.last;
-		//	}
-		//});
+			if (arch->chunks.size() > 0) {
+				auto maskArray = get_chunk_array<CullBitmask>(arch->chunks[0]);
+				for (auto chnk : arch->chunks) {
+					maskArray.chunkOwner = chnk;
+					//auto maskArray = get_chunk_array<CullBitmask>(chnk);
+					total_drawcalls += maskArray.version();
+					chunk_cache.push_back(chnk);
+				}
+			}
+			
+		});
 		
 		//this is bigger than it should, but it doesnt matter to use the extra memory
-		for (auto chnk : chunkBuffer->visibleChunks) {
-			total_drawcalls += chnk.mask.count;//chnk->header.last;
-		}
+		//for (auto chnk : chunkBuffer->visibleChunks) {
+		//	total_drawcalls += chnk.mask.count;//chnk->header.last;
+		//}
 	}
 
+	if (total_drawcalls == 0) return;
 
 	//buffers->lenght.store(total_drawcalls);
 
@@ -383,25 +488,30 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 
 	XMMATRIX* FirstMatrix = &buffers->InstancedTransforms[0];
 	XMFLOAT4* FirstColor = &buffers->InstancedColors[0];
-	std::for_each(std::execution::par, chunkBuffer->visibleChunks.begin(), chunkBuffer->visibleChunks.end(),
-		[&](ecs::system::FrustrumCuller::CulledChunk& chnk) {
+	//std::for_each(std::execution::par, chunkBuffer->visibleChunks.begin(), chunkBuffer->visibleChunks.end(),
+	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(),
+		[&](DataChunk* chnk) {
 
 		ZoneScopedNC("render Execute Chunks", tracy::Color::Red);
 
-		auto matrices = get_chunk_array<RenderMatrixComponent>(chnk.chunk);
-		auto cubes = get_chunk_array<CubeRendererComponent>(chnk.chunk);
-		auto maskArray = get_chunk_array<CullBitmask>(chnk.chunk);
-		//add atomic to reserve space
-		int first_idx = buffers->lenght.fetch_add(chnk.mask.count);
-		int n = 0;
-		for (int i = 0; i < chnk.chunk->header.last; i++)
-		{
-			if (maskArray[i].mask){
-				FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
-				FirstMatrix[n + first_idx] = matrices[i].Matrix;
-				n++;
-			}			
+		auto matrices = get_chunk_array<RenderMatrixComponent>(chnk);
+		auto cubes = get_chunk_array<CubeRendererComponent>(chnk);
+		auto maskArray = get_chunk_array<CullBitmask>(chnk);
+
+		if (maskArray.version() > 0) {
+			//add atomic to reserve space
+			int first_idx = buffers->lenght.fetch_add(maskArray.version());
+			int n = 0;
+			for (int i = 0; i < chnk->count(); i++)
+			{
+				if (maskArray[i].mask) {
+					FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
+					FirstMatrix[n + first_idx] = matrices[i].Matrix;
+					n++;
+				}
+			}
 		}
+		
 	});
 }
 
@@ -483,10 +593,14 @@ void ecs::system::RenderCore::render_batches(ECS_GameWorld& world)
 {
 	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
 	if (rhandles) {
-		XMMATRIX* FirstMatrix = &rhandles->CubeBuffers->InstancedTransforms[0];
-		XMFLOAT4* FirstColor = &rhandles->CubeBuffers->InstancedColors[0];
+		if (rhandles->CubeBuffers->InstancedTransforms.size() > 0)
+		{
+			XMMATRIX* FirstMatrix = &rhandles->CubeBuffers->InstancedTransforms[0];
+			XMFLOAT4* FirstColor = &rhandles->CubeBuffers->InstancedColors[0];
 
-		cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->lenght);
+			cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->lenght);
+		}
+
 
 	}
 }

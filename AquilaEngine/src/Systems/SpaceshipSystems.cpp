@@ -53,13 +53,11 @@ void update_ship_chunk(DataChunk* chnk, BoidMap* boidMap, std::atomic<int>& coun
 	auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
 	auto transfarray = get_chunk_array<TransformComponent>(chnk);
 
-	count += chnk->header.last;
-	for (int i = chnk->header.last - 1; i >= 0; i--)
+	count += chnk->count();
+	for (int i = chnk->count() - 1; i >= 0; i--)
 	{
 		UpdateSpaceship(sparray[i], transfarray[i], boidMap, 1.0 / 30.f);
 	}
-
-	
 }
 
 

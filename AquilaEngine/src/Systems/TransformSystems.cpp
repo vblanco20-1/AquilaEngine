@@ -6,17 +6,6 @@
 
 
 
-void ecs::system::UpdateTransform::update(ECS_GameWorld & world)
-{
-	//update(world.registry_entt, world.GetTime().delta_time);
-
-	ZoneNamed(UpdateTransform_Decs, true);	
-
-	SCOPE_PROFILE("TransformUpdate System-decs");
-
-	update_root(world);
-	update_hierarchy(world);
-}
 
 void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
 {
@@ -77,7 +66,7 @@ void update_root_transform_arrays(DataChunk* chnk,
 	TransformComponent* __restrict transfarray,
 	PositionComponent* __restrict posarray)
 {
-	for (int i = chnk->header.last - 1; i >= 0; i--)
+	for (int i = chnk->count() - 1; i >= 0; i--)
 	{
 		TransformComponent& t = transfarray[i];
 		if (posarray)
@@ -109,7 +98,7 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk ,
 {
 	//unrolled for perf
 	int i = 0;
-	for (i; i < (chnk->header.last & ~3); i += 4) {
+	for (i; i < (chnk->count() & ~3); i += 4) {
 	
 	
 		TransformParentComponent& tpc1 = parentarray[i + 0];
@@ -136,7 +125,7 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk ,
 		matarray[i + 3].Matrix *= *m4;	
 	}
 
-	for (i; i < (chnk->header.last); i++) {
+	for (i; i < (chnk->count()); i++) {
 
 		TransformParentComponent& tpc = parentarray[i];
 
@@ -153,7 +142,7 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk,
 {
 	//unrolled for perf
 	int i = 0;
-	for (i; i < (chnk->header.last & ~3); i += 4) {
+	for (i; i < (chnk->count() & ~3); i += 4) {
 
 
 		TransformParentComponent& tpc1 = parentarray[i + 0];
@@ -180,7 +169,7 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk,
 		matarray[i + 3].Matrix = transfarray[i + 3].Matrix * *m4;
 	}
 
-	for (i; i < (chnk->header.last); i++) {
+	for (i; i < (chnk->count()); i++) {
 
 		TransformParentComponent& tpc = parentarray[i];
 

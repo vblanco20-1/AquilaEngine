@@ -185,6 +185,7 @@ bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start
 
 void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body)
 {
+	return;
 	//if (MortonArray.size() == 0) return;
 
 	const float radSquared = radius * radius;	
@@ -206,8 +207,8 @@ void BoidMap::Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & pos
 	minhash.morton = MortonFromGrid(MinGrid);
 
 	//calculate bounds
-	GridHashmark* lowbound = &MortonArray[0]; //std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], minhash, compare_morton_array);
-	GridHashmark* highbound = &MortonArray[MortonArray.size() - 1];// std::upper_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], maxhash, compare_morton_array);
+	//GridHashmark* lowbound = &MortonArray[0]; //std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], minhash, compare_morton_array);
+	//GridHashmark* highbound = &MortonArray[MortonArray.size() - 1];// std::upper_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], maxhash, compare_morton_array);
 	
 	//if (maxhash.morton != minhash.morton) {
 	//	GridHashmark* lowbound = std::lower_bound(&MortonArray[0], &MortonArray[MortonArray.size() - 1], minhash, compare_morton_array);
@@ -352,7 +353,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 			decs::adv::iterate_matching_archetypes(&world.registry_decs, query, [&](Archetype* arch) {
 
 				for (auto chnk : arch->chunks) {
-					total_boids += chnk->header.last;
+					total_boids += chnk->count();
 					//chunk_cache.push_back(chnk);
 				}
 			});
@@ -368,9 +369,9 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 			auto transforms = get_chunk_array<TransformComponent>(chnk);
 
 			//add atomic to reserve space
-			int first_idx = gridmap_indices.fetch_add(chnk->header.last);
+			int first_idx = gridmap_indices.fetch_add(chnk->count());
 
-			for (int i = 0; i < chnk->header.last; i++)
+			for (int i = 0; i < chnk->count(); i++)
 			{
 				boidref.map->AddToGridmap(transforms[i].position, boids[i], first_idx + i);
 			}

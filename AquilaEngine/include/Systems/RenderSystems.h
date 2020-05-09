@@ -28,6 +28,11 @@ namespace ecs::system {
 			DataChunk* chunk;
 			CullMask mask;
 		};
+
+		struct ChunkChange {
+			DataChunk* chunk;
+			bool bVisible;
+		};
 		struct VisibleRenderChunks {
 
 			std::vector<CulledChunk> visibleChunks;
@@ -44,7 +49,9 @@ namespace ecs::system {
 		static void update_cull_sphere(CullSphere* sphere, XMVECTOR position, float scale);
 	private:
 		moodycamel::ConcurrentQueue<CulledChunk> ChunkQueue;
-		
+
+		moodycamel::ConcurrentQueue<ChunkChange> ChangeChunkQueue;
+
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> SetCulledQueue;
 		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> RemoveCulledQueue;
 	};

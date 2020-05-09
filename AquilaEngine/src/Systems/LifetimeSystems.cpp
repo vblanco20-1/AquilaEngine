@@ -51,7 +51,7 @@ void DestructionSystem::update(ECS_GameWorld& world)
 			auto tfarray = get_chunk_array<TransformComponent>(chnk);
 			const bool is_spaceship = get_chunk_array<SpaceshipMovementComponent>(chnk).valid() && tfarray.valid();
 
-			for (int i = chnk->header.last - 1; i >= 0; i--)
+			for (int i = chnk->count() - 1; i >= 0; i--)
 			{
 				lfarray[i].TimeLeft -= dt;
 				if (lfarray[i].TimeLeft < 0)
@@ -99,7 +99,7 @@ void DestructionSystem::update(ECS_GameWorld& world)
 		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
 			auto lfarray = get_chunk_array<TransformParentComponent>(chnk);
 			auto idarray = get_chunk_array<EntityID>(chnk);
-			for (int i = chnk->header.last - 1; i >= 0; i--)
+			for (int i = chnk->count() - 1; i >= 0; i--)
 			{
 				if (!decs::adv::is_entity_valid(reg, lfarray[i].Parent))
 				{
