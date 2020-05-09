@@ -68,7 +68,7 @@ void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
 }
 
 
-
+#if 0
 bool get_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint16_t index)
 {
 	const uint16_t idx = (index >> 6);
@@ -93,7 +93,7 @@ void clear_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint1
 	node->mask[idx] &= invmask;
 }
 
-
+#endif
 void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 {
 	
@@ -128,7 +128,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		chunk_cache.clear();
 
 		Query query;
-		query.with<CullSphere>();
+		query.with<CullSphere, CullBitmask>();
 		query.build();
 		{
 			ZoneScopedNC("Cull Gather Archetypes", tracy::Color::Green);
@@ -138,6 +138,8 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 		
 		std::atomic_uint32_t push_idx{ 0 };
+		float zero = 0;
+		XMVECTOR zerovec = XMLoadFloat(&zero);
 
 		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {	
 
@@ -148,6 +150,21 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 			auto entities = get_chunk_array<EntityID>(chnk);
 			auto sphereArray = get_chunk_array<CullSphere>(chnk);
+			auto maskArray = get_chunk_array<CullBitmask>(chnk);
+			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+		
+			//if cullsphere version doesnt match with render matrix version, it needs update
+			if(matarray.version() != sphereArray.version())
+			{
+				ZoneScopedN("update spheres");
+				for (int i = chnk->header.last - 1; i >= 0; i--)
+				{
+					XMVECTOR loc = XMVector3Transform(zerovec, matarray[i].Matrix);
+
+					ecs::system::FrustrumCuller::update_cull_sphere(&sphereArray[i], loc, 10.f);
+				}
+				world.mark_components_changed(sphereArray);
+			}
 
 			int viscount = 0;
 			for (int i = chnk->header.last - 1; i >= 0; i--)
@@ -165,11 +182,13 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 				);
 				
 				if (bVisible) {
-					set_node_mask_at(&cullUnit.mask, i);
+					maskArray[i].mask = 1;
+					//set_node_mask_at(&cullUnit.mask, i);
 					viscount++;
 				}
 				else {
-					clear_node_mask_at(&cullUnit.mask, i);
+					maskArray[i].mask = 0;
+					//clear_node_mask_at(&cullUnit.mask, i);
 				}
 			}
 
@@ -371,13 +390,13 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 
 		auto matrices = get_chunk_array<RenderMatrixComponent>(chnk.chunk);
 		auto cubes = get_chunk_array<CubeRendererComponent>(chnk.chunk);
-
+		auto maskArray = get_chunk_array<CullBitmask>(chnk.chunk);
 		//add atomic to reserve space
 		int first_idx = buffers->lenght.fetch_add(chnk.mask.count);
 		int n = 0;
 		for (int i = 0; i < chnk.chunk->header.last; i++)
 		{
-			if (get_node_mask_at(&chnk.mask, i)) {
+			if (maskArray[i].mask){
 				FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
 				FirstMatrix[n + first_idx] = matrices[i].Matrix;
 				n++;

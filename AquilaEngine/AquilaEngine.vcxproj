@@ -97,7 +97,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\Decs;K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;K:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -140,7 +140,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>K:\Programming\AquilaEngine\Decs;K:\Programming\AquilaEngine\AquilaEngine\include;K:\Programming\AquilaEngine\AquilaEngine\third_party;K:\Programming\AquilaEngine\AquilaEngine\third_party\Remotery\lib;K:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programming\AquilaEngine\Decs;C:\Programming\AquilaEngine\AquilaEngine\include;C:\Programming\AquilaEngine\AquilaEngine\third_party;C:\Programming\AquilaEngine\AquilaEngine\third_party\tracy;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -196,6 +196,7 @@
   <ItemGroup>
     <ClInclude Include="include\ApplicationInfoUI.h" />
     <ClInclude Include="include\concurrentqueue.h" />
+    <ClInclude Include="include\decs.h" />
     <ClInclude Include="include\DXShaders.h" />
     <ClInclude Include="include\ECSCore.h" />
     <ClInclude Include="include\GameWorld.h" />

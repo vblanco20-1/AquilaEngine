@@ -11,7 +11,7 @@ void BuildExplosionEffect(const XMFLOAT3 Position, ECS_GameWorld& world)
 		TransformComponent, 
 		RenderMatrixComponent, 
 		LifetimeComponent, 
-		ExplosionFXComponent, CullSphere>();
+		ExplosionFXComponent, CullSphere, CullBitmask>();
 
 	reg->get_component<CubeRendererComponent>(explosion).color = XMFLOAT3(0.0, 1.0, 1.0);
 	reg->get_component<TransformComponent>(explosion).position = XMVectorSet(Position.x, Position.y, Position.z, 1.f);
@@ -129,5 +129,5 @@ void ExplosionFXSystem::update(ECS_GameWorld& world)
 
 		const float sc = 3 + ((1 - abs(fx.elapsed - 1.0f)) / 1.0f) * 5;
 		transform.scale = XMVectorSet(sc, sc, sc, sc);
-	});	
+	},world.frameNumber);	
 }

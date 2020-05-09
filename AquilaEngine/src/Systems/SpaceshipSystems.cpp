@@ -58,6 +58,8 @@ void update_ship_chunk(DataChunk* chnk, BoidMap* boidMap, std::atomic<int>& coun
 	{
 		UpdateSpaceship(sparray[i], transfarray[i], boidMap, 1.0 / 30.f);
 	}
+
+	
 }
 
 
@@ -87,6 +89,9 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	std::atomic<int> num;
 	parallel_for_chunk(chunk_cache,[&](DataChunk* chnk) {
 		update_ship_chunk(chnk, boidref->map, num);
+
+		auto transfarray = get_chunk_array<TransformComponent>(chnk);
+		world.mark_components_changed(transfarray);
 	});
 	appInfo->BoidEntities = num.load();
 }

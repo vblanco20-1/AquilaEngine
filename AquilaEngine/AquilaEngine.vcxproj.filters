@@ -185,6 +185,9 @@
     <ClInclude Include="include\paged_vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\decs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="data\Shaders\SimplePixelShader.hlsl">

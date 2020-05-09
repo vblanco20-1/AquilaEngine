@@ -204,7 +204,7 @@ namespace decs {
 		uint32_t generation;
 	};
 
-	struct DataChunkHeader {
+	struct alignas(8)DataChunkHeader {
 		//pointer to the signature for this block
 		struct ChunkComponentList* componentList;
 		struct Archetype* ownerArchetype{ nullptr };
@@ -212,10 +212,21 @@ namespace decs {
 		struct DataChunk* next{ nullptr };
 		//max index that has an entity
 		int16_t last{ 0 };
+		//we want the header aligned to 64 bits
+		int16_t pad1{ 0 };
+		int16_t pad2{ 0 };
+		int16_t pad3{ 0 };
 	};
 	struct alignas(32)DataChunk {
 		byte storage[BLOCK_MEMORY_16K - sizeof(DataChunkHeader)];
 		DataChunkHeader header;
+
+		inline uint64_t* version_ptr(uint16_t index) {
+			//take adress of the header
+			uint64_t* ptr = (uint64_t*)(void*)&header;
+			//we count from header downwards to get the adresses for version ids
+			return ptr - (index + 1);
+		}
 	};
 	static_assert(sizeof(DataChunk) == BLOCK_MEMORY_16K, "chunk size isnt 16kb");
 
@@ -233,9 +244,10 @@ namespace decs {
 	struct ComponentArray {
 
 		ComponentArray() = default;
-		ComponentArray(void* pointer, DataChunk* owner) {
+		ComponentArray(void* pointer, DataChunk* owner, uint16_t cindex) {
 			data = (T*)pointer;
 			chunkOwner = owner;
+			index = cindex;
 		}
 
 		const T& operator[](size_t index) const {
@@ -250,6 +262,13 @@ namespace decs {
 		T* begin() {
 			return data;
 		}
+		uint64_t version() const {
+			return *chunkOwner->version_ptr(index);
+		}
+
+		void set_version(uint64_t new_version)  {
+			*chunkOwner->version_ptr(index) = new_version;
+		}
 		T* end() {
 			return data + chunkOwner->header.last;
 		}
@@ -258,6 +277,7 @@ namespace decs {
 		}
 		T* data{ nullptr };
 		DataChunk* chunkOwner{ nullptr };
+		uint16_t index;
 	};
 
 
@@ -373,11 +393,14 @@ namespace decs {
 		template<typename Container>
 		int gather_chunks(Query& query, Container& container);
 
-		template<typename Func>
-		void for_each(Query& query, Func&& function);
+		template<typename Container, typename Function>
+		int gather_chunks_filtered(Query& query, Container& container, Function&& filter);
 
 		template<typename Func>
-		void for_each(Func&& function);
+		void for_each(Query& query, Func&& function, uint64_t execution_id = 0);
+
+		template<typename Func>
+		void for_each(Func&& function, uint64_t execution_id = 0);
 
 		template<typename C>
 		void add_component(EntityID id, C& comp);
@@ -438,20 +461,21 @@ namespace decs {
 		if constexpr (std::is_same<ActualT, EntityID>::value)
 		{
 			EntityID* ptr = ((EntityID*)chunk);
-			return ComponentArray<EntityID>(ptr, chunk);
+			return ComponentArray<EntityID>(ptr, chunk,-1);
 		}
 		else {
 			constexpr MetatypeHash hash = Metatype::build_hash<ActualT>();
-
-			for (auto cmp : chunk->header.componentList->components) {
+			const unsigned int ncomps = chunk->header.componentList->components.size();
+			for(uint16_t i = 0 ; i < ncomps ;i++){
+				auto cmp = chunk->header.componentList->components[i];
+			//for (auto cmp : chunk->header.componentList->components) {
 				if (cmp.hash == hash)
 				{
 					void* ptr = (void*)((byte*)chunk + cmp.chunkOffset);
 
-					return ComponentArray<ActualT>(ptr, chunk);
+					return ComponentArray<ActualT>(ptr, chunk,i);
 				}
 			}
-
 
 			return ComponentArray<ActualT>();
 		}
@@ -525,12 +549,14 @@ namespace decs {
 
 				compsize += types[i]->size;
 			}
+			size_t versionsIdsSpace = (sizeof(uint64_t) * count);
 
-			size_t availibleStorage = sizeof(DataChunk::storage);
+			size_t availibleStorage = sizeof(DataChunk::storage) - versionsIdsSpace;
 			//2 less than the real count to account for sizes and give some slack
 			size_t itemCount = (availibleStorage / compsize) - 2;
 
-			uint32_t offsets = sizeof(DataChunkHeader);
+			uint32_t offsets = 0;
+			//reserve entity ids at the start
 			offsets += sizeof(EntityID) * itemCount;
 
 			for (size_t i = 0; i < count; i++) {
@@ -558,11 +584,6 @@ namespace decs {
 
 			return list;
 		}
-
-
-
-
-
 
 		inline size_t build_signature(const Metatype** types, size_t count) {
 			size_t and_hash = 0;
@@ -1082,11 +1103,14 @@ namespace decs {
 
 		//by skypjack
 		template<typename... Args, typename Func>
-		void entity_chunk_iterate(DataChunk* chnk, Func&& function) {
+		void entity_chunk_iterate(DataChunk* chnk, Func&& function, uint64_t execution_id = 0) {
 			auto tup = std::make_tuple(get_chunk_array<Args>(chnk)...);
 #ifndef NDEBUG
 			(assert(std::get<decltype(get_chunk_array<Args>(chnk))>(tup).chunkOwner == chnk), ...);
 #endif
+			if (execution_id != 0) {
+				((std::get<decltype(get_chunk_array<Args>(chnk))>(tup).set_version(execution_id) ), ...);
+			}
 
 			for (int i = chnk->header.last - 1; i >= 0; i--) {
 				function(std::get<decltype(get_chunk_array<Args>(chnk))>(tup)[i]...);
@@ -1095,8 +1119,8 @@ namespace decs {
 
 
 		template<typename ...Args, typename Func>
-		void unpack_chunk(type_list<Args...> types, DataChunk* chunk, Func&& function) {
-			entity_chunk_iterate<Args...>(chunk, function);
+		void unpack_chunk(type_list<Args...> types, DataChunk* chunk, Func&& function, uint64_t execution_id) {
+			entity_chunk_iterate<Args...>(chunk, function, execution_id);
 		}
 		template<typename ...Args>
 		Query& unpack_querywith(type_list<Args...> types, Query& query) {
@@ -1200,6 +1224,9 @@ namespace decs {
 			DataChunk* chunk = new DataChunk();
 			chunk->header.last = 0;
 			chunk->header.componentList = cmpList;
+			for (uint16_t i = 0; i < cmpList->components.size(); i++) {
+				*chunk->version_ptr(i) = 1;
+			}
 
 			return chunk;
 		}
@@ -1237,6 +1264,22 @@ namespace decs {
 			});
 		return count;
 	}
+	template<typename Container,typename Function>
+	int ECSWorld::gather_chunks_filtered(Query& query, Container& container, Function&& filter)
+	{
+		int count = 0;
+		adv::iterate_matching_archetypes(this, query, [&](Archetype* arch) {
+
+			for (auto chnk : arch->chunks) {
+				if (filter(chnk))
+				{
+					count++;
+					container.push_back(chnk);
+				}				
+			}
+		});
+		return count;
+	}
 
 	inline void ECSWorld::destroy(EntityID eid)
 	{
@@ -1244,7 +1287,7 @@ namespace decs {
 	}
 
 	template<typename Func>
-	void decs::ECSWorld::for_each(Query& query, Func&& function)
+	void decs::ECSWorld::for_each(Query& query, Func&& function, uint64_t execution_id)
 	{
 		using params = decltype(adv::args(&Func::operator()));
 
@@ -1252,19 +1295,19 @@ namespace decs {
 
 			for (auto chnk : arch->chunks) {
 
-				adv::unpack_chunk(params{}, chnk, function);
+				adv::unpack_chunk(params{}, chnk, function, execution_id);
 			}
 			});
 	}
 	template<typename Func>
-	void decs::ECSWorld::for_each(Func&& function)
+	void decs::ECSWorld::for_each(Func&& function, uint64_t execution_id)
 	{
 		using params = decltype(adv::args(&Func::operator()));
 
 		Query query;
 		adv::unpack_querywith(params{}, query).build();
 
-		for_each<Func>(query, std::move(function));
+		for_each<Func>(query, std::move(function),execution_id);
 	}
 
 	template<typename C>

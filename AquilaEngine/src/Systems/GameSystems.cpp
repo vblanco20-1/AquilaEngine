@@ -107,7 +107,8 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				CubeRendererComponent,
 				BoidComponent,
 				RenderMatrixComponent,
-				CullSphere
+				CullSphere,
+				CullBitmask
 			>();
 
 			reg->get_component<TransformComponent>(et).position = DirectX::XMLoadFloat3(&unit.Position);
@@ -128,31 +129,45 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 			float offsets = 3;
 			{
 				auto child = reg->new_entity<TransformComponent,
+					LocalMatrix,
 					TransformParentComponent,
 					CubeRendererComponent,
 					RenderMatrixComponent,
-					CullSphere
+					CullSphere,
+					CullBitmask
 				>();
 
-				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, offsets, 0.f, 1.f);
-				reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+				TransformComponent& tfc = reg->get_component<TransformComponent>(child);
+				LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
+
+				tfc.position = XMVectorSet(0.f, offsets, 0.f, 1.f);
+				tfc.scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
 
 				reg->get_component<TransformParentComponent>(child).Parent = et;			
 				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+
+				ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
 			}
 			{
 				auto child = reg->new_entity<TransformComponent,
 					TransformParentComponent,
+					LocalMatrix,
 					CubeRendererComponent,
 					RenderMatrixComponent,
-					CullSphere
+					CullSphere,
+					CullBitmask
 				>();
 
-				reg->get_component<TransformComponent>(child).position = XMVectorSet(0.f, -offsets, 0.f, 1.f);
-				reg->get_component<TransformComponent>(child).scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+				TransformComponent& tfc = reg->get_component<TransformComponent>(child);
+				LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
+
+				tfc.position = XMVectorSet(0.f, -offsets, 0.f, 1.f);
+				tfc.scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
 
 				reg->get_component<TransformParentComponent>(child).Parent = et;
 				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+
+				ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
 			}
 		}
 	}
@@ -221,8 +236,6 @@ void RotatorSystem::update(ECS_GameWorld& world)
 
 	reg->for_each([&](RotatorComponent& rotator, TransformComponent& t) {
 
-
-
 		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
-		});
+	},world.frameNumber);
 }

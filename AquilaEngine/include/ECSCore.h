@@ -17,7 +17,8 @@ struct PositionComponent{
 };
 
 struct EngineTimeComponent {
-	float delta_time;
+	float delta_time{0.f};
+	uint64_t frameNumber{0};
 };
 
 struct ExplosionFXComponent {
@@ -55,6 +56,9 @@ struct CullSphere {
 struct Culled {
 	//float c;
 };
+struct CullBitmask {
+	uint8_t mask;
+};
 struct IgnoreCull {
 	float c;
 };
@@ -63,11 +67,19 @@ struct RenderMatrixComponent {
 	{
 		Matrix = other;
 	}
-	RenderMatrixComponent() {
-
-	}
+	RenderMatrixComponent() = default;
 	XMMATRIX Matrix;
 };
+
+struct LocalMatrix {
+	LocalMatrix(XMMATRIX&& other)
+	{
+		Matrix = other;
+	}
+	LocalMatrix() = default;
+	XMMATRIX Matrix;
+};
+
 struct CubeRendererComponent{
 	float randomval = 1.f;
 	bool bVisible = true;

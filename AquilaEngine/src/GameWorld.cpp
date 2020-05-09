@@ -34,7 +34,7 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 	auto* reg = &world.registry_decs;	
 
 	auto spawner1 = reg->new_entity<SpaceshipSpawnerComponent,RenderMatrixComponent
-		,TransformComponent, CubeRendererComponent,RotatorComponent,CullSphere>();
+		,TransformComponent, CubeRendererComponent,RotatorComponent,CullSphere,CullBitmask>();
 
 	float posx = XMVectorGetX(Location) + rng::RandomFloat() * 200;
 	float posy = XMVectorGetY(Location) + rng::RandomFloat() * 200 + 200;
@@ -143,7 +143,7 @@ void ECS_GameWorld::initialize()
 			transf.rotationQuat = XMQuaternionIdentity();
 			transf.scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
 	
-			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform,CullSphere>();
+			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform,CullSphere,CullBitmask>();
 			CullSphere& sphere = reg->get_component<CullSphere>(e);
 
 			ecs::system::FrustrumCuller::update_cull_sphere(&sphere, &transf, 1.f);
@@ -178,6 +178,9 @@ void ECS_GameWorld::update_all(float dt)
 
 	
 	registry_decs.get_singleton<EngineTimeComponent>()->delta_time = dt;
+	registry_decs.get_singleton<EngineTimeComponent>()->frameNumber++;
+
+	frameNumber = registry_decs.get_singleton<EngineTimeComponent>()->frameNumber;
 	{
 		ZoneScopedN("Schedule");
 		ecs::Task main_simulation = task_engine.silent_emplace([&]() {
@@ -300,6 +303,7 @@ void ECS_GameWorld::update_all(float dt)
 	AppInfoUI(appInfo);
 	DrawSystemPerformanceUnits(g_SimpleProfiler->displayunits);	
 }
+
 
 EngineTimeComponent ECS_GameWorld::GetTime()
 {

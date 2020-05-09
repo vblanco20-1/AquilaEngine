@@ -28,6 +28,15 @@ namespace ecs::system {
 			matrix.Matrix = RotMat * (ScaleMat *TranslationMat);
 		}
 
+		static void build_matrix(const TransformComponent& t, XMMATRIX& matrix)
+		{
+			const auto ScaleMat = XMMatrixScalingFromVector(t.scale);
+			const auto TranslationMat = XMMatrixTranslationFromVector(t.position);
+			const auto RotMat = XMMatrixRotationQuaternion(t.rotationQuat);
+
+			matrix = RotMat * (ScaleMat * TranslationMat);
+		}
+
 		virtual void update(ECS_GameWorld& world);
 
 		void update_root(ECS_GameWorld& world);

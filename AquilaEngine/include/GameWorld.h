@@ -26,10 +26,17 @@ public:
 	void initialize();
 
 	void update_all(float dt);
-
+	
 	EngineTimeComponent GetTime();
 	BenchmarkInfo AllBench;
 
+	template<typename C>
+	void mark_components_changed(ComponentArray<C>& clist)
+	{
+		clist.set_version(frameNumber);
+	}
+
+	uint64_t frameNumber;
 
 	ecs::system::RenderCore* Renderer;
 

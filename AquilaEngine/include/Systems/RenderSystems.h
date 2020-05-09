@@ -22,7 +22,7 @@ namespace ecs::system {
 			//popcount
 			uint16_t count = 0;
 			//128 bytes,  1024 bits 
-			uint64_t mask[16];			
+			//uint64_t mask[16];			
 		};
 		struct CulledChunk {
 			DataChunk* chunk;
