@@ -428,6 +428,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, LPWSTR cmdLine,
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
 	ImGui_ImplWin32_Init(Globals->g_WindowHandle);
 	ImGui_ImplDX11_Init(Globals->g_d3dDevice, Globals->g_d3dDeviceContext);

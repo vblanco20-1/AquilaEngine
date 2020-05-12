@@ -402,8 +402,8 @@ void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT
 	Globals->g_d3dDeviceContext->PSSetShader(Globals->g_d3dPixelShader, nullptr, 0);
 
 	ZoneScopedN("Render Cube Batches");
-	int bufferidx = 0;
-	int nDrawcalls = 0;
+	unsigned int bufferidx = 0;
+	unsigned int nDrawcalls = 0;
 	while (true) {
 
 		uniformBuffer.worldMatrix[bufferidx] = FirstMatrix[nDrawcalls];
@@ -411,7 +411,7 @@ void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT
 
 		bufferidx++;
 		nDrawcalls++;
-		if (bufferidx >= 512 || nDrawcalls >= total_drawcalls)
+		if (bufferidx >= 512 || nDrawcalls >= total_drawcalls) 
 		{
 			ZoneScopedN("Render Upload Batch");
 
@@ -502,8 +502,8 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 			//add atomic to reserve space
 			int first_idx = buffers->lenght.fetch_add(maskArray.version());
 			int n = 0;
-			for (int i = 0; i < chnk->count(); i++)
-			{
+			for (unsigned int i = 0; i < chnk->count(); i++)
+			{ 
 				if (maskArray[i].mask) {
 					FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
 					FirstMatrix[n + first_idx] = matrices[i].Matrix;
@@ -530,6 +530,7 @@ void ecs::system::RenderCore::render_start()
 	static bool bDemoOpen{ false };
 	//ImGui::ShowDemoWindow(&bDemoOpen);
 	ImGui::Render();
+	
 }
 
 void ecs::system::RenderCore::Present(bool vSync)
@@ -553,17 +554,21 @@ void ecs::system::RenderCore::render_end()
 		//rmt_ScopedD3D11Sample(ImGuiRender);
 
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	}
+	} 
+	//ImGui::UpdatePlatformWindows();
+	//ImGui::RenderPlatformWindowsDefault();
 	{
 		//rmt_ScopedD3D11Sample(DirectXPresent);
 		//Present(Globals->g_EnableVSync);
 		Present(false);
 	}
+	//ImGui::EndFrame();
+	
 
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-
+	
 	drawcalls = nDrawcalls;
 
 	//rmt_EndD3D11Sample();

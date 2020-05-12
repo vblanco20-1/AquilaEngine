@@ -26,7 +26,7 @@ namespace ecs {
 }
 
 struct TaskStruct {
-	ecs::TaskEngine task_engine{ 3/*std::thread::hardware_concurrency()*/ };
+	ecs::TaskEngine task_engine{ 1/*std::thread::hardware_concurrency()*/ };
 };
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)

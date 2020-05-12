@@ -1225,7 +1225,7 @@ namespace decs {
 		template<typename C>
 		void remove_component_from_entity(ECSWorld* world, EntityID id)
 		{
-			const Metatype* temporalMetatypeArray[32];
+			
 
 			const Metatype* type = get_metatype<C>();
 
@@ -1235,6 +1235,7 @@ namespace decs {
 
 			set_entity_archetype(newarch, id);
 #if 0
+			const Metatype* temporalMetatypeArray[32];
 			ChunkComponentList* oldlist = oldarch->componentList;
 			bool typeFound = false;
 			int lenght = oldlist->components.size();
