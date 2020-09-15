@@ -1,7 +1,7 @@
 #pragma once
 
 #include <PrecompiledHeader.h>
-
+#include <ECSCore.h>
 
 struct PlayerCameraSystem : public System {
 

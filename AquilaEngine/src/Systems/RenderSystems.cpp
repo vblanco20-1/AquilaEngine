@@ -489,7 +489,7 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 	XMMATRIX* FirstMatrix = &buffers->InstancedTransforms[0];
 	XMFLOAT4* FirstColor = &buffers->InstancedColors[0];
 	//std::for_each(std::execution::par, chunkBuffer->visibleChunks.begin(), chunkBuffer->visibleChunks.end(),
-	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(),
+	std::for_each(/*std::execution::par, */chunk_cache.begin(), chunk_cache.end(),
 		[&](DataChunk* chnk) {
 
 		ZoneScopedNC("render Execute Chunks", tracy::Color::Red);

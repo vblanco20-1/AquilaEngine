@@ -1,7 +1,15 @@
 #pragma once
-#include <PrecompiledHeader.h>
 
-#include "decs.h"
+#include <DirectXMath.h>
+#include <DirectXCollision.h>
+
+#include <concurrentqueue.h>
+#include <execution>
+#include "robin_hood.h"
+import decsm;
+
+
+//#include <PrecompiledHeader.h>
 using namespace decs;
 
 
@@ -115,7 +123,7 @@ struct TransformParentComponent {
 
 template<typename F>
 void parallel_for_chunk(std::vector<DataChunk*>& chunks, F&& functor) {
-	std::for_each(std::execution::par, chunks.begin(), chunks.end(), functor);
+	std::for_each(/*std::execution::par, */chunks.begin(), chunks.end(), functor);
 }
 
 template<typename T, typename Traits, typename F>

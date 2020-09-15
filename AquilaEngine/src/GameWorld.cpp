@@ -1,7 +1,12 @@
-#include <PrecompiledHeader.h>
+#include <locale>;
+
+#include "stdint.h"
+#include "concurrentqueue.h"
+
+
 
 #include "GameWorld.h"
-#include "RandomUtils.h"
+
 #include "ApplicationInfoUI.h"
 
 
@@ -9,7 +14,7 @@
 #include "SimpleProfiler.h"
 
 #include "Timer.h"
-
+import "RandomUtils.h";
 #include "Systems/BoidSystems.h"
 #include "Systems/SpaceshipSystems.h"
 #include "Systems/LifetimeSystems.h"

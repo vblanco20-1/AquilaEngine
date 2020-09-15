@@ -69,9 +69,6 @@
     <ClCompile Include="src\Systems\LifetimeSystems.cpp">
       <Filter>Source Files\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="src\PrecompiledHeader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
@@ -102,11 +99,20 @@
     <ClCompile Include="src\Systems\TransformSystems.cpp">
       <Filter>Source Files\Systems</Filter>
     </ClCompile>
+    <ClCompile Include="include\SimpleProfiler.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\concurrentqueue.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\RandomUtils.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\decs.ixx">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\PrecompiledHeader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\imgui\imgui_internal.h">
       <Filter>Header Files\IMGUI</Filter>
     </ClInclude>
@@ -143,18 +149,6 @@
     <ClInclude Include="include\Input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\ECSCore.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\RandomUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SimpleProfiler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\concurrentqueue.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\taskflow\taskflow.hpp">
       <Filter>Header Files\Taskflow</Filter>
     </ClInclude>
@@ -185,7 +179,10 @@
     <ClInclude Include="include\paged_vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\decs.h">
+    <ClInclude Include="include\PrecompiledHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ECSCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

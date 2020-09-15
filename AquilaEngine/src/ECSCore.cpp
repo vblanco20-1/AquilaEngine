@@ -1,7 +1,7 @@
 #include <PrecompiledHeader.h>
 
 #include "ECSCore.h"
-#include "GameWorld.h"
+//#include "GameWorld.h"
 
 
 void System::update(ECS_GameWorld & world)

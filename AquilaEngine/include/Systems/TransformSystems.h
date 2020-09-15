@@ -1,6 +1,9 @@
 #pragma once
 #include <PrecompiledHeader.h>
+#include <ECSCore.h>
+#include <DirectXMath.h>
 
+class ECS_GameWorld;
 namespace ecs::system {
 
 
@@ -36,8 +39,6 @@ namespace ecs::system {
 
 			matrix = RotMat * (ScaleMat * TranslationMat);
 		}
-
-		
 
 		void update_root(ECS_GameWorld& world);
 		void update_hierarchy(ECS_GameWorld& world);

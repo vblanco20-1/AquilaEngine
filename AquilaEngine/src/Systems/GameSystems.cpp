@@ -2,7 +2,7 @@
 #include "Systems/GameSystems.h"
 
 
-#include "RandomUtils.h"
+import "RandomUtils.h";
 #include "ApplicationInfoUI.h"
 
 

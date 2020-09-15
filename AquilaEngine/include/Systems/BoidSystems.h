@@ -1,10 +1,10 @@
 #pragma once
+#include <robin_hood.h>
 //#include <PrecompiledHeader.h>
 #include "ECSCore.h"
 
-
-#include <robin_hood.h>
 #include <atomic>
+
 struct BoidComponent {
 	char Type;
 	char Faction;

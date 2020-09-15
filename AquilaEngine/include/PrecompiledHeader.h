@@ -6,15 +6,13 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "winmm.lib")
 
-#pragma warning(disable: 4838 4267 4244 4530)
+#pragma warning(disable: 4838 4267 4244 4530 4005)
 
 //#include "taskflow/taskflow.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 // System includes
 #include <windows.h>
-
-
 
 // STL includes
 #include <iostream>
@@ -49,7 +47,7 @@
 #include <DirectXCollision.h>
 #include <dinput.h>
 
-#include "ECSCore.h"
+//#include "ECSCore.h"
 #include "SimpleProfiler.h"
 
 // Safely release a COM object.

@@ -1,5 +1,5 @@
 #include <PrecompiledHeader.h>
-#include "RandomUtils.h"
+import "RandomUtils.h";
 #include <random>
 
 std::default_random_engine generator;

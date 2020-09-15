@@ -1,5 +1,6 @@
 #pragma once
 #include <PrecompiledHeader.h>
+#include <ECSCore.h>
 #include "DXShaders.h"
 #include "SimpleProfiler.h"
 

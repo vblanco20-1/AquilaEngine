@@ -22,19 +22,24 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <vector>
-#include <algorithm>
-#include <typeinfo>
-#include <assert.h>
-#include <robin_hood.h>
-#include <tuple>
-#include <iostream>
 
-#pragma warning( disable : 4267 )
+//#pragma warning( disable : 4267 5105 4005)
+export  module decsm;
 
+import <vector>		;
+import <algorithm>	;
+import <typeinfo>	;
+import <assert.h>	;
+import <robin_hood.h>;
+import <tuple>		;
+import <iostream>	;
+import <type_traits>;
+
+//#include <robin_hood.h>
+ export {
 
 //forward declarations
-namespace decs {
+  namespace decs {
 	using byte = unsigned char;
 	static_assert (sizeof(byte) == 1, "size of 1 byte isnt 1 byte");
 	constexpr size_t BLOCK_MEMORY_16K = 16384;
@@ -53,7 +58,8 @@ namespace decs {
 }
 
 
-namespace decs {
+  namespace decs {
+	  export {
 	inline constexpr uint64_t hash_64_fnv1a(const char* key, const uint64_t len) {
 
 		uint64_t hash = 0xcbf29ce484222325;
@@ -82,8 +88,8 @@ namespace decs {
 		return hash;
 	}
 
-	template<typename T, int BucketSize>
-	struct HashCache {
+	  template<typename T, int BucketSize>
+	 struct HashCache {
 
 		struct Bucket {
 			std::array<T, BucketSize> items;
@@ -99,7 +105,7 @@ namespace decs {
 		std::array<Bucket, 8> buckets;
 	};
 
-	struct MetatypeHash {
+	 struct MetatypeHash {
 		size_t name_hash{ 0 };
 		size_t matcher_hash{ 0 };
 
@@ -119,7 +125,7 @@ namespace decs {
 			return hash_fnv1a(name_detail<T>());
 		}
 	};
-	struct Metatype {
+	 struct Metatype {
 
 		using ConstructorFn = void(void*);
 		using DestructorFn = void(void*);
@@ -136,7 +142,7 @@ namespace decs {
 
 
 		template<typename T>
-		static constexpr MetatypeHash build_hash() {
+		 static constexpr MetatypeHash build_hash() {
 
 			using sanitized = std::remove_const_t<std::remove_reference_t<T>>;
 
@@ -147,7 +153,7 @@ namespace decs {
 			return hash;
 		};
 		template<typename T>
-		static constexpr Metatype build() {
+		 static constexpr Metatype build() {
 			using sanitized = std::remove_const_t<std::remove_reference_t<T>>;
 			Metatype meta{};
 			meta.hash = build_hash<T>();
@@ -173,15 +179,14 @@ namespace decs {
 		};
 	};
 
-	//has stable pointers, use name_hash for it
-	static robin_hood::unordered_node_map<uint64_t, Metatype> metatype_cache;
+	
 
-	struct EntityID {
+	  struct EntityID {
 		uint32_t index;
 		uint32_t generation;
 	};
 
-	struct alignas(8)DataChunkHeader {
+	  struct alignas(8)DataChunkHeader {
 		//pointer to the signature for this block
 		struct ChunkComponentList* componentList;
 		struct Archetype* ownerArchetype{ nullptr };
@@ -203,7 +208,7 @@ namespace decs {
 			return ptri + index;
 		}
 	};
-	struct alignas(32)DataChunk {
+	  struct alignas(32)DataChunk {
 		byte storage[BLOCK_MEMORY_16K - sizeof(DataChunkHeader*)];
 		DataChunkHeader *chunk_headers;
 
@@ -226,7 +231,7 @@ namespace decs {
 	};
 	static_assert(sizeof(DataChunk) == BLOCK_MEMORY_16K, "chunk size isnt 16kb");
 
-	struct ChunkComponentList {
+	  struct ChunkComponentList {
 		struct CmpPair {
 			const Metatype* type;
 			MetatypeHash hash;
@@ -236,7 +241,7 @@ namespace decs {
 		std::vector<CmpPair> components;
 	};
 
-	template<typename T>
+	  template<typename T>
 	struct ComponentArray {
 
 		ComponentArray() = default;
@@ -278,7 +283,7 @@ namespace decs {
 
 
 
-	struct Archetype {
+	  struct Archetype {
 		ChunkComponentList* componentList;
 		struct ECSWorld* ownerWorld;
 		size_t componentHash;
@@ -288,7 +293,7 @@ namespace decs {
 		bool chunklist_need_sort = true;
 	};
 
-	struct EntityStorage {
+	  struct EntityStorage {
 		DataChunk* chunk;
 		uint32_t generation;
 		uint16_t chunkIndex;
@@ -302,7 +307,7 @@ namespace decs {
 		}
 	};
 
-	struct Query {
+	  struct Query {
 		std::vector<MetatypeHash> require_comps;
 		std::vector<MetatypeHash> exclude_comps;
 
@@ -315,14 +320,14 @@ namespace decs {
 
 		template<typename... C>
 		Query& with() {
-			require_comps.insert(require_comps.end(), { Metatype::build_hash<C>()... });
+			require_comps.insert(require_comps.end(), { Metatype::template build_hash<C>()... });
 
 			return *this;
 		}
 
 		template<typename... C>
 		Query& exclude() {
-			exclude_comps.insert(exclude_comps.end(), { Metatype::build_hash<C>()... });
+			exclude_comps.insert(exclude_comps.end(), { Metatype::template build_hash<C>()... });
 
 			return *this;
 		}
@@ -343,7 +348,7 @@ namespace decs {
 			};
 
 			auto remove_eid = [](const MetatypeHash& type) {
-				return (type == Metatype::build_hash<EntityID>());
+				return (type == Metatype::template build_hash<EntityID>());
 			};
 			require_comps.erase(std::remove_if(require_comps.begin(), require_comps.end(), remove_eid), require_comps.end());
 			exclude_comps.erase(std::remove_if(exclude_comps.begin(), exclude_comps.end(), remove_eid), exclude_comps.end());
@@ -358,7 +363,7 @@ namespace decs {
 		}
 	};
 
-	struct ECSWorld {
+	  struct ECSWorld {
 		std::vector<EntityStorage> entities;
 		std::vector<uint32_t> deletedEntities;
 
@@ -429,7 +434,7 @@ namespace decs {
 		Archetype* get_empty_archetype() { return archetypes[0]; };
 	};
 
-	template<typename C>
+	  template<typename C>
 	struct CachedRef
 	{
 		C* get_from(ECSWorld* world, EntityID target);
@@ -438,11 +443,11 @@ namespace decs {
 		EntityStorage storage;
 	};
 
-	inline bool full(DataChunk* chnk) {
+	  inline bool full(DataChunk* chnk) {
 		return chnk->header()->last == chnk->header()->componentList->chunkCapacity;
 	}
 
-	template<typename C>
+	  template<typename C>
 	C* CachedRef<C>::get_from(ECSWorld* world, EntityID target)
 	{
 		if (world->entities[target.index] != storage) {
@@ -452,8 +457,8 @@ namespace decs {
 		return pointer;
 	}
 
-	template<typename T>
-	inline auto get_chunk_array(DataChunk* chunk) {
+	  template<typename T>
+	  auto get_chunk_array(DataChunk* chunk) {
 
 		using ActualT = ::std::remove_reference_t<T>;
 
@@ -463,7 +468,7 @@ namespace decs {
 			return ComponentArray<EntityID>(ptr, chunk,-1);
 		}
 		else {
-			constexpr MetatypeHash hash = Metatype::build_hash<ActualT>();
+			constexpr MetatypeHash hash = Metatype::template build_hash<ActualT>();
 			const unsigned int ncomps = chunk->header()->componentList->components.size();
 			for(uint16_t i = 0 ; i < ncomps ;i++){
 				auto cmp = chunk->header()->componentList->components[i];
@@ -481,6 +486,8 @@ namespace decs {
 	}
 
 	namespace adv {
+		
+
 		//forward declarations
 		inline int insert_entity_in_chunk(DataChunk* chunk, EntityID EID, bool bInitializeConstructors = true);
 		inline EntityID erase_entity_in_chunk(DataChunk* chunk, uint16_t index);
@@ -496,7 +503,9 @@ namespace decs {
 		template<typename T>
 		static const Metatype* get_metatype() {
 			static const Metatype* mt = []() {
-				constexpr size_t name_hash = Metatype::build_hash<T>().name_hash;
+				constexpr size_t name_hash = Metatype::template build_hash<T>().name_hash;
+				//has stable pointers, use name_hash for it
+				static robin_hood::unordered_node_map<uint64_t, decs::Metatype> metatype_cache;
 
 				auto type = metatype_cache.find(name_hash);
 				if (type == metatype_cache.end()) {
@@ -507,7 +516,7 @@ namespace decs {
 			}();
 			return mt;
 		}
-
+		
 		inline void reorder_chunks(Archetype* arch) {
 			
 			int archsize = arch->componentList->chunkCapacity;
@@ -1316,7 +1325,7 @@ namespace decs {
 
 			ChunkComponentList* cmpList = chunk->header()->componentList;
 
-			if (chunk->count() < cmpList->chunkCapacity) {
+			if (chunk->count() < (uint32_t)cmpList->chunkCapacity) {
 
 				index = chunk->header()->last;
 				chunk->header()->last++;
@@ -1531,7 +1540,7 @@ namespace decs {
 	template<typename C>
 	inline C* ECSWorld::set_singleton()
 	{
-		constexpr MetatypeHash type = Metatype::build_hash<C>();
+		constexpr MetatypeHash type = Metatype::template build_hash<C>();
 
 		C* old_singleton = get_singleton<C>();
 		if (old_singleton) {			
@@ -1547,7 +1556,7 @@ namespace decs {
 	template<typename C>
 	inline C* ECSWorld::set_singleton(C&& singleton)
 	{
-		constexpr MetatypeHash type = Metatype::build_hash<C>();
+		constexpr MetatypeHash type = Metatype::template build_hash<C>();
 
 		C* old_singleton = get_singleton<C>();
 		if (old_singleton) {
@@ -1566,7 +1575,7 @@ namespace decs {
 	template<typename C>
 	inline C* ECSWorld::get_singleton()
 	{
-		constexpr MetatypeHash type = Metatype::build_hash<C>();
+		constexpr MetatypeHash type = Metatype::template build_hash<C>();
 
 		auto lookup = singleton_map.find(type.name_hash);
 		if (lookup != singleton_map.end()) {
@@ -1597,3 +1606,6 @@ namespace decs {
 	}
 }
 
+
+}
+}

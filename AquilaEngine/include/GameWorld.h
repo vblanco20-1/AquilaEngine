@@ -4,8 +4,6 @@
 
 #include "Systems/TransformSystems.h"
 
-
-
 namespace ecs::system {
 	struct RenderCore;
 }

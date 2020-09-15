@@ -361,7 +361,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 		world.registry_decs.get_singleton<ApplicationInfo>()->BoidEntities = total_boids;
 		boidref.map->Mortons.resize(total_boids);
 
-		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+		std::for_each(/*std::execution::par, */chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
 
 			ZoneScopedNC("Boids Execute Chunks", tracy::Color::Red);
 
@@ -397,7 +397,7 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 
 
 			//parallel sort all entities by morton code
-			std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2& a, GridItem2& b) {
+			std::sort(/*std::execution::par, */boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2& a, GridItem2& b) {
 
 				if (a.morton == b.morton)
 				{
