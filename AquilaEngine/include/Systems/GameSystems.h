@@ -1,13 +1,16 @@
 #pragma once
 
 #include <PrecompiledHeader.h>
-#include <ECSCore.h>
+import ecscore;
+
+using namespace decs;
+using namespace DirectX;
 
 struct PlayerCameraSystem : public System {
 
 	PlayerCameraSystem() { };
 
-	virtual void update(ECS_GameWorld& world);
+	virtual void update(ECS_GameWorldBase& world);
 };
 
 struct SpaceshipSpawnSystem : public System {
@@ -20,7 +23,7 @@ struct SpaceshipSpawnSystem : public System {
 		XMFLOAT3 Color;
 	};
 
-	virtual void update(ECS_GameWorld & world);
+	virtual void update(ECS_GameWorldBase & world);
 
 	moodycamel::ConcurrentQueue<SpawnUnit> SpawnQueue;
 };
@@ -30,7 +33,7 @@ struct PlayerInputSystem : public System {
 
 	PlayerInputSystem() { };
 	
-	virtual void update(ECS_GameWorld& world);
+	virtual void update(ECS_GameWorldBase& world);
 };
 
 
@@ -38,5 +41,5 @@ struct RotatorSystem : public System {
 
 	RotatorSystem() {};
 
-	virtual  void update(ECS_GameWorld& world);
+	virtual  void update(ECS_GameWorldBase& world);
 };

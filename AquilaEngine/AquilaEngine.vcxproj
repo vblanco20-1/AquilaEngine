@@ -150,6 +150,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AdditionalOptions> /D "_CRT_SECURE_NO_WARNINGS"   /D _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D TRACY_ENABLE  /D TRACY_ON_DEMAND /Bt  %(AdditionalOptions)</AdditionalOptions>
+      <UseStandardPreprocessor>false</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -158,13 +159,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\ApplicationInfoUI.cpp" />
-    <ClCompile Include="src\ECSCore.cpp" />
-    <ClCompile Include="src\Systems\TransformSystems.cpp" />
+    <ClCompile Include="src\Systems\TransformSystems.cxx" />
     <ClCompile Include="src\Systems\BoidSystems.cpp" />
     <ClCompile Include="src\DXShaders.cpp" />
-    <ClCompile Include="src\GameWorld.cpp" />
-    <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\GameWorld.cxx" />
+    <ClCompile Include="src\Input.cxx" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\RandomUtils.cpp" />
     <ClCompile Include="src\SimpleProfiler.cpp" />
@@ -193,14 +192,20 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\ApplicationInfoUI.h" />
+    <ClCompile Include="include\ApplicationInfoUI.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClCompile Include="include\concurrentqueue.h" />
     <ClCompile Include="include\decs.ixx">
       <FileType>CppCode</FileType>
     </ClCompile>
     <ClInclude Include="include\DXShaders.h" />
-    <ClInclude Include="include\ECSCore.h" />
-    <ClInclude Include="include\GameWorld.h" />
+    <ClCompile Include="include\ECSCore.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
+    <ClCompile Include="include\GameWorld.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\imgui\imconfig.h" />
     <ClInclude Include="include\imgui\imgui.h" />
     <ClInclude Include="include\imgui\imgui_impl_dx11.h" />
@@ -208,7 +213,9 @@
     <ClInclude Include="include\imgui\stb_rect_pack.h" />
     <ClInclude Include="include\imgui\stb_textedit.h" />
     <ClInclude Include="include\imgui\stb_truetype.h" />
-    <ClInclude Include="include\Input.h" />
+    <ClCompile Include="include\Input.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\paged_vector.h" />
     <ClInclude Include="include\PrecompiledHeader.h">
       <FileType>Document</FileType>
@@ -220,7 +227,9 @@
     <ClInclude Include="include\Systems\GameSystems.h" />
     <ClInclude Include="include\Systems\LifetimeSystems.h" />
     <ClInclude Include="include\Systems\RenderSystems.h" />
-    <ClInclude Include="include\Systems\TransformSystems.h" />
+    <ClCompile Include="include\Systems\TransformSystems.ixx">
+      <FileType>CppHeader</FileType>
+    </ClCompile>
     <ClInclude Include="include\taskflow\taskflow.hpp" />
     <ClInclude Include="include\Timer.h" />
     <ClInclude Include="src\EngineGlobals.h" />

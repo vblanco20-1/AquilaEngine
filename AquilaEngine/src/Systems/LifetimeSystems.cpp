@@ -1,10 +1,10 @@
 #include <PrecompiledHeader.h>
 
 #include "Systems/LifetimeSystems.h"
-#include "GameWorld.h"
+import gameworld;
 #include "Systems/RenderSystems.h"
 
-void BuildExplosionEffect(const XMFLOAT3 Position, ECS_GameWorld& world)
+void BuildExplosionEffect(const XMFLOAT3 Position, ECS_GameWorldBase& world)
 {
 	auto reg = &world.registry_decs;
 	auto explosion = world.registry_decs.new_entity<CubeRendererComponent, 
@@ -22,7 +22,7 @@ void BuildExplosionEffect(const XMFLOAT3 Position, ECS_GameWorld& world)
 	ecs::system::FrustrumCuller::update_cull_sphere(&sphere, &reg->get_component<TransformComponent>(explosion), 1.f);
 }
 
-void DestructionSystem::update(ECS_GameWorld& world)
+void DestructionSystem::update(ECS_GameWorldBase& world)
 {
 	SCOPE_PROFILE("Deleter System ")
 
@@ -117,7 +117,7 @@ void DestructionSystem::update(ECS_GameWorld& world)
 	}
 }
 
-void ExplosionFXSystem::update(ECS_GameWorld& world)
+void ExplosionFXSystem::update(ECS_GameWorldBase& world)
 {
 	ZoneScopedN("ExplosionFXSystem");
 

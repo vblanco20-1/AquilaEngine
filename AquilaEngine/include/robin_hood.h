@@ -169,7 +169,7 @@
 #define ROBIN_HOOD_PRIVATE_DEFINITION_CXX14() 201402L
 #define ROBIN_HOOD_PRIVATE_DEFINITION_CXX17() 201703L
 
-#if 0 >= 17
+#if ROBIN_HOOD(CXX) >= ROBIN_HOOD(CXX17)
 #    define ROBIN_HOOD_PRIVATE_DEFINITION_NODISCARD() [[nodiscard]]
 #else
 #    define ROBIN_HOOD_PRIVATE_DEFINITION_NODISCARD()
@@ -177,7 +177,7 @@
 
 namespace robin_hood {
 
-#if 0 >= 14
+#if ROBIN_HOOD(CXX) >= ROBIN_HOOD(CXX14)
 #    define ROBIN_HOOD_STD std
 #else
 
@@ -483,7 +483,7 @@ namespace robin_hood {
 			}
 
 			// enforce byte alignment of the T's
-#if 0 >= 14
+#if ROBIN_HOOD(CXX) >= ROBIN_HOOD(CXX14)
 			static constexpr size_t ALIGNMENT =
 				(std::max)(std::alignment_of<T>::value, std::alignment_of<T*>::value);
 #else

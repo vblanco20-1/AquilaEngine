@@ -1,16 +1,29 @@
 #pragma once
-#include <PrecompiledHeader.h>
-#include <ECSCore.h>
-#include "DXShaders.h"
-#include "SimpleProfiler.h"
+namespace decs {
 
+}
+namespace DirectX {
+
+}
+using namespace decs;
+using namespace DirectX;
+//#include <PrecompiledHeader.h>
+
+#include "DXShaders.h"
+#include <concurrentqueue.h>
+//#include "SimpleProfiler.h"
+import ecscore;
+import decsm;
+import <vector>;
 static int nDrawcalls;
+
+
 
 namespace ecs::system {
 
 
 	struct CameraUpdate : public System {
-		virtual void update(ECS_GameWorld &world)override;
+		virtual void update(ECS_GameWorldBase &world)override;
 	};
 	struct FrustrumCuller : public System {
 
@@ -39,11 +52,11 @@ namespace ecs::system {
 			std::vector<CulledChunk> visibleChunks;
 		};
 			
-		virtual void update(ECS_GameWorld &world)override;
+		virtual void update(ECS_GameWorldBase &world)override;
 
-		void build_view_queues(ECS_GameWorld& world);		
+		void build_view_queues(ECS_GameWorldBase& world);		
 
-		void apply_queues(ECS_GameWorld& world);		
+		void apply_queues(ECS_GameWorldBase& world);		
 
 		static void update_cull_sphere(CullSphere* sphere,TransformComponent* transform,float scale);
 
@@ -63,9 +76,9 @@ namespace ecs::system {
 
 		void pre_render();
 		
-		virtual void update(ECS_GameWorld &world)override;
+		virtual void update(ECS_GameWorldBase &world)override;
 
-		void build_cube_batches(ECS_GameWorld& world);
+		void build_cube_batches(ECS_GameWorldBase& world);
 		
 		void render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT4* FirstColor, uint32_t total_drawcalls);
 	};
@@ -74,10 +87,10 @@ namespace ecs::system {
 
 		RenderCore();
 	
-		virtual void update(ECS_GameWorld &world)override;
+		virtual void update(ECS_GameWorldBase &world)override;
 		void render_start();
 		void render_end();
-		void render_batches(ECS_GameWorld& world);
+		void render_batches(ECS_GameWorldBase& world);
 		void Present(bool vSync);
 
 		CubeRenderer* cube_renderer;

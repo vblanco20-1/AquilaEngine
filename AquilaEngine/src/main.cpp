@@ -5,16 +5,26 @@
 #include <SimplePixelShader.h>
 
 #include "DXShaders.h"
-#include "ApplicationInfoUI.h"
+#include "EngineGlobals.h"
+import appinfo;
 #include "Timer.h"
-#include "Input.h"
-#include "ECSCore.h"
+import input;
+import ecscore;
 
 #include <timeapi.h>
 
 #include "SimpleProfiler.h"
-#include "GameWorld.h"
-
+import gameworld;
+// Safely release a COM object.
+template<typename T>
+inline void SafeRelease(T& ptr)
+{
+	if (ptr != NULL)
+	{
+		ptr->Release();
+		ptr = NULL;
+	}
+}
 
 // Forward declarations.
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -353,7 +363,9 @@ int Run()
 	static const float maxTimeStep = 1.0f / targetFramerate;
 
 	GameWorld = new ECS_GameWorld();
-	GameWorld->initialize();
+
+	ECS_GameWorld* world = (ECS_GameWorld*)(GameWorld);
+	world->initialize();
 
 	
 
@@ -379,7 +391,7 @@ int Run()
 			deltaTime = std::min<float>(deltaTime, maxTimeStep);
 			
 			
-			GameWorld->update_all(deltaTime);
+			world->update_all(deltaTime);
 			
 
 		}

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <PrecompiledHeader.h>
-#include <ECSCore.h>
+import ecscore;
+using namespace decs;
+using namespace DirectX;
 
 struct DestructionSystem : public System {
 
@@ -17,14 +19,14 @@ struct DestructionSystem : public System {
 	moodycamel::ConcurrentQueue<ExplosionSpawnStruct, QueueTraits> ExplosionsToSpawn;
 	DestructionSystem() { };
 	
-	virtual void update(ECS_GameWorld & world);
+	virtual void update(ECS_GameWorldBase & world);
 };
 
 struct ExplosionFXSystem : public System {
 
 	ExplosionFXSystem() { };
 
-	virtual void update(ECS_GameWorld& world);
+	virtual void update(ECS_GameWorldBase& world);
 };
 
 struct RandomFlusherSystem : public System {

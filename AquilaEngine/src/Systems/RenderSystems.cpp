@@ -1,9 +1,33 @@
-#include <PrecompiledHeader.h>
+
+
+#define IMGUI_API
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_dx11.h"
+#include "imgui/imgui_impl_win32.h"
+
+#undef min
+#undef max
+#include <Tracy.hpp>
+
+// DirectX includes
+#define DIRECTINPUT_VERSION 0x0800
+#include <d3d11.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
+#include <DirectXColors.h>
+#include <DirectXCollision.h>
+#include <dinput.h>
+
+//import ecscore;
+#include "SimpleProfiler.h"
+
 #include "Systems/RenderSystems.h"
-#include "GameWorld.h"
-#include "ApplicationInfoUI.h"
+#include <concurrentqueue.h>
+#include "EngineGlobals.h"
+import gameworld;
+import appinfo;
 
-
+//import <robin_hood.h>;
 
 // Clear the color and depth buffers.
 void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
@@ -15,7 +39,7 @@ void Clear(const FLOAT clearColor[4], FLOAT clearDepth, UINT8 clearStencil)
 
 
 
-void ecs::system::CameraUpdate::update(ECS_GameWorld &world)
+void ecs::system::CameraUpdate::update(ECS_GameWorldBase &world)
 {
 	//update(world.registry_entt, world.GetTime().delta_time);
 
@@ -61,7 +85,7 @@ bool IsVisibleFrustrumCull(const XMVECTOR& pos,const XMVECTOR &CamPos,const XMVE
 	}
 }
 
-void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
+void ecs::system::FrustrumCuller::update(ECS_GameWorldBase &world)
 {
 	build_view_queues(world);
 	apply_queues(world);
@@ -129,7 +153,7 @@ void AABBFromSpheres(BoundingBox& outbbox, CullSphere* spheres, int Count) {
 	//XMStoreFloat3(&outbbox.Center, XMVectorScale(XMVectorAdd(vMin, vMax), 0.5f));
 	//XMStoreFloat3(&outbbox.Extents, XMVectorScale(XMVectorSubtract(vMax, vMin), 0.5f));
 }
-void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
+void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorldBase& world)
 {
 	
 		ZoneNamed(FrustrumCuller, true);
@@ -304,7 +328,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		}
 }
 
-void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
+void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorldBase& world)
 {
 
 	
@@ -370,7 +394,7 @@ struct RendererHandles {
 	std::unique_ptr<RendererBuffers> CubeBuffers;
 };
 
-void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
+void ecs::system::CubeRenderer::update(ECS_GameWorldBase &world)
 {
 	ZoneNamed(CubeRenderer, true);
 
@@ -426,7 +450,7 @@ void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT
 	}
 }
 
-void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
+void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorldBase& world)
 {
 	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
 
@@ -575,7 +599,7 @@ void ecs::system::RenderCore::render_end()
 }
 
 
-void ecs::system::RenderCore::update(ECS_GameWorld &world)
+void ecs::system::RenderCore::update(ECS_GameWorldBase &world)
 {
 	render_start();
 	nDrawcalls = 0;
@@ -594,7 +618,7 @@ ecs::system::RenderCore::RenderCore()
 	cube_renderer = new CubeRenderer();
 }
 
-void ecs::system::RenderCore::render_batches(ECS_GameWorld& world)
+void ecs::system::RenderCore::render_batches(ECS_GameWorldBase& world)
 {
 	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
 	if (rhandles) {

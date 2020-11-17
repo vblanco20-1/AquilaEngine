@@ -47,19 +47,9 @@
 #include <DirectXCollision.h>
 #include <dinput.h>
 
-//#include "ECSCore.h"
+//import ecscore;
 #include "SimpleProfiler.h"
 
-// Safely release a COM object.
-template<typename T>
-inline void SafeRelease(T& ptr)
-{
-	if (ptr != NULL)
-	{
-		ptr->Release();
-		ptr = NULL;
-	}
-}
 inline DWORD GetCurrentProcessorNumber() {
 	int CPUInfo[4];
 	__cpuid(CPUInfo, 1);

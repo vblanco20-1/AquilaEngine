@@ -1,15 +1,20 @@
-
-
-#include "Systems/TransformSystems.h"
-#include "GameWorld.h"
+module;
 #include "Systems/RenderSystems.h"
-#include <type_traits>
+//#include "tracy"
+#include <concurrentqueue.h>
+//#include <TracyClient.h>
 
+module transformsystems;
+
+
+//import gameworld;
+//import <type_traits>;
 import decsm;
+import ecscore;
 
-void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
+void ecs::system::UpdateTransform::update_root(ECS_GameWorldBase& world)
 {
-	ZoneScopedN("Update Root Transforms");
+	//ZoneScopedN("Update Root Transforms");
 	Query FullTransform;
 	FullTransform.with<RenderMatrixComponent, TransformComponent>();
 	FullTransform.build(); 
@@ -21,7 +26,7 @@ void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
 	
 	parallel_for_chunk(full_chunk_cache, [&](DataChunk* chnk) {
 
-		ZoneScopedN("Transform chunk");
+		//ZoneScopedN("Transform chunk");
 		
 		auto tfarray = decs::get_chunk_array<TransformComponent>(chnk);		
 		auto matarray = decs::get_chunk_array<RenderMatrixComponent>(chnk);
@@ -35,9 +40,9 @@ void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
 	});
 }
 
-void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
+void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorldBase& world)
 {
-	ZoneScopedN("Update Hierarchy Transforms");
+	//ZoneScopedN("Update Hierarchy Transforms");
 
 	Query ChildTransform;
 	ChildTransform.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
@@ -80,7 +85,7 @@ void update_root_transform_arrays(DataChunk* chnk,
 }
 void update_root_transform(DataChunk* chnk)
 {
-	ZoneScopedNC("Transform chunk execute: ", tracy::Color::Red);
+	//ZoneScopedNC("Transform chunk execute: ", tracy::Color::Red);
 
 	auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
 	auto transfarray = get_chunk_array<TransformComponent>(chnk);
@@ -190,12 +195,10 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk,
 		for (i = 0; i < loop; i++) {		
 			const XMMATRIX mat = transfarray[i + start].Matrix * *matrices[i];
 
-			//matarray[i + start].Matrix = mat;//mulmatrices[i];
 			mulmatrices[i] = mat;
 		}
 
 		for (i = 0; i < loop; i++) {
-			//matarray[i + start].Matrix = mulmatrices[i];
 			memcpy(&matarray[i + start].Matrix, &mulmatrices[i], sizeof(XMMATRIX));
 		}
 	}
@@ -288,9 +291,9 @@ void update_children_transform_arrays(decs::ECSWorld* world, DataChunk* chnk,
 # endif
 }
 
-void update_children_transform(DataChunk* chnk, ECS_GameWorld& world)
+void update_children_transform(DataChunk* chnk, ECS_GameWorldBase& world)
 {
-	ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
+	//ZoneScopedNC("Transform chunk execute: children", tracy::Color::Orange);
 
 	auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
 	auto transfarray = get_chunk_array<TransformComponent>(chnk);

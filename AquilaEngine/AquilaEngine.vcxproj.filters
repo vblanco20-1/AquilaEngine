@@ -39,9 +39,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Input.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\RandomUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -52,9 +49,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\SimpleProfiler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\GameWorld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Systems\GameSystems.cpp">
@@ -84,19 +78,10 @@
     <ClCompile Include="third_party\imgui\imgui_widgets.cpp">
       <Filter>Source Files\IMGUI</Filter>
     </ClCompile>
-    <ClCompile Include="src\ApplicationInfoUI.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ECSCore.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Systems\SpaceshipSystems.cpp">
       <Filter>Source Files\Systems</Filter>
     </ClCompile>
     <ClCompile Include="src\Systems\BoidSystems.cpp">
-      <Filter>Source Files\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Systems\TransformSystems.cpp">
       <Filter>Source Files\Systems</Filter>
     </ClCompile>
     <ClCompile Include="include\SimpleProfiler.h">
@@ -110,6 +95,30 @@
     </ClCompile>
     <ClCompile Include="include\decs.ixx">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ECSCore.ixx">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\ApplicationInfoUI.ixx">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Input.ixx">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Input.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\GameWorld.ixx">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Systems\TransformSystems.ixx">
+      <Filter>Header Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Systems\TransformSystems.cxx">
+      <Filter>Source Files\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameWorld.cxx">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -140,13 +149,7 @@
     <ClInclude Include="include\DXShaders.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\ApplicationInfoUI.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\Timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\taskflow\taskflow.hpp">
@@ -161,14 +164,8 @@
     <ClInclude Include="include\Systems\GameSystems.h">
       <Filter>Header Files\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="include\Systems\TransformSystems.h">
-      <Filter>Header Files\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="include\Systems\RenderSystems.h">
       <Filter>Header Files\Systems</Filter>
-    </ClInclude>
-    <ClInclude Include="include\GameWorld.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Systems\CoreSystems.h">
       <Filter>Header Files\Systems</Filter>
@@ -180,9 +177,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\PrecompiledHeader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\ECSCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

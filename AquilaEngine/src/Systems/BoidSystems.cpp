@@ -8,9 +8,9 @@
 #include <execution>
 #include <algorithm>
 
-#include "GameWorld.h"
-#include "ApplicationInfoUI.h"
-//#include "ApplicationInfoUI.h"
+import gameworld;
+import appinfo;
+//import appinfo;
 
 
 
@@ -303,7 +303,7 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 }
 
 
-void BoidHashSystem::initial_fill(ECS_GameWorld& world)
+void BoidHashSystem::initial_fill(ECS_GameWorldBase& world)
 {
 	iterations++;
 
@@ -380,7 +380,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 	}
 }
 
-void BoidHashSystem::sort_structures(ECS_GameWorld& world)
+void BoidHashSystem::sort_structures(ECS_GameWorldBase& world)
 {
 	//ECS_Registry& registry = world.registry_entt;
 
@@ -438,7 +438,7 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 	}	
 }
 
-void BoidHashSystem::update(ECS_GameWorld & world)
+void BoidHashSystem::update(ECS_GameWorldBase & world)
 {
 	ZoneNamedNC(BoidHashSystem,"Boid Hash System", tracy::Color::Blue, true);
 	

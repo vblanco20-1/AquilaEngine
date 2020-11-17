@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 
 // Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 // SPDX-License-Identifier: MIT
@@ -21,19 +21,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
-
+module;
+#include <vector>
+//import <vector>		;
+#include <algorithm>	
+#include <typeinfo>	
+#include <assert.h>	
+#include <unordered_map>
+#include <tuple>		
+#include <iostream>	
+#include <type_traits>
 //#pragma warning( disable : 4267 5105 4005)
-export  module decsm;
+export module decsm;
 
-import <vector>		;
-import <algorithm>	;
-import <typeinfo>	;
-import <assert.h>	;
-import <robin_hood.h>;
-import <tuple>		;
-import <iostream>	;
-import <type_traits>;
 
 //#include <robin_hood.h>
  export {
@@ -367,15 +367,15 @@ import <type_traits>;
 		std::vector<EntityStorage> entities;
 		std::vector<uint32_t> deletedEntities;
 
-		robin_hood::unordered_flat_map<uint64_t, std::vector<Archetype*>> archetype_signature_map{};
-		robin_hood::unordered_flat_map<uint64_t, Archetype*> archetype_map{};
+		std::unordered_map<uint64_t, std::vector<Archetype*>> archetype_signature_map;
+		std::unordered_map<uint64_t, Archetype*> archetype_map;
 		std::vector<Archetype*> archetypes;
 		//unique archetype hashes
 		std::vector<size_t> archetypeHashes;
 		//bytemask hash for checking
 		std::vector<size_t> archetypeSignatures;
 
-		robin_hood::unordered_flat_map<uint64_t, void*> singleton_map{};
+		std::unordered_map<uint64_t, void*> singleton_map;
 
 		int live_entities{ 0 };
 		int dead_entities{ 0 };
@@ -505,7 +505,7 @@ import <type_traits>;
 			static const Metatype* mt = []() {
 				constexpr size_t name_hash = Metatype::template build_hash<T>().name_hash;
 				//has stable pointers, use name_hash for it
-				static robin_hood::unordered_node_map<uint64_t, decs::Metatype> metatype_cache;
+				static std::unordered_map<uint64_t, decs::Metatype> metatype_cache;
 
 				auto type = metatype_cache.find(name_hash);
 				if (type == metatype_cache.end()) {

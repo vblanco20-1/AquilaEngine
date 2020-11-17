@@ -1,28 +1,29 @@
-#include <locale>;
+
+module;
+#include <locale>
 
 #include "stdint.h"
 #include "concurrentqueue.h"
-
-
-
-#include "GameWorld.h"
-
-#include "ApplicationInfoUI.h"
-
 
 #include "EngineGlobals.h"
 #include "SimpleProfiler.h"
 
 #include "Timer.h"
-import "RandomUtils.h";
+
 #include "Systems/BoidSystems.h"
 #include "Systems/SpaceshipSystems.h"
 #include "Systems/LifetimeSystems.h"
 #include "Systems/GameSystems.h"
-#include "Systems/TransformSystems.h"
+
 #include "Systems/RenderSystems.h"
 
 #include "taskflow/taskflow.hpp"
+
+module gameworld;
+
+import transformsystems;
+import appinfo;
+import "RandomUtils.h";
 
 namespace ecs {
 	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
@@ -310,7 +311,7 @@ void ECS_GameWorld::update_all(float dt)
 }
 
 
-EngineTimeComponent ECS_GameWorld::GetTime()
-{
-	return *registry_decs.get_singleton<EngineTimeComponent>();
-}
+//EngineTimeComponent ECS_GameWorld::GetTime()
+//{
+//	return *registry_decs.get_singleton<EngineTimeComponent>();
+//}

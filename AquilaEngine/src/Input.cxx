@@ -1,12 +1,18 @@
-#include <PrecompiledHeader.h>
-#include <Input.h>
+module;
+#pragma warning( disable : 5106 5105 4005)
+#pragma once
+#include <windows.h>
+module input;
+
+import "imgui/imgui.h";
+
 void InputInfo(InputMap & info)
 {
 	
 		//ImGui::initi
 		ImGui::Begin("Input Info");
 
-		ImGui::Text("Scroll         : %f", info.Mousewheel);
+		ImGui::Text("Scrolls         : %f", info.Mousewheel);
 		ImGui::Text("Mouse X        : %i", info.MouseX);
 		ImGui::Text("Mouse Y        : %i", info.MouseY);
 		ImGui::Text("Mouse Delta X  : %i", info.MouseDeltaX);

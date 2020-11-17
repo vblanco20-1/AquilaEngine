@@ -3,18 +3,19 @@
 
 
 import "RandomUtils.h";
-#include "ApplicationInfoUI.h"
+import appinfo;
 
 
 #include "EngineGlobals.h"
 #include "SimpleProfiler.h"
-
-#include "Input.h"
+import transformsystems;
+import gameworld;
+import input;
 #include "Systems/BoidSystems.h"
 
-#include "GameWorld.h"
+import gameworld;
 
-void PlayerCameraSystem::update(ECS_GameWorld& world)
+void PlayerCameraSystem::update(ECS_GameWorldBase& world)
 {
 	ZoneNamed(PlayerCameraSystem, true);
 	XMFLOAT3 CamOffset = XMFLOAT3{ 0.f, 0.f, 0.f };//  (0.f, 0.f, 0.f, 0.f);
@@ -49,7 +50,7 @@ void PlayerCameraSystem::update(ECS_GameWorld& world)
 	}
 }
 
-void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
+void SpaceshipSpawnSystem::update(ECS_GameWorldBase & world)
 {
 	ZoneNamed(SpaceshipSpawnSystem, true);
 	SCOPE_PROFILE("Spawner System ")
@@ -173,7 +174,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 	}
 }
 
-void PlayerInputSystem::update(ECS_GameWorld& world)
+void PlayerInputSystem::update(ECS_GameWorldBase& world)
 {
 	auto& registry = world.registry_decs;
 	ZoneNamed(PlayerInputSystem, true);
@@ -226,7 +227,7 @@ void PlayerInputSystem::update(ECS_GameWorld& world)
 	registry.get_singleton<PlayerInputTag>()->Input = g_InputMap;
 }
 
-void RotatorSystem::update(ECS_GameWorld& world)
+void RotatorSystem::update(ECS_GameWorldBase& world)
 {
 	SCOPE_PROFILE("Rotation System-decs");
 

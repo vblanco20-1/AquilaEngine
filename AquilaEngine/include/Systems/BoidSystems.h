@@ -1,9 +1,13 @@
 #pragma once
 #include <robin_hood.h>
 //#include <PrecompiledHeader.h>
-#include "ECSCore.h"
-
+import ecscore;
+import decsm;
 #include <atomic>
+
+using namespace decs;
+
+using namespace DirectX;
 
 struct BoidComponent {
 	char Type;
@@ -95,7 +99,7 @@ struct BoidHashSystem : public System {
 	BoidHashSystem() {};
 
 	
-	virtual void update(ECS_GameWorld & world) override;
-	void initial_fill(ECS_GameWorld& world);
-	void sort_structures(ECS_GameWorld& world);
+	virtual void update(ECS_GameWorldBase & world) override;
+	void initial_fill(ECS_GameWorldBase& world);
+	void sort_structures(ECS_GameWorldBase& world);
 };

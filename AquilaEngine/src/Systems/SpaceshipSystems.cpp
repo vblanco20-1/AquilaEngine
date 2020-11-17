@@ -3,8 +3,8 @@
 #include "Systems/SpaceshipSystems.h"
 #include "Systems/BoidSystems.h"
 #include "SimpleProfiler.h"
-#include "GameWorld.h"
-#include "ApplicationInfoUI.h"
+import gameworld;
+import appinfo;
 
 void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidMap* boidMap, float DeltaTime)
 {
@@ -61,7 +61,7 @@ void update_ship_chunk(DataChunk* chnk, BoidMap* boidMap, std::atomic<int>& coun
 }
 
 
-void SpaceshipMovementSystem::update(ECS_GameWorld & world)
+void SpaceshipMovementSystem::update(ECS_GameWorldBase & world)
 {
 	ZoneNamed(SpaceshipMovementSystem, true);
 	SCOPE_PROFILE("Spaceship Movement System");
