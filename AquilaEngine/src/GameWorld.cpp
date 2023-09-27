@@ -18,6 +18,7 @@
 #include "Systems/RenderSystems.h"
 
 #include "taskflow/taskflow.hpp"
+#include <bitset>
 
 namespace ecs {
 	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
@@ -26,7 +27,7 @@ namespace ecs {
 }
 
 struct TaskStruct {
-	ecs::TaskEngine task_engine{ 1/*std::thread::hardware_concurrency()*/ };
+	ecs::TaskEngine task_engine{ 4/*std::thread::hardware_concurrency()*/ };
 };
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
@@ -156,6 +157,60 @@ void ECS_GameWorld::initialize()
 	}
 }
 
+
+struct PureScheduler {
+
+	std::vector<PureSystemBase*> systemList;
+
+	struct RunUnit {
+		std::bitset<32> system_bitflag;
+		DataChunk* chunk;
+	};
+
+	void run_all(ECS_GameWorld& world) {
+
+		Query q; //fix later
+		q.build();
+				
+		std::vector<RunUnit> units;
+
+		//gather a list of chunks that match an of the queries in the systems
+		decs::adv::iterate_matching_archetypes(&world.registry_decs,q,[&](Archetype* arch){
+			
+			RunUnit unit;
+			bool runs = false;
+			for (int i = 0; i < systemList.size(); i++) {
+				if (decs::adv::archetype_matches(*arch, systemList[i]->query)) {
+					runs = true;
+					unit.system_bitflag[i] = true;
+				}
+				else {
+					unit.system_bitflag[i] = false;
+				}
+			}
+
+			if (runs)
+			{	
+				for (auto c : arch->chunks) {
+
+					units.push_back({unit.system_bitflag,c});
+				}
+			}
+		});
+
+		std::for_each(std::execution::par, units.begin(), units.end(), [&](RunUnit& unit) {
+
+			for (int i = 0; i < systemList.size(); i++) {
+			
+				if (unit.system_bitflag[i]) {
+					systemList[i]->exec((&world),unit.chunk);
+				}
+			}
+		});
+	}
+};
+
+
 void ECS_GameWorld::update_all(float dt)
 {
 	if (!tasksystem) {
@@ -180,6 +235,8 @@ void ECS_GameWorld::update_all(float dt)
 	registry_decs.get_singleton<EngineTimeComponent>()->delta_time = dt;
 	registry_decs.get_singleton<EngineTimeComponent>()->frameNumber++;
 
+	static bool puresys = true;
+
 	frameNumber = registry_decs.get_singleton<EngineTimeComponent>()->frameNumber;
 	{
 		ZoneScopedN("Schedule");
@@ -192,9 +249,23 @@ void ECS_GameWorld::update_all(float dt)
 				
 				Explosion_system->update(*this);
 
-				SpaceshipMovement_system->update(*this);
-				Rotator_system->update(*this);
-				UpdateTransform_system->update_root(*this);
+				if (puresys) {
+
+					
+					PureScheduler stage;
+					stage.systemList.push_back(SpaceshipMovement_system->getAsPureSystem());
+					stage.systemList.push_back(Rotator_system->getAsPureSystem());
+					stage.systemList.push_back(UpdateTransform_system->update_root_puresys());
+
+					stage.run_all(*this);
+				}
+				else {
+
+					SpaceshipMovement_system->update(*this);
+					Rotator_system->update(*this);
+					UpdateTransform_system->update_root(*this);
+				}
+				
 			}
 			
 		}).name("main_simulation");
@@ -210,8 +281,6 @@ void ECS_GameWorld::update_all(float dt)
 		}).name("secondary_simulation");
 
 		secondary_simulation.gather(main_simulation);
-		
-	
 		
 
 		ecs::Task render_start = task_engine.silent_emplace([&]() {

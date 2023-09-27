@@ -39,4 +39,6 @@ struct RotatorSystem : public System {
 	RotatorSystem() {};
 
 	virtual  void update(ECS_GameWorld& world);
+
+	virtual PureSystemBase* getAsPureSystem() override;
 };

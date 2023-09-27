@@ -14,8 +14,6 @@
 // System includes
 #include <windows.h>
 
-
-
 // STL includes
 #include <iostream>
 #include <string>

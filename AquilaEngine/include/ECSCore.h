@@ -44,6 +44,8 @@ struct  System {
 	virtual ~System() {}	
 
 	virtual void update(ECS_GameWorld & world);
+
+	virtual PureSystemBase* getAsPureSystem(){return nullptr;};
 };
 
 struct RotatorComponent {

@@ -61,6 +61,36 @@ void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
 	});
 }
 
+decs::PureSystemBase* ecs::system::UpdateTransform::update_root_puresys()
+{
+	static auto puresys = []() {
+
+		Query query;
+		query.with<RenderMatrixComponent, TransformComponent>();
+		query.build();
+
+		return decs::make_pure_system_chunk(query, [](void* context, DataChunk* chnk) {
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+			
+			ZoneScopedN("Transform chunk root - pure");
+
+			//auto tfarray = get_chunk_array<TransformComponent>(chnk);
+			//auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+
+			//if (tfarray.version() > matarray.version())
+			{
+
+				update_root_transform(chnk);
+
+				//world.mark_components_changed(matarray);
+			}
+		});
+	}();
+
+	return &puresys;
+}
+
 void update_root_transform_arrays(DataChunk* chnk,
 	RenderMatrixComponent* __restrict matarray,
 	TransformComponent* __restrict transfarray,

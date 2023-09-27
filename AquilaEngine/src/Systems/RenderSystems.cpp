@@ -605,8 +605,6 @@ void ecs::system::RenderCore::render_batches(ECS_GameWorld& world)
 
 			cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->lenght);
 		}
-
-
 	}
 }
 

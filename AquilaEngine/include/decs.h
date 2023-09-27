@@ -429,6 +429,22 @@ namespace decs {
 		Archetype* get_empty_archetype() { return archetypes[0]; };
 	};
 
+	struct PureSystemBase {
+		Query query;
+		virtual void exec(void* world,DataChunk* chunk) = 0;
+	};
+
+	//template<typename Fn>
+	struct PureSystem :public PureSystemBase{
+
+		PureSystem() =default;
+		//Fn functor;
+		std::function<void(void*,DataChunk*)> functor;
+		virtual void exec(void* world, DataChunk* chunk) override {
+			functor(world,chunk);
+		}
+	};
+
 	template<typename C>
 	struct CachedRef
 	{
@@ -928,8 +944,58 @@ namespace decs {
 		template<typename C>
 		void remove_component_from_entity(ECSWorld* world, EntityID id);
 
+		
+		inline bool archetype_matches(Archetype& arch, Query& q) {
+			auto componentList = arch.componentList;
+
+			//might match an excluded component, check here
+			if (q.exclude_matcher != 0) {
+
+				bool invalid = false;
+				//dumb algo, optimize later
+				for (int mtA = 0; mtA < q.exclude_comps.size(); mtA++) {
+
+					for (auto cmp : componentList->components) {
+
+						if (cmp.type->hash == q.exclude_comps[mtA]) {
+							//any check and we out
+							return false;
+						}
+					}
+				}
+			}
+
+			int matches = 0;
+			for (int mtA = 0; mtA <	q.require_comps.size(); mtA++) {
+
+				for (auto cmp : componentList->components) {
+
+					if (cmp.type->hash == q.require_comps[mtA]) {
+						matches++;
+						break;
+					}
+				}
+			}
+			//all perfect
+			if (matches == q.require_comps.size()) {
+
+				return true;
+			}
+			else{
+			return false;
+			}
+		}
+
+
 		template<typename F>
 		void iterate_matching_archetypes(ECSWorld* world, const Query& query, F&& function) {
+			//empty query, return all
+			if(query.exclude_comps.size() == 0 && query.require_comps.size() == 0){
+			
+				for (auto a : world->archetypes) {
+					function(a);
+				}
+			}
 
 			for (int i = 0; i < world->archetypeSignatures.size(); i++)
 			{
@@ -946,7 +1012,7 @@ namespace decs {
 					if (excludeTest != 0) {
 
 						bool invalid = false;
-						//dumb algo, optimize later					
+						//dumb algo, optimize later
 						for (int mtA = 0; mtA < query.exclude_comps.size(); mtA++) {
 
 							for (auto cmp : componentList->components) {
@@ -984,10 +1050,7 @@ namespace decs {
 						function(world->archetypes[i]);
 					}
 				}
-
-
 			}
-
 		}
 
 
@@ -1263,24 +1326,6 @@ namespace decs {
 #endif
 		}
 
-
-		//template<typename A, typename B, typename C, typename D, typename Func>
-		//void entity_chunk_iterate(DataChunk* chnk, Func&& function) {
-		//
-		//	auto array0 = get_chunk_array<A>(chnk);
-		//	auto array1 = get_chunk_array<B>(chnk);
-		//	auto array2 = get_chunk_array<C>(chnk);
-		//	auto array3 = get_chunk_array<D>(chnk);
-		//
-		//	assert(array0.chunkOwner == chnk);
-		//	assert(array1.chunkOwner == chnk);
-		//	assert(array2.chunkOwner == chnk);
-		//	assert(array3.chunkOwner == chnk);
-		//	for (int i = chnk->header.last - 1; i >= 0; i--) {
-		//		function(array0[i], array1[i], array2[i], array3[i]);
-		//	}
-		//}
-
 		//by skypjack
 		template<typename... Args, typename Func>
 		void entity_chunk_iterate(DataChunk* chnk, Func&& function, uint64_t execution_id = 0) {
@@ -1306,10 +1351,6 @@ namespace decs {
 		Query& unpack_querywith(type_list<Args...> types, Query& query) {
 			return query.with<Args...>();
 		}
-
-
-
-
 
 		inline int insert_entity_in_chunk(DataChunk* chunk, EntityID EID, bool bInitializeConstructors) {
 			int index = -1;
@@ -1473,6 +1514,42 @@ namespace decs {
 		adv::destroy_entity(this, eid);
 	}
 
+	//template<typename Fn>
+	//decs::PureSystem<Fn> make_pure_system(Fn&& function) {
+	//
+	//	using params = decltype(adv::args(&Fn::operator()));
+	//
+	//	Query query;
+	//	
+	//	auto functor = [f = std::move(function)](void* context, DataChunk* chunk) {
+	//		adv::unpack_chunk(params{}, chunk, f, 0);
+	//	};
+	//
+	//	PureSystem<decltype(functor)> sys;
+	//	adv::unpack_querywith(params{}, query).build();
+	//	sys.functor = std::move(functor);
+	//
+	//	return sys;
+	//}
+
+	template<typename Fn>
+	decs::PureSystem make_pure_system_chunk(Query& query,Fn&& function) {	
+			
+
+		PureSystem sys;
+		sys.query = query;
+
+		//auto functor = [f = std::move(function)](void* context,DataChunk* chunk) {
+		//	f(context,chunk);
+		//};
+
+		sys.functor = [f = std::move(function)](void* context, DataChunk* chunk) {
+				f(context,chunk);
+		};
+
+		return std::move(sys);
+	}
+
 	template<typename Func>
 	void decs::ECSWorld::for_each(Query& query, Func&& function, uint64_t execution_id)
 	{
@@ -1484,8 +1561,17 @@ namespace decs {
 
 				adv::unpack_chunk(params{}, chnk, function, execution_id);
 			}
-			});
+		});
 	}
+
+	template<typename Func>
+	void chunk_for_each(DataChunk* chunk, Func&& function)
+	{
+		using params = decltype(adv::args(&Func::operator()));
+
+		adv::unpack_chunk(params{}, chunk, function, 0);
+	}
+
 	template<typename Func>
 	void decs::ECSWorld::for_each(Func&& function, uint64_t execution_id)
 	{

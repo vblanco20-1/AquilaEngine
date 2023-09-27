@@ -239,3 +239,29 @@ void RotatorSystem::update(ECS_GameWorld& world)
 		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
 	},world.frameNumber);
 }
+
+decs::PureSystemBase* RotatorSystem::getAsPureSystem()
+{
+	static auto puresys = []() {		
+
+		Query query;
+		query.with<RotatorComponent, TransformComponent>();
+		query.build();
+
+		return decs::make_pure_system_chunk(query, [](void* context, DataChunk* chnk) {
+
+			ZoneScopedN("rotation - pure");
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+			float dt = world.GetTime().delta_time;
+			
+			decs::chunk_for_each(chnk, [&](RotatorComponent& rotator, TransformComponent& t) {
+
+				t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
+			});
+			
+		});
+	}();
+
+	return &puresys;
+}

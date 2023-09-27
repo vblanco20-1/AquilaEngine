@@ -6,4 +6,5 @@ struct SpaceshipMovementSystem : public System {
 	SpaceshipMovementSystem() {};
 
 	virtual void update(ECS_GameWorld & world);
+	virtual PureSystemBase* getAsPureSystem() override;
 };

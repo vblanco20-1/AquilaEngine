@@ -63,7 +63,7 @@
     <ClCompile Include="src\Systems\RenderSystems.cpp">
       <Filter>Source Files\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="third_party\tracy\TracyClient.cpp">
+    <ClCompile Include="third_party\tracy\public\TracyClient.cpp">
       <Filter>Source Files\ThirdParty</Filter>
     </ClCompile>
     <ClCompile Include="src\Systems\LifetimeSystems.cpp">

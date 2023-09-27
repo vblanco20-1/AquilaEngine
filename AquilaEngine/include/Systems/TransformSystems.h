@@ -37,7 +37,7 @@ namespace ecs::system {
 			matrix = RotMat * (ScaleMat * TranslationMat);
 		}
 
-		
+		decs::PureSystemBase* update_root_puresys();
 
 		void update_root(ECS_GameWorld& world);
 		void update_hierarchy(ECS_GameWorld& world);

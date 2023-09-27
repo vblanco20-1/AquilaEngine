@@ -94,3 +94,34 @@ void SpaceshipMovementSystem::update(ECS_GameWorld & world)
 	appInfo->BoidEntities = num.load();
 }
 
+decs::PureSystemBase* SpaceshipMovementSystem::getAsPureSystem()
+{
+	static auto puresys = [](){
+	
+		Query spaceshipQuery;
+		spaceshipQuery.with<SpaceshipMovementComponent, TransformComponent>();
+		spaceshipQuery.build();
+
+		return decs::make_pure_system_chunk(spaceshipQuery,[](void* context,DataChunk* chnk) {
+
+			ZoneScopedN("SpaceshipMovementSystem - pure");
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+			
+
+			BoidReferenceTag* boidref = world.registry_decs.get_singleton<BoidReferenceTag>();
+			ApplicationInfo* appInfo = world.registry_decs.get_singleton<ApplicationInfo>();
+
+			std::atomic<int> num;
+			update_ship_chunk(chnk, boidref->map, num);
+
+			auto transfarray = get_chunk_array<TransformComponent>(chnk);
+			world.mark_components_changed(transfarray);
+			
+			appInfo->BoidEntities+= num.load();
+		});
+	}();
+
+	return &puresys;
+}
+
