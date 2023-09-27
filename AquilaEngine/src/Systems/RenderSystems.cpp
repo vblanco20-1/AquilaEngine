@@ -463,9 +463,9 @@ void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 
 void ecs::system::FrustrumCuller::update_cull_sphere(CullSphere* sphere, TransformComponent* transform, float scale)
 {
-	float radius = XMVectorGetX(XMVector3Length(transform->scale)) *scale;
+	float radius = XMVectorGetX(XMVector3Length(transform->tf->scale)) *scale;
 
-	memcpy(&sphere->sphere, &transform->position, sizeof(XMVECTOR));
+	memcpy(&sphere->sphere, &transform->tf->position, sizeof(XMVECTOR));
 
 	//sphere->sphere.Center = //XMMVector3(// XMVector3  transform->position;
 	

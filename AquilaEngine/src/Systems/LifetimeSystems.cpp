@@ -14,7 +14,8 @@ void BuildExplosionEffect(const XMFLOAT3 Position, ECS_GameWorld& world)
 		ExplosionFXComponent, CullSphere, CullBitmask>();
 
 	reg->get_component<CubeRendererComponent>(explosion).color = XMFLOAT3(0.0, 1.0, 1.0);
-	reg->get_component<TransformComponent>(explosion).position = XMVectorSet(Position.x, Position.y, Position.z, 1.f);
+	reg->get_component<TransformComponent>(explosion).init();
+	reg->get_component<TransformComponent>(explosion).tf->position = XMVectorSet(Position.x, Position.y, Position.z, 1.f);
 	reg->get_component<LifetimeComponent>(explosion).TimeLeft = 2.f / 5.0f;
 
 	CullSphere& sphere = reg->get_component<CullSphere>(explosion);
@@ -57,7 +58,7 @@ void DestructionSystem::update(ECS_GameWorld& world)
 				if (lfarray[i].TimeLeft < 0)
 				{
 					if (is_spaceship) {
-						auto & p = tfarray[i].position;
+						auto & p = tfarray[i].tf->position;
 
 						ExplosionSpawnStruct ex;
 
@@ -65,19 +66,12 @@ void DestructionSystem::update(ECS_GameWorld& world)
 						ex.position.y = XMVectorGetY(p);
 						ex.position.z = XMVectorGetZ(p);
 						ExplosionsToSpawn.enqueue(ex);
+
 					}
 
 					EntitiesToDelete_decs.enqueue(idarray[i]);
 				}
 			}
-		});
-	}
-
-	{
-		ZoneScopedN("Apply deletions");
-
-		bulk_dequeue(EntitiesToDelete_decs, [&](EntityID& e) {
-			reg->destroy(e);
 		});
 	}
 	{
@@ -87,6 +81,14 @@ void DestructionSystem::update(ECS_GameWorld& world)
 			BuildExplosionEffect(ex.position, world);
 		});
 	}
+	{
+		ZoneScopedN("Apply deletions");
+
+		bulk_dequeue(EntitiesToDelete_decs, [&](EntityID& e) {
+			reg->destroy(e);
+		});
+	}
+	
 
 	Query query2;
 	query2.with<TransformParentComponent>();
@@ -123,11 +125,11 @@ void ExplosionFXSystem::update(ECS_GameWorld& world)
 
 	float dt = world.GetTime().delta_time;
 
-	world.registry_decs.for_each([&](ExplosionFXComponent& fx, TransformComponent& transform) {
+	world.registry_decs.for_each([&](ExplosionFXComponent& fx,TransformComponent& transform) {
 		
 		fx.elapsed += 5.0 * dt;
 
 		const float sc = 3 + ((1 - abs(fx.elapsed - 1.0f)) / 1.0f) * 5;
-		transform.scale = XMVectorSet(sc, sc, sc, sc);
-	},world.frameNumber);	
+		transform.tf->scale = XMVectorSet(sc, sc, sc, sc);
+	},world.frameNumber);
 }

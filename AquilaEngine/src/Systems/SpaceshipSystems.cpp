@@ -6,13 +6,13 @@
 #include "GameWorld.h"
 #include "ApplicationInfoUI.h"
 
-void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, BoidMap* boidMap, float DeltaTime)
+void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformComponent & Transform, SceneNodeComponent& sceneNode ,BoidMap* boidMap, float DeltaTime)
 {
 	auto & ship = SpaceshipMov;
 	auto & t = Transform; 
 	const float dt = DeltaTime;
 
-	XMVECTOR Mov = XMLoadFloat3(&ship.Target) - t.position;
+	XMVECTOR Mov = XMLoadFloat3(&ship.Target) - t.tf->position;
 	Mov = XMVector3Normalize(Mov);
 	Mov = Mov * ship.speed * dt;
 
@@ -21,10 +21,10 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 	XMVECTOR OffsetVelocity{ 0.0f,0.0f,0.0f,0.0f };
 	int num = 10;
-	boidMap->Foreach_EntitiesInRadius_Morton(3, t.position, [&](const GridItem2& boid) {
+	boidMap->Foreach_EntitiesInRadius_Morton(3, t.tf->position, [&](const GridItem2& boid) {
 	
 		
-			XMVECTOR Avoidance = t.position - boid.pos;
+			XMVECTOR Avoidance = t.tf->position - boid.pos;
 			float dist = XMVectorGetX(XMVector3Length(Avoidance));
 			OffsetVelocity += XMVector3Normalize(Avoidance) * (1.0f - (std::clamp(dist / 10.0f, 0.0f, 1.0f)));
 			num--;
@@ -35,13 +35,17 @@ void UpdateSpaceship(SpaceshipMovementComponent & SpaceshipMov, TransformCompone
 
 	ShipVel = XMVector3ClampLength(ShipVel + OffsetVelocity, 0.0f, ship.speed);
 
-	XMMATRIX rotmat = XMMatrixLookAtLH(t.position, t.position + ShipVel * 10, XMVectorSet(0, 1, 0, 0));
+	XMMATRIX rotmat = XMMatrixLookAtLH(t.tf->position, t.tf->position + ShipVel * 10, XMVectorSet(0, 1, 0, 0));
 
-	t.rotationQuat = XMQuaternionRotationMatrix(rotmat);
+	t.tf->rotationQuat = XMQuaternionRotationMatrix(rotmat);
 
-	t.position = t.position + ShipVel;
+	t.tf->position = t.tf->position + ShipVel;
 
 	XMStoreFloat3(&ship.Velocity, ShipVel);
+
+	sceneNode.node->matrix = ecs::system::UpdateTransform::get_matrix(*t.tf);
+	
+	refresh_matrix(sceneNode.node);
 }
 
 
@@ -52,11 +56,12 @@ void update_ship_chunk(DataChunk* chnk, BoidMap* boidMap, std::atomic<int>& coun
 
 	auto sparray = get_chunk_array<SpaceshipMovementComponent>(chnk);
 	auto transfarray = get_chunk_array<TransformComponent>(chnk);
+	auto nodearray = get_chunk_array<SceneNodeComponent>(chnk);
 
 	count += chnk->count();
 	for (int i = chnk->count() - 1; i >= 0; i--)
 	{
-		UpdateSpaceship(sparray[i], transfarray[i], boidMap, 1.0 / 30.f);
+		UpdateSpaceship(sparray[i], transfarray[i], nodearray[i], boidMap, 1.0 / 30.f);
 	}
 }
 

@@ -27,12 +27,25 @@ struct ExplosionFXComponent {
 	
 	float elapsed = 0;
 };
-struct TransformComponent {
+
+struct Transform {
 	XMVECTOR position;
 	XMVECTOR rotationQuat;
-	XMVECTOR scale;	
+	XMVECTOR scale;
+
+	Transform() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), 0)), scale(XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f)) {
+	}
+};
+
+struct TransformComponent {
+	Transform* tf;
 	
-	TransformComponent() : rotationQuat(XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f),0)), scale(XMVectorSet(1.0f,1.0f,1.0f,1.0f)){		
+	void init() {
+		tf = new Transform;
+	}
+
+	~TransformComponent() {
+		delete tf;
 	}
 };
 
@@ -76,14 +89,14 @@ struct RenderMatrixComponent {
 	XMMATRIX Matrix;
 };
 
-struct LocalMatrix {
-	LocalMatrix(XMMATRIX&& other)
-	{
-		Matrix = other;
-	}
-	LocalMatrix() = default;
-	XMMATRIX Matrix;
-};
+//struct LocalMatrix {
+//	LocalMatrix(XMMATRIX&& other)
+//	{
+//		Matrix = other;
+//	}
+//	LocalMatrix() = default;
+//	XMMATRIX Matrix;
+//};
 
 struct CubeRendererComponent{
 	float randomval = 1.f;
@@ -113,6 +126,116 @@ struct SpaceshipSpawnerComponent {
 	float Elapsed;
 };
 
+struct SceneNode {
+	XMMATRIX matrix;
+	SceneNode* parent{};
+	SceneNode* firstChild{};
+	SceneNode* nextBrother{};
+	SceneNode* prevBrother;
+
+	Transform* transform{};
+};
+
+struct SceneNodeComponent {
+	
+	SceneNode* node;
+	Transform* transform;
+
+	void init(Transform* tf) {
+		node = new SceneNode;
+		node->transform = tf;
+		transform = tf;
+	}
+	~SceneNodeComponent() {
+		//disconnect properly
+		if (node)
+		{
+			//separate from parent
+			detachParent();
+
+
+			SceneNode* c = node->firstChild;
+			//unparent children
+			while (c) {
+				SceneNode* next = c->nextBrother;
+				c->nextBrother = nullptr;
+				c->prevBrother = nullptr;
+				c->parent = nullptr;
+				c = next;
+			}
+			
+
+
+			//
+			//for (auto& p : node->children) {
+			//	p->parent = nullptr;
+			//}
+			//kill node
+			delete node;
+		}
+	}
+
+	void detachParent() {
+		if (node->parent) {
+			//its a circular linked list, if brother == node, its a single-child
+			if (node->nextBrother == node) {
+				node->parent->firstChild = nullptr;
+			}
+			else {
+				node->prevBrother->nextBrother = node->nextBrother;
+				node->nextBrother->prevBrother = node->prevBrother;
+			}
+
+			node->nextBrother = nullptr;
+			node->prevBrother = nullptr;
+			node->parent = nullptr;
+		}
+	}
+
+	void setParent(SceneNode* parent) {
+		if(node->parent == parent) return; //already a child of this
+
+
+		detachParent();
+
+		//parent has no children
+		if (parent->firstChild == nullptr) {
+			parent->firstChild = node;
+			node->prevBrother = node;
+			node->nextBrother = node;
+		}
+		else {
+			//insert after the firstchild
+			node->nextBrother = parent->firstChild->nextBrother;
+			node->prevBrother = parent->firstChild;
+
+			node->prevBrother->nextBrother = node;
+			node->nextBrother->prevBrother = node;
+		}
+
+		node->parent = parent;
+
+		//int holeIdx = -1;
+		//for (int i = 0; i < parent->children.size(); i++) {
+		//	auto p = parent->children[i];
+		//	if (p == node) return; //already in child list? 
+		//	else if (p == nullptr) //parent has a hole, fill it
+		//	{
+		//		holeIdx = i; break;
+		//	}
+		//}
+		//
+		//if (holeIdx >= 0) {
+		//	parent->children[holeIdx] = node;
+		//}
+		//else {
+		//	parent->children.push_back(node);
+		//}
+	}
+}; 
+
+
+constexpr auto f = sizeof(SceneNodeComponent);
 struct TransformParentComponent {
 	decs::CachedRef<RenderMatrixComponent> ParentTransform;
 	decs::EntityID Parent;

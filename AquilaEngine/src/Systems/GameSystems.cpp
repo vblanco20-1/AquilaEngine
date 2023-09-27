@@ -77,7 +77,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				SpawnUnit newSpaceship;
 
 				float  randomtint = rng::RandomFloat();
-				if (XMVectorGetX(tr.position) > 0)
+				if (XMVectorGetX(tr.tf->position) > 0)
 				{
 					newSpaceship.Color = XMFLOAT3(1.0f, randomtint, randomtint);
 				}
@@ -86,7 +86,7 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 					newSpaceship.Color = XMFLOAT3(randomtint, randomtint, 1.0f);
 				}
 
-				auto pos = tr.position + XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
+				auto pos = tr.tf->position + XMVectorSet(roll_x * spawner.Bounds.x, roll_y * spawner.Bounds.y, roll_z * spawner.Bounds.z, 1.0);
 
 				DirectX::XMStoreFloat3(&newSpaceship.Position, pos);
 				DirectX::XMStoreFloat3(&newSpaceship.MoveTarget, spawner.ShipMoveTarget);
@@ -107,18 +107,21 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 				CubeRendererComponent,
 				BoidComponent,
 				RenderMatrixComponent,
+				SceneNodeComponent,
 				CullSphere,
 				CullBitmask
 			>();
+			reg->get_component<TransformComponent>(et).init();
+			reg->get_component<TransformComponent>(et).tf->position = DirectX::XMLoadFloat3(&unit.Position);
 
-			reg->get_component<TransformComponent>(et).position = DirectX::XMLoadFloat3(&unit.Position);
+			reg->get_component<SceneNodeComponent>(et).init(reg->get_component<TransformComponent>(et).tf);
+
+			SceneNode* rootNode = reg->get_component<SceneNodeComponent>(et).node;
 
 			reg->get_component<LifetimeComponent>(et).TimeLeft = 5;
 
 			SpaceshipMovementComponent& mv = reg->get_component<SpaceshipMovementComponent>(et);
-			mv.Velocity = XMFLOAT3(rng::RandomFloat() * 2, rng::RandomFloat() * 2, rng::RandomFloat() * 2) ;
-					
-			
+			mv.Velocity = XMFLOAT3(rng::RandomFloat() * 2, rng::RandomFloat() * 2, rng::RandomFloat() * 2) ;			
 			
 			XMVECTOR TVector= XMLoadFloat3(&unit.MoveTarget) + XMVectorSet(rng::RandomFloat() * 20, rng::RandomFloat() * 20, rng::RandomFloat() * 20,0.f);
 			
@@ -129,45 +132,55 @@ void SpaceshipSpawnSystem::update(ECS_GameWorld & world)
 			float offsets = 3;
 			{
 				auto child = reg->new_entity<TransformComponent,
-					LocalMatrix,
+					//LocalMatrix,
 					TransformParentComponent,
 					CubeRendererComponent,
 					RenderMatrixComponent,
+					SceneNodeComponent,
 					CullSphere,
 					CullBitmask
 				>();
 
 				TransformComponent& tfc = reg->get_component<TransformComponent>(child);
-				LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
+				tfc.init();
 
-				tfc.position = XMVectorSet(0.f, offsets, 0.f, 1.f);
-				tfc.scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+				reg->get_component<SceneNodeComponent>(child).init(tfc.tf);
+				reg->get_component<SceneNodeComponent>(child).setParent(rootNode);
+				//LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
 
-				reg->get_component<TransformParentComponent>(child).Parent = et;			
-				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
-
-				ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
-			}
-			{
-				auto child = reg->new_entity<TransformComponent,
-					TransformParentComponent,
-					LocalMatrix,
-					CubeRendererComponent,
-					RenderMatrixComponent,
-					CullSphere,
-					CullBitmask
-				>();
-
-				TransformComponent& tfc = reg->get_component<TransformComponent>(child);
-				LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
-
-				tfc.position = XMVectorSet(0.f, -offsets, 0.f, 1.f);
-				tfc.scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+				tfc.tf->position = XMVectorSet(0.f, offsets, 0.f, 1.f);
+				tfc.tf->scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
 
 				reg->get_component<TransformParentComponent>(child).Parent = et;
 				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
 
-				ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
+				//ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
+			}
+			{
+				auto child = reg->new_entity<TransformComponent,
+					TransformParentComponent,
+				//	LocalMatrix,
+					CubeRendererComponent,
+					RenderMatrixComponent,
+					SceneNodeComponent,
+					CullSphere,
+					CullBitmask
+				>();
+
+				TransformComponent& tfc = reg->get_component<TransformComponent>(child);
+				tfc.init();
+				reg->get_component<SceneNodeComponent>(child).init(tfc.tf);
+				reg->get_component<SceneNodeComponent>(child).setParent(rootNode);
+
+				//LocalMatrix& rtc = reg->get_component<LocalMatrix>(child);
+
+				tfc.tf->position = XMVectorSet(0.f, -offsets, 0.f, 1.f);
+				tfc.tf->scale = XMVectorSet(0.5f, 0.5f, 10.f, 1.f);
+
+				reg->get_component<TransformParentComponent>(child).Parent = et;
+				reg->get_component<CubeRendererComponent>(child).color = XMFLOAT3(0.f, 0.f, 0.f);
+
+				//ecs::system::UpdateTransform::build_matrix(tfc, rtc.Matrix);
 			}
 		}
 	}
@@ -236,7 +249,7 @@ void RotatorSystem::update(ECS_GameWorld& world)
 
 	reg->for_each([&](RotatorComponent& rotator, TransformComponent& t) {
 
-		t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
+		t.tf->rotationQuat = XMQuaternionMultiply(t.tf->rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
 	},world.frameNumber);
 }
 
@@ -257,7 +270,7 @@ decs::PureSystemBase* RotatorSystem::getAsPureSystem()
 			
 			decs::chunk_for_each(chnk, [&](RotatorComponent& rotator, TransformComponent& t) {
 
-				t.rotationQuat = XMQuaternionMultiply(t.rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
+				t.tf->rotationQuat = XMQuaternionMultiply(t.tf->rotationQuat, XMQuaternionRotationAxis(XMLoadFloat3(&rotator.Axis), dt * rotator.rate));
 			});
 			
 		});

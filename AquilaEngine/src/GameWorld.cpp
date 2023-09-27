@@ -66,9 +66,10 @@ void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetL
 		reg->get_component<CubeRendererComponent>(spawner1).color = XMFLOAT3(randomtint, randomtint, 1.0f);
 	}
 
-	reg->get_component<TransformComponent>(spawner1).scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
-	reg->get_component<TransformComponent>(spawner1).position = XMVectorSet(posx, posy, posz, 1.0f);
-	reg->get_component<TransformComponent>(spawner1).rotationQuat = XMQuaternionIdentity();
+	reg->get_component<TransformComponent>(spawner1).init();
+	reg->get_component<TransformComponent>(spawner1).tf->scale = XMVectorSet(1.0f, 10.0f, 10.0f, 0.0f);
+	reg->get_component<TransformComponent>(spawner1).tf->position = XMVectorSet(posx, posy, posz, 1.0f);
+	reg->get_component<TransformComponent>(spawner1).tf->rotationQuat = XMQuaternionIdentity();
 
 
 	CullSphere& sphere = reg->get_component<CullSphere>(spawner1);
@@ -144,9 +145,10 @@ void ECS_GameWorld::initialize()
 			float yoffset = fmax(0.0f, (dist /3.f) - 1000.f);
 			float y = rng::RandomFloat() * 100 - 1000 + yoffset;
 			TransformComponent transf;
-			transf.position = XMVectorSet(x, y, z, 1.0);
-			transf.rotationQuat = XMQuaternionIdentity();
-			transf.scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
+			transf.init();
+			transf.tf->position = XMVectorSet(x, y, z, 1.0);
+			transf.tf->rotationQuat = XMQuaternionIdentity();
+			transf.tf->scale = XMVectorSet(120.0f, 120.0f, 100.0f, 0.0f);
 	
 			auto e = reg->new_entity<RenderMatrixComponent, CubeRendererComponent, StaticTransform,CullSphere,CullBitmask>();
 			CullSphere& sphere = reg->get_component<CullSphere>(e);

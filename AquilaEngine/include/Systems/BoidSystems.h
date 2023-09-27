@@ -16,8 +16,6 @@ struct GridVec {
 	short int x;
 	short int y;
 	short int z;
-
-
 };
 struct GridItem2 {
 	//BoidComponent boid;
@@ -68,19 +66,14 @@ struct BoidMap {
 	std::atomic_uint32_t MortonIdx;
 
 	bool Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start, const size_t end, const uint64_t morton) const;
-	GridVec GridVecFromPosition(const PositionComponent & position);
+	
 	GridVec GridVecFromVector(const XMVECTOR & position);
-	void AddToGridmap(const PositionComponent & position, const BoidComponent & boid);
+	
 	void AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid, size_t index);
 
 	
-
-	void Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
-
 	void Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)>&&Body);
 
-
-	void Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> &&Body);
 	void Foreach_EntitiesInRadius_Morton(float radius, const XMVECTOR & position, std::function<bool(const GridItem2&)> &&Body);
 
 };

@@ -17,14 +17,6 @@
 
 
 
-GridVec BoidMap::GridVecFromPosition(const PositionComponent & position)
-{
-	GridVec loc;
-	loc.x = (int)(position.Position.x / GRID_DIMENSIONS);
-	loc.y = (int)(position.Position.y / GRID_DIMENSIONS);
-	loc.z = (int)(position.Position.z / GRID_DIMENSIONS);
-	return loc;
-}
 
 GridVec BoidMap::GridVecFromVector(const XMVECTOR & position)
 {
@@ -43,21 +35,7 @@ uint64_t MortonFromGrid(GridVec Loc)
 
 	return morton3D_64_encode(x, y, z);
 }
-void BoidMap::AddToGridmap(const PositionComponent & position, const BoidComponent & boid)
-{
-	GridVec loc = GridVecFromPosition(position);
 
-	GridItem2 gr(MortonFromGrid(loc));
-
-	
-	//gr.boid = boid;
-	gr.grid = loc;
-	
-	gr.pos = XMLoadFloat3(&position.Position);
-	Mortons[MortonIdx++] = gr;	
-
-	return;	
-}
 void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size_t index)
 {
 	GridVec loc = GridVecFromVector(pos);
@@ -89,12 +67,6 @@ void BoidMap::AddToGridmap(const XMVECTOR & pos, const BoidComponent & boid,size
 }
 
 
-
-void BoidMap::Foreach_EntitiesInGrid(const PositionComponent & Position, std::function<void(GridItem&)> &&Body)
-{
-	
-}
-
 void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<void(GridItem2&)>&& Body)
 {
 	//GridVec loc = GridVecFromPosition(Position);
@@ -113,41 +85,6 @@ void BoidMap::Foreach_EntitiesInGrid_Morton(const GridVec & loc, std::function<v
 
 }
 
-void BoidMap::Foreach_EntitiesInRadius(float radius, const PositionComponent & Position, std::function<void(GridItem&)> &&Body)
-{
-	//const float radSquared = radius * radius;
-	//
-	//
-	//XMVECTOR Pos = XMLoadFloat3(&Position.Position);
-	//
-	//GridVec MinGrid = GridVecFromVector(Pos - XMVECTOR{ radius });
-	//
-	//GridVec MaxGrid = GridVecFromVector(Pos + XMVECTOR{ radius });
-	//
-	//for (int x = MinGrid.x; x <= MaxGrid.x; x++) {
-	//	for (int y = MinGrid.y; y <= MaxGrid.y; y++) {
-	//		for (int z = MinGrid.z; z <= MaxGrid.z; z++) {
-	//			const GridVec SearchLoc{ x, y, z };
-	//
-	//			auto search = Grid.find(SearchLoc);
-	//			if (search != Grid.end())
-	//			{
-	//				for (auto g : search->second.boids)
-	//				{
-	//					XMVECTOR Otherpos = XMLoadFloat3(&g.second.Position);
-	//					XMVECTOR Dist = XMVector3LengthSq(Pos - Otherpos);
-	//					if (XMVectorGetX(Dist) < radSquared)
-	//					{
-	//						Body(g);
-	//					}
-	//
-	//				}
-	//
-	//			}
-	//		}
-	//	}
-	//}
-}
 
 bool BoidMap::Binary_Find_Hashmark(GridHashmark &outHashmark, const size_t start, const size_t end, const uint64_t morton) const
 {
@@ -376,7 +313,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world, tf::Subflow& sf)
 
 			for (int i = 0; i < chnk->count(); i++)
 			{
-				boidref.map->AddToGridmap(transforms[i].position, boids[i], first_idx + i);
+				boidref.map->AddToGridmap(transforms[i].tf->position, boids[i], first_idx + i);
 			}
 		});
 		sf.join();
