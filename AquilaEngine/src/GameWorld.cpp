@@ -18,16 +18,20 @@
 #include "Systems/RenderSystems.h"
 
 #include "taskflow/taskflow.hpp"
+#include "taskflow/core/taskflow.hpp"
+#include "taskflow/core/task.hpp"
+#include "taskflow/algorithm/for_each.hpp"
 #include <bitset>
 
 namespace ecs {
-	using TaskEngine = tf::Taskflow;//tf::BasicTaskflow<std::function<void()>>;
-	using Task = typename TaskEngine::TaskType;
-	using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
+	//tf::Executor executor;
+	using TaskEngine = tf::Executor;
+	using Task = tf::Task;
+	//using SubflowBuilder = typename TaskEngine::SubflowBuilderType;
 }
 
 struct TaskStruct {
-	ecs::TaskEngine task_engine{ 4/*std::thread::hardware_concurrency()*/ };
+	ecs::TaskEngine task_engine{ std::thread::hardware_concurrency()-1 };
 };
 
 void BuildShipSpawner(ECS_GameWorld& world, XMVECTOR  Location, XMVECTOR TargetLocation)
@@ -167,7 +171,7 @@ struct PureScheduler {
 		DataChunk* chunk;
 	};
 
-	void run_all(ECS_GameWorld& world) {
+	void run_all(ECS_GameWorld& world, tf::Subflow& subflow) {
 
 		Query q; //fix later
 		q.build();
@@ -198,7 +202,7 @@ struct PureScheduler {
 			}
 		});
 
-		std::for_each(std::execution::par, units.begin(), units.end(), [&](RunUnit& unit) {
+		subflow.for_each( units.begin(), units.end(), [&](RunUnit& unit) {
 
 			for (int i = 0; i < systemList.size(); i++) {
 			
@@ -207,6 +211,7 @@ struct PureScheduler {
 				}
 			}
 		});
+		subflow.join();
 	}
 };
 
@@ -238,9 +243,15 @@ void ECS_GameWorld::update_all(float dt)
 	static bool puresys = true;
 
 	frameNumber = registry_decs.get_singleton<EngineTimeComponent>()->frameNumber;
+
+	tf::Taskflow taskflow;
+
+	Renderer->culler->init_singletons(*this);
+	Renderer->cube_renderer->init_singletons(*this);
+
 	{
 		ZoneScopedN("Schedule");
-		ecs::Task main_simulation = task_engine.silent_emplace([&]() {
+		ecs::Task main_simulation = taskflow.emplace([&](tf::Subflow& subflow) {
 			ZoneScopedN("Main Simulation");
 			//std::atomic<int> boidcount{ 0 };
 			PlayerInput_system->update(*this);
@@ -257,7 +268,7 @@ void ECS_GameWorld::update_all(float dt)
 					stage.systemList.push_back(Rotator_system->getAsPureSystem());
 					stage.systemList.push_back(UpdateTransform_system->update_root_puresys());
 
-					stage.run_all(*this);
+					stage.run_all(*this,subflow);
 				}
 				else {
 
@@ -270,57 +281,79 @@ void ECS_GameWorld::update_all(float dt)
 			
 		}).name("main_simulation");
 
-		ecs::Task secondary_simulation = task_engine.silent_emplace([&]() {
+		ecs::Task secondary_simulation = taskflow.emplace([&](tf::Subflow& subflow) {
+
+			PureScheduler stage;
 			if (appInfo.bEnableSimulation) {
-				
-				UpdateTransform_system->update_hierarchy(*this);
+				stage.systemList.push_back(UpdateTransform_system->update_hierarchy_puresys());
 			}
 			if (appInfo.bEnableCulling || appInfo.bEnableSimulation) {
-				Renderer->culler->build_view_queues(*this);
+
+				stage.systemList.push_back(Renderer->culler->cull_puresys());
 			}
+			stage.systemList.push_back(Renderer->cube_renderer->cubebatch_puresys());
+			stage.run_all(*this, subflow);
+
+			//auto s1 = subflow.emplace([&](tf::Subflow& subflow) {
+			//	if (appInfo.bEnableSimulation) {
+			//
+			//		UpdateTransform_system->update_hierarchy(*this, subflow);
+			//	}
+			//});
+			//auto s2 = subflow.emplace([&](tf::Subflow& subflow) {
+			//	if (appInfo.bEnableCulling || appInfo.bEnableSimulation) {
+			//		//Renderer->culler->build_view_queues(*this, subflow);
+			//
+			//		
+			//	
+			//});
+			//
+			//s1.precede(s2);
+			//subflow.join();
+			
 		}).name("secondary_simulation");
 
-		secondary_simulation.gather(main_simulation);
+		secondary_simulation.succeed(main_simulation);
 		
 
-		ecs::Task render_start = task_engine.silent_emplace([&]() {
+		ecs::Task render_start = taskflow.emplace([&]() {
 
 			Renderer->render_start();
 			Renderer->cam_updater->update(*this);
 		}).name("render start");
-		ecs::Task render_end = task_engine.silent_emplace([&]() {
+		ecs::Task render_end = taskflow.emplace([&]() {
 
-			Renderer->render_end();
+			Renderer->render_end(*this);
 		}).name("render end");
 	
 
-		render_end.gather(render_start);
+		render_end.succeed(render_start);
 		
-		ecs::Task cullapply_task = task_engine.silent_emplace([&]() {
+		ecs::Task cullapply_task = taskflow.emplace([&]() {
 			Renderer->culler->apply_queues(*this);
 		}).name("cull apply");
 
-		ecs::Task cube_task = task_engine.silent_emplace([&]() {
-			Renderer->cube_renderer->update(*this);
+		ecs::Task cube_task = taskflow.emplace([&](tf::Subflow& subflow) {
+			//Renderer->cube_renderer->update_par(*this,subflow);
 			}).name("cube process");
 
-		ecs::Task draw_task = task_engine.silent_emplace([&]() {
+		ecs::Task draw_task = taskflow.emplace([&]() {
 			Renderer->render_batches(*this);
 			}).name("draw meshes");
 
-		ecs::Task boid_fill_task = task_engine.silent_emplace([&]() {
+		ecs::Task boid_fill_task = taskflow.emplace([&](tf::Subflow& subflow) {
 			if (appInfo.bEnableSimulation) {
-				BoidHash_system->initial_fill(*this);
+				BoidHash_system->initial_fill(*this,subflow);
 			}
 		}).name("fill boids");
 
-		ecs::Task boid_sort_task = task_engine.silent_emplace([&]() {
+		ecs::Task boid_sort_task = taskflow.emplace([&](tf::Subflow& subflow) {
 			if (appInfo.bEnableSimulation) {
-				BoidHash_system->sort_structures(*this);
+				BoidHash_system->sort_structures(*this,subflow);
 			}
 		}).name("sort boids");
 
-		ecs::Task lifetime_updates = task_engine.silent_emplace([&]() {
+		ecs::Task lifetime_updates = taskflow.emplace([&]() {
 			if (appInfo.bEnableSimulation) {
 				SpaceshipSpawn_system->update(*this);
 				Destruction_system->update(*this);
@@ -333,27 +366,30 @@ void ECS_GameWorld::update_all(float dt)
 		main_simulation.precede(cullapply_task);
 		main_simulation.precede(boid_fill_task);
 
-		render_start.precede(main_simulation);
+		//render_start.succeed(secondary_simulation);
 
-		draw_task.precede(cube_task);
+		//draw_task.precede(cube_task);
 
-		task_engine.linearize({ render_start, draw_task, render_end });
+		taskflow.linearize({ render_start,draw_task , render_end});
 		
-		task_engine.linearize({ render_start, cullapply_task, cube_task});
+		taskflow.linearize({ render_start, cullapply_task, cube_task,render_end });
 
-		task_engine.linearize({ render_start,boid_fill_task,boid_sort_task });
+		taskflow.linearize({ render_start,boid_fill_task,boid_sort_task });
 
-		task_engine.linearize({ render_start,cube_task,lifetime_updates });
+		taskflow.linearize({ boid_sort_task,lifetime_updates });
 
-		task_engine.linearize({ render_start,boid_fill_task,lifetime_updates });
+		//taskflow.linearize({ render_start,boid_fill_task,lifetime_updates });
+
+		//std::ofstream file("graphviz.txt");
+		//taskflow.dump(file);
 		}
 		{
 			ZoneNamed(RenderUpdate, true);
 			Bench_Start(bench);
 
-			task_engine.wait_for_all();
+			task_engine.run(taskflow).wait();
 
-
+			
 
 			appInfo.TotalEntities = registry_decs.live_entities;
 			debug_elapsed += dt;

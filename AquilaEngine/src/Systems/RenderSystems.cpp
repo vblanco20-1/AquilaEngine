@@ -61,13 +61,6 @@ bool IsVisibleFrustrumCull(const XMVECTOR& pos,const XMVECTOR &CamPos,const XMVE
 	}
 }
 
-void ecs::system::FrustrumCuller::update(ECS_GameWorld &world)
-{
-	build_view_queues(world);
-	apply_queues(world);
-}
-
-
 #if 0
 bool get_node_mask_at(ecs::system::FrustrumCuller::CullMask* node, const uint16_t index)
 {
@@ -129,7 +122,142 @@ void AABBFromSpheres(BoundingBox& outbbox, CullSphere* spheres, int Count) {
 	//XMStoreFloat3(&outbbox.Center, XMVectorScale(XMVectorAdd(vMin, vMax), 0.5f));
 	//XMStoreFloat3(&outbbox.Extents, XMVectorScale(XMVectorSubtract(vMax, vMin), 0.5f));
 }
-void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
+
+
+decs::PureSystemBase* ecs::system::FrustrumCuller::cull_puresys()
+{
+	static auto puresys = []() {
+
+		Query query;
+		query.with<CullSphere, CullBitmask>();
+		query.build();
+
+		return decs::make_pure_system_chunk(query, [](void* context, DataChunk* chnk) {
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+
+			ZoneScopedN("Culling - pure");
+
+			BoundingFrustum tmp(Globals->g_ProjectionMatrix);
+			XMVECTOR det;
+			BoundingFrustum CameraFrustum;
+			tmp.Transform(CameraFrustum, XMMatrixInverse(&det, Globals->g_ViewMatrix));
+
+			XMVECTOR FrustrumPlanes[6];
+
+			CameraFrustum.GetPlanes(
+				&FrustrumPlanes[0],
+				&FrustrumPlanes[1],
+				&FrustrumPlanes[2],
+				&FrustrumPlanes[3],
+				&FrustrumPlanes[4],
+				&FrustrumPlanes[5]
+			);
+			float zero = 0;
+			XMVECTOR zerovec = XMLoadFloat(&zero);
+
+			VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<VisibleRenderChunks>();
+
+			FrustumCullerStructures* cullStructures = world.registry_decs.get_singleton<FrustumCullerStructures>();
+
+			if (!chunkBuffer) { return;
+				//chunkBuffer = world.registry_decs.set_singleton<VisibleRenderChunks>();
+			}
+			if (!cullStructures) { return; 
+				//cullStructures = world.registry_decs.set_singleton<FrustumCullerStructures>();
+			}
+
+			CulledChunk cullUnit{};
+			cullUnit.chunk = chnk;
+
+			auto entities = get_chunk_array<EntityID>(chnk);
+
+			//const bool culled = get_chunk_array<Culled>(chnk).valid();
+
+			auto sphereArray = get_chunk_array<CullSphere>(chnk);
+			auto maskArray = get_chunk_array<CullBitmask>(chnk);
+			auto matarray = get_chunk_array<RenderMatrixComponent>(chnk);
+
+			//if cullsphere version doesnt match with render matrix version, it needs update
+			if (matarray.version() != sphereArray.version())
+			{
+				ZoneScopedNC("update spheres", tracy::Color::Yellow);
+				for (int i = chnk->count() - 1; i >= 0; i--)
+				{
+					XMVECTOR loc = XMVector3Transform(zerovec, matarray[i].Matrix);
+
+					ecs::system::FrustrumCuller::update_cull_sphere(&sphereArray[i], loc, 10.f);
+				}
+				world.mark_components_changed(sphereArray);
+			}
+			BoundingBox bbox;
+			DirectX::ContainmentType aabbcont;
+			{
+				ZoneScopedNC("AABB Build", tracy::Color::Orange);
+				AABBFromSpheres(bbox, sphereArray.data, chnk->count());
+				aabbcont = bbox.ContainedBy(FrustrumPlanes[0],
+					FrustrumPlanes[1],
+					FrustrumPlanes[2],
+					FrustrumPlanes[3],
+					FrustrumPlanes[4],
+					FrustrumPlanes[5]);
+			}
+			{
+				ZoneScopedNC("Real Cull", tracy::Color::Red);
+
+				int viscount = 0;
+				for (int i = chnk->count() - 1; i >= 0; i--)
+				{
+
+					const CullSphere& sphere = sphereArray[i];
+					bool bVisible;
+					switch (aabbcont) {
+					case DirectX::DISJOINT:
+						bVisible = false;
+						break;
+					case DirectX::INTERSECTS:
+						bVisible = sphere.sphere.ContainedBy(
+							FrustrumPlanes[0],
+							FrustrumPlanes[1],
+							FrustrumPlanes[2],
+							FrustrumPlanes[3],
+							FrustrumPlanes[4],
+							FrustrumPlanes[5]
+						);
+						break;
+					case DirectX::CONTAINS:
+						bVisible = true;
+						break;
+					}
+
+					if (bVisible) {
+						maskArray[i].mask = 1;
+						//set_node_mask_at(&cullUnit.mask, i);
+						viscount++;
+					}
+					else {
+						maskArray[i].mask = 0;
+						//clear_node_mask_at(&cullUnit.mask, i);
+					}
+				}
+
+				//uint64_t cllversion = maskArray.version();
+				maskArray.set_version(viscount);
+
+
+			}
+			
+			});
+
+
+	}();
+
+	return &puresys;
+}
+
+
+
+void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world, tf::Subflow& sf)
 {
 	
 		ZoneNamed(FrustrumCuller, true);
@@ -155,9 +283,14 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 		VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<VisibleRenderChunks>();
 
+		FrustumCullerStructures* cullStructures = world.registry_decs.get_singleton<FrustumCullerStructures>();
+
 		if (!chunkBuffer) {
 			chunkBuffer = world.registry_decs.set_singleton<VisibleRenderChunks>();
-		}		
+		}	
+		if (!cullStructures) {
+			cullStructures = world.registry_decs.set_singleton<FrustumCullerStructures>();
+		}
 		
 		static std::vector<DataChunk*> chunk_cache;
 		chunk_cache.clear();
@@ -176,7 +309,7 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 		float zero = 0;
 		XMVECTOR zerovec = XMLoadFloat(&zero);
 
-		parallel_for_chunk(chunk_cache, [&](DataChunk* chnk) {
+		parallel_for_chunk(sf,chunk_cache, [&](DataChunk* chnk) {
 
 			ZoneScopedN("Cull Chunk");
 
@@ -279,29 +412,25 @@ void ecs::system::FrustrumCuller::build_view_queues(ECS_GameWorld& world)
 
 			}
 		});
+		sf.join();
 
-		{
-			ZoneScopedN("Cull Ready");
-
-
-			//chunkBuffer->visibleChunks.clear();
-
-			bulk_dequeue(ChangeChunkQueue, [&](ChunkChange& c) {
-				if (c.bVisible) {
-					ZoneScopedN("Visible");
-					decs::adv::remove_component_from_chunk<Culled>(&world.registry_decs, c.chunk);
-				}
-				else {
-					ZoneScopedN("Culled");
-					decs::adv::add_component_to_chunk<Culled>(&world.registry_decs, c.chunk);
-				}
-				});
-
-			//bulk_dequeue(ChunkQueue, [&](CulledChunk& c) {
-			//	decs::adv::add_component_to_chunk<Culled>(&world.registry_decs, c.chunk);
-			//	chunkBuffer->visibleChunks.push_back(c);
-			//});
-		}
+		//{
+		//	ZoneScopedN("Cull Ready");
+		//
+		//
+		//	//chunkBuffer->visibleChunks.clear();
+		//
+		//	bulk_dequeue(ChangeChunkQueue, [&](ChunkChange& c) {
+		//		if (c.bVisible) {
+		//			ZoneScopedN("Visible");
+		//			decs::adv::remove_component_from_chunk<Culled>(&world.registry_decs, c.chunk);
+		//		}
+		//		else {
+		//			ZoneScopedN("Culled");
+		//			decs::adv::add_component_to_chunk<Culled>(&world.registry_decs, c.chunk);
+		//		}
+		//		});
+		//}
 }
 
 void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
@@ -311,24 +440,24 @@ void ecs::system::FrustrumCuller::apply_queues(ECS_GameWorld& world)
 	return;
 	ZoneScopedN("Cull Apply");
 
-	while (true)
-	{
-		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-		size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-		if (count == 0)break;
-		for (size_t i = 0; i != count; ++i) {
-			world.registry_decs.add_component<Culled>(results[i]);
-		}
-	}
-	while (true)
-	{
-		EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
-		size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
-		if (count == 0)break;
-		for (size_t i = 0; i != count; ++i) {
-			world.registry_decs.remove_component<Culled>(results[i]);
-		}
-	}	
+	//while (true)
+	//{
+	//	EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+	//	size_t count = SetCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+	//	if (count == 0)break;
+	//	for (size_t i = 0; i != count; ++i) {
+	//		world.registry_decs.add_component<Culled>(results[i]);
+	//	}
+	//}
+	//while (true)
+	//{
+	//	EntityID results[QueueTraits::BLOCK_SIZE];     // Could also be any iterator
+	//	size_t count = RemoveCulledQueue.try_dequeue_bulk(results, QueueTraits::BLOCK_SIZE);
+	//	if (count == 0)break;
+	//	for (size_t i = 0; i != count; ++i) {
+	//		world.registry_decs.remove_component<Culled>(results[i]);
+	//	}
+	//}	
 }
 
 
@@ -353,6 +482,18 @@ void ecs::system::FrustrumCuller::update_cull_sphere(CullSphere* sphere, XMVECTO
 	sphere->sphere.Radius = (scale);
 }
 
+void ecs::system::FrustrumCuller::init_singletons(ECS_GameWorld& world)
+{
+	VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<VisibleRenderChunks>();
+	FrustumCullerStructures* cullStructures = world.registry_decs.get_singleton<FrustumCullerStructures>();
+
+	if (!chunkBuffer) {
+		chunkBuffer = world.registry_decs.set_singleton<VisibleRenderChunks>();
+	}
+	if (!cullStructures) {
+		cullStructures = world.registry_decs.set_singleton<FrustumCullerStructures>();
+	}
+}
 
 void ecs::system::CubeRenderer::pre_render()
 {
@@ -361,9 +502,33 @@ void ecs::system::CubeRenderer::pre_render()
 
 struct RendererBuffers {
 
-	std::vector<XMMATRIX> InstancedTransforms;
-	std::vector<XMFLOAT4> InstancedColors;
-	std::atomic_uint32_t lenght;
+	struct Page {
+		std::vector<XMMATRIX> InstancedTransforms;
+		std::vector<XMFLOAT4> InstancedColors;
+		std::atomic_uint32_t lenght;
+	};
+
+	long FrameIDX;
+
+	Page A;
+	Page B;
+
+	Page& getLastPage(){
+		if (FrameIDX & 0x1) {
+			return A;
+		}
+		else {
+			return B;
+		}
+	};
+	Page& getCurrentPage() {
+		if (FrameIDX & 0x1) {
+			return B;
+		}
+		else {
+			return A;
+		}
+	};
 };
 
 struct RendererHandles {
@@ -376,7 +541,15 @@ void ecs::system::CubeRenderer::update(ECS_GameWorld &world)
 
 	SCOPE_PROFILE("Cube Render System");
 
-	build_cube_batches(world);	
+	//build_cube_batches(world);	
+}
+void ecs::system::CubeRenderer::update_par(ECS_GameWorld& world,tf::Subflow& sf)
+{
+	ZoneNamed(CubeRenderer, true);
+
+	SCOPE_PROFILE("Cube Render System");
+
+	build_cube_batches(world,sf);
 }
 
 void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT4* FirstColor, uint32_t total_drawcalls)
@@ -425,22 +598,28 @@ void ecs::system::CubeRenderer::render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT
 		}
 	}
 }
-
-void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
+void ecs::system::CubeRenderer::init_singletons(ECS_GameWorld& world)
 {
 	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
 
 	if (!rhandles) {
 		rhandles = world.registry_decs.set_singleton<RendererHandles>();
 		rhandles->CubeBuffers = std::make_unique<RendererBuffers>();
+		
+
 		//buffers->InstancedCubes.resize(500000);
 	}
-
 	RendererBuffers* buffers = rhandles->CubeBuffers.get();
-	buffers->lenght.store(0);
+	buffers->getCurrentPage().lenght.store(0);
 
-	//ecs::system::FrustrumCuller::VisibleRenderChunks* chunkBuffer = world.registry_decs.get_singleton<ecs::system::FrustrumCuller::VisibleRenderChunks>();
-	//if (!chunkBuffer) return;
+	buffers->getCurrentPage().InstancedColors.resize(400000);
+	buffers->getCurrentPage().InstancedTransforms.resize(400000);
+}
+void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world, tf::Subflow& sf)
+{
+	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
+	RendererBuffers* buffers = rhandles->CubeBuffers.get();
+//	buffers->getCurrentPage().lenght.store(0);
 
 	static std::vector<DataChunk*> chunk_cache;
 	chunk_cache.clear();
@@ -467,7 +646,6 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 					chunk_cache.push_back(chnk);
 				}
 			}
-			
 		});
 		
 		//this is bigger than it should, but it doesnt matter to use the extra memory
@@ -480,16 +658,16 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 
 	//buffers->lenght.store(total_drawcalls);
 
-	buffers->InstancedColors.resize(total_drawcalls);
-	buffers->InstancedTransforms.resize(total_drawcalls);
+	buffers->getCurrentPage().InstancedColors.resize(total_drawcalls);
+	buffers->getCurrentPage().InstancedTransforms.resize(total_drawcalls);
 
 	ApplicationInfo* appInfo =world.registry_decs.get_singleton<ApplicationInfo>();
 	appInfo->Drawcalls = total_drawcalls.load();
 
-	XMMATRIX* FirstMatrix = &buffers->InstancedTransforms[0];
-	XMFLOAT4* FirstColor = &buffers->InstancedColors[0];
-	//std::for_each(std::execution::par, chunkBuffer->visibleChunks.begin(), chunkBuffer->visibleChunks.end(),
-	std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(),
+	XMMATRIX* FirstMatrix = &buffers->getCurrentPage().InstancedTransforms[0];
+	XMFLOAT4* FirstColor = &buffers->getCurrentPage().InstancedColors[0];
+
+	sf.for_each(chunk_cache.begin(), chunk_cache.end(),
 		[&](DataChunk* chnk) {
 
 		ZoneScopedNC("render Execute Chunks", tracy::Color::Red);
@@ -500,7 +678,7 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 
 		if (maskArray.version() > 0) {
 			//add atomic to reserve space
-			int first_idx = buffers->lenght.fetch_add(maskArray.version());
+			int first_idx = buffers->getCurrentPage().lenght.fetch_add(maskArray.version());
 			int n = 0;
 			for (unsigned int i = 0; i < chnk->count(); i++)
 			{ 
@@ -511,9 +689,63 @@ void ecs::system::CubeRenderer::build_cube_batches(ECS_GameWorld& world)
 				}
 			}
 		}
-		
 	});
+	sf.join();
 }
+
+decs::PureSystemBase* ecs::system::CubeRenderer::cubebatch_puresys()
+{
+	static auto puresys = []() {
+
+		Query query;
+		query.with<CubeRendererComponent, RenderMatrixComponent>();
+		query.build();
+
+		return decs::make_pure_system_chunk(query, [](void* context, DataChunk* chnk) {
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+
+			ZoneScopedN("Batch Cubes - pure");
+
+			RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
+			RendererBuffers* buffers = rhandles->CubeBuffers.get();
+
+
+
+			ApplicationInfo* appInfo = world.registry_decs.get_singleton<ApplicationInfo>();
+			//appInfo->Drawcalls = total_drawcalls.load();
+
+			XMMATRIX* FirstMatrix = &buffers->getCurrentPage().InstancedTransforms[0];
+			XMFLOAT4* FirstColor = &buffers->getCurrentPage().InstancedColors[0];
+
+					
+
+					//ZoneScopedNC("render Execute Chunks", tracy::Color::Red);
+
+			auto matrices = get_chunk_array<RenderMatrixComponent>(chnk);
+			auto cubes = get_chunk_array<CubeRendererComponent>(chnk);
+			auto maskArray = get_chunk_array<CullBitmask>(chnk);
+
+			if (maskArray.version() > 0) {
+				//add atomic to reserve space
+				int first_idx = buffers->getCurrentPage().lenght.fetch_add(maskArray.version());
+				int n = 0;
+				for (unsigned int i = 0; i < chnk->count(); i++)
+				{
+					if (maskArray[i].mask) {
+						FirstColor[n + first_idx] = XMFLOAT4(cubes[i].color.x, cubes[i].color.y, cubes[i].color.z, 1.0f);
+						FirstMatrix[n + first_idx] = matrices[i].Matrix;
+						n++;
+					}
+				}
+			}
+		});
+	}();
+
+	return &puresys;
+}
+
+
 
 void ecs::system::RenderCore::render_start()
 {
@@ -547,7 +779,7 @@ void ecs::system::RenderCore::Present(bool vSync)
 	}
 }
 
-void ecs::system::RenderCore::render_end()
+void ecs::system::RenderCore::render_end(ECS_GameWorld& world)
 {
 	ZoneScopedN("Present");
 	{
@@ -569,6 +801,11 @@ void ecs::system::RenderCore::render_end()
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 	
+	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
+	if (rhandles) {
+		rhandles->CubeBuffers->FrameIDX++;
+	}
+
 	drawcalls = nDrawcalls;
 
 	//rmt_EndD3D11Sample();
@@ -577,14 +814,14 @@ void ecs::system::RenderCore::render_end()
 
 void ecs::system::RenderCore::update(ECS_GameWorld &world)
 {
-	render_start();
-	nDrawcalls = 0;
-
-	cam_updater->update(world);
-	culler->update(world);
-	cube_renderer->update(world);
-
-	render_end();
+	//render_start();
+	//nDrawcalls = 0;
+	//
+	//cam_updater->update(world);
+	//culler->update(world);
+	//cube_renderer->update(world);
+	//
+	//render_end();
 }
 
 ecs::system::RenderCore::RenderCore()
@@ -598,12 +835,12 @@ void ecs::system::RenderCore::render_batches(ECS_GameWorld& world)
 {
 	RendererHandles* rhandles = world.registry_decs.get_singleton<RendererHandles>();
 	if (rhandles) {
-		if (rhandles->CubeBuffers->InstancedTransforms.size() > 0)
+		if (rhandles->CubeBuffers->getLastPage().InstancedTransforms.size() > 0)
 		{
-			XMMATRIX* FirstMatrix = &rhandles->CubeBuffers->InstancedTransforms[0];
-			XMFLOAT4* FirstColor = &rhandles->CubeBuffers->InstancedColors[0];
+			XMMATRIX* FirstMatrix = &rhandles->CubeBuffers->getLastPage().InstancedTransforms[0];
+			XMFLOAT4* FirstColor = &rhandles->CubeBuffers->getLastPage().InstancedColors[0];
 
-			cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->lenght);
+			cube_renderer->render_cube_batch(FirstMatrix, FirstColor, rhandles->CubeBuffers->getLastPage().lenght);
 		}
 	}
 }

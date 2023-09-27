@@ -96,6 +96,7 @@ struct BoidHashSystem : public System {
 
 	
 	virtual void update(ECS_GameWorld & world) override;
-	void initial_fill(ECS_GameWorld& world);
-	void sort_structures(ECS_GameWorld& world);
+	void initial_fill(ECS_GameWorld& world, tf::Subflow& sf);
+
+	void sort_structures(ECS_GameWorld& world, tf::Subflow& subflow);
 };

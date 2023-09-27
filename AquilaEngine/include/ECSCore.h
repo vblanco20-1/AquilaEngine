@@ -2,6 +2,8 @@
 #include <PrecompiledHeader.h>
 
 #include "decs.h"
+#include "taskflow/core/flow_builder.hpp"
+#include "taskflow/algorithm/for_each.hpp"
 using namespace decs;
 
 
@@ -44,6 +46,7 @@ struct  System {
 	virtual ~System() {}	
 
 	virtual void update(ECS_GameWorld & world);
+	virtual void update_par(ECS_GameWorld& world, tf::Subflow& sf){update(world); };
 
 	virtual PureSystemBase* getAsPureSystem(){return nullptr;};
 };
@@ -118,6 +121,11 @@ struct TransformParentComponent {
 template<typename F>
 void parallel_for_chunk(std::vector<DataChunk*>& chunks, F&& functor) {
 	std::for_each(std::execution::par, chunks.begin(), chunks.end(), functor);
+}
+
+template<typename F>
+void parallel_for_chunk(tf::Subflow& sf,std::vector<DataChunk*>& chunks, F&& functor) {
+	sf.for_each(chunks.begin(), chunks.end(), functor);
 }
 
 template<typename T, typename Traits, typename F>

@@ -35,7 +35,7 @@ void ecs::system::UpdateTransform::update_root(ECS_GameWorld& world)
 	});
 }
 
-void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
+void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world, tf::Subflow& sf)
 {
 	ZoneScopedN("Update Hierarchy Transforms");
 
@@ -51,14 +51,13 @@ void ecs::system::UpdateTransform::update_hierarchy(ECS_GameWorld& world)
 	world.registry_decs.gather_chunks(ChildTransform, child_chunk_cache);	
 
 	float zero = 0;
-	XMVECTOR zerovec = XMLoadFloat(&zero);
-
+	XMVECTOR zerovec = XMLoadFloat(&zero);	
 	
-	
-	parallel_for_chunk(child_chunk_cache, [&](DataChunk* chnk) {
+	parallel_for_chunk(sf,child_chunk_cache, [&](DataChunk* chnk) {
 
 		update_children_transform(chnk, world);
 	});
+	sf.join();
 }
 
 decs::PureSystemBase* ecs::system::UpdateTransform::update_root_puresys()
@@ -85,6 +84,27 @@ decs::PureSystemBase* ecs::system::UpdateTransform::update_root_puresys()
 
 				//world.mark_components_changed(matarray);
 			}
+		});
+	}();
+
+	return &puresys;
+}
+
+decs::PureSystemBase* ecs::system::UpdateTransform::update_hierarchy_puresys()
+{
+	static auto puresys = []() {
+
+		Query query;
+		query.with<RenderMatrixComponent, TransformComponent, TransformParentComponent>();
+		query.build();
+
+		return decs::make_pure_system_chunk(query, [](void* context, DataChunk* chnk) {
+
+			ECS_GameWorld& world = *reinterpret_cast<ECS_GameWorld*>(context);
+
+			ZoneScopedN("Transform children - pure");
+
+			update_children_transform(chnk, world);
 		});
 	}();
 

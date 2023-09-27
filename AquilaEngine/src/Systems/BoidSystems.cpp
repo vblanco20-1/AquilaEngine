@@ -10,6 +10,9 @@
 
 #include "GameWorld.h"
 #include "ApplicationInfoUI.h"
+#pragma warning(disable:4146)
+#include "taskflow/core/flow_builder.hpp"
+#include "taskflow/algorithm/sort.hpp"
 //#include "ApplicationInfoUI.h"
 
 
@@ -303,7 +306,7 @@ bool operator==(const GridHashmark&a, const GridHashmark&b)
 }
 
 
-void BoidHashSystem::initial_fill(ECS_GameWorld& world)
+void BoidHashSystem::initial_fill(ECS_GameWorld& world, tf::Subflow& sf)
 {
 	iterations++;
 
@@ -361,7 +364,7 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 		world.registry_decs.get_singleton<ApplicationInfo>()->BoidEntities = total_boids;
 		boidref.map->Mortons.resize(total_boids);
 
-		std::for_each(std::execution::par, chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
+		sf.for_each(chunk_cache.begin(), chunk_cache.end(), [&](DataChunk* chnk) {
 
 			ZoneScopedNC("Boids Execute Chunks", tracy::Color::Red);
 
@@ -376,11 +379,12 @@ void BoidHashSystem::initial_fill(ECS_GameWorld& world)
 				boidref.map->AddToGridmap(transforms[i].position, boids[i], first_idx + i);
 			}
 		});
+		sf.join();
 
 	}
 }
 
-void BoidHashSystem::sort_structures(ECS_GameWorld& world)
+void BoidHashSystem::sort_structures(ECS_GameWorld& world, tf::Subflow& sf)
 {
 	//ECS_Registry& registry = world.registry_entt;
 
@@ -397,7 +401,7 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 
 
 			//parallel sort all entities by morton code
-			std::sort(std::execution::par, boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](GridItem2& a, GridItem2& b) {
+			sf.sort(boidref.map->Mortons.begin(), boidref.map->Mortons.end(), [](const GridItem2& a, const GridItem2& b) {
 
 				if (a.morton == b.morton)
 				{
@@ -411,6 +415,7 @@ void BoidHashSystem::sort_structures(ECS_GameWorld& world)
 					return a.morton < b.morton;
 				}
 				});
+			sf.join();
 		}
 		{
 			ZoneScopedN("Morton Hash");
@@ -444,7 +449,7 @@ void BoidHashSystem::update(ECS_GameWorld & world)
 	
 	SCOPE_PROFILE("Boid Hash System All");
 
-	initial_fill(world);
+	//initial_fill(world);
 
-	sort_structures(world);
+	//sort_structures(world);
 }

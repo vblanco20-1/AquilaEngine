@@ -11,6 +11,9 @@ namespace ecs::system {
 	struct CameraUpdate : public System {
 		virtual void update(ECS_GameWorld &world)override;
 	};
+
+	
+
 	struct FrustrumCuller : public System {
 
 		struct QueueTraits : public moodycamel::ConcurrentQueueDefaultTraits
@@ -37,23 +40,27 @@ namespace ecs::system {
 
 			std::vector<CulledChunk> visibleChunks;
 		};
+
+		struct FrustumCullerStructures {
+			moodycamel::ConcurrentQueue<CulledChunk> ChunkQueue;
+			moodycamel::ConcurrentQueue<ChunkChange> ChangeChunkQueue;
+			moodycamel::ConcurrentQueue<decs::EntityID, QueueTraits> SetCulledQueue;
+			moodycamel::ConcurrentQueue<decs::EntityID, QueueTraits> RemoveCulledQueue;
+		};
+
 			
-		virtual void update(ECS_GameWorld &world)override;
+		//virtual void update(ECS_GameWorld &world)override;
 
-		void build_view_queues(ECS_GameWorld& world);		
+		void init_singletons(ECS_GameWorld& world);
+		decs::PureSystemBase* cull_puresys();
 
+		void build_view_queues(ECS_GameWorld& world, tf::Subflow& sf);
 		void apply_queues(ECS_GameWorld& world);		
 
 		static void update_cull_sphere(CullSphere* sphere,TransformComponent* transform,float scale);
-
 		static void update_cull_sphere(CullSphere* sphere, XMVECTOR position, float scale);
 	private:
-		moodycamel::ConcurrentQueue<CulledChunk> ChunkQueue;
-
-		moodycamel::ConcurrentQueue<ChunkChange> ChangeChunkQueue;
-
-		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> SetCulledQueue;
-		moodycamel::ConcurrentQueue<decs::EntityID,QueueTraits> RemoveCulledQueue;
+		
 	};
 
 
@@ -64,9 +71,13 @@ namespace ecs::system {
 		
 		virtual void update(ECS_GameWorld &world)override;
 
-		void build_cube_batches(ECS_GameWorld& world);
-		
+		void build_cube_batches(ECS_GameWorld& world, tf::Subflow& sf);
+		void init_singletons(ECS_GameWorld& world);
+		decs::PureSystemBase* cubebatch_puresys();
+
+
 		void render_cube_batch(XMMATRIX* FirstMatrix, XMFLOAT4* FirstColor, uint32_t total_drawcalls);
+		virtual void update_par(ECS_GameWorld& world, tf::Subflow& sf)override;
 	};
 
 	struct RenderCore : public System {
@@ -75,7 +86,7 @@ namespace ecs::system {
 	
 		virtual void update(ECS_GameWorld &world)override;
 		void render_start();
-		void render_end();
+		void render_end(ECS_GameWorld& world);
 		void render_batches(ECS_GameWorld& world);
 		void Present(bool vSync);
 

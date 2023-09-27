@@ -39,8 +39,10 @@ namespace ecs::system {
 
 		decs::PureSystemBase* update_root_puresys();
 
+		decs::PureSystemBase* update_hierarchy_puresys();
+
 		void update_root(ECS_GameWorld& world);
-		void update_hierarchy(ECS_GameWorld& world);
+		void update_hierarchy(ECS_GameWorld& world, tf::Subflow& sf);
 	};
 }
 
